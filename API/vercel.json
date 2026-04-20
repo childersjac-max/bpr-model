@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/sports", "destination": "/api/sports.js" },
+    { "source": "/api/odds", "destination": "/api/odds.js" },
+    { "source": "/", "destination": "/index.html" }
+  ]
+}
