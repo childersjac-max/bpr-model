@@ -1,7 +1,13 @@
 {
-  "rewrites": [
-    { "source": "/api/sports", "destination": "/api/sports.js" },
-    { "source": "/api/odds", "destination": "/api/odds.js" },
-    { "source": "/", "destination": "/index.html" }
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "api/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/sports", "dest": "/api/sports.js" },
+    { "src": "/api/odds", "dest": "/api/odds.js" },
+    { "src": "/", "dest": "/index.html" }
   ]
 }
+
