@@ -8,14 +8,14 @@ export default async function handler(req, res) {
     icehockey_nhl: 'nhl',
     mma_mixed_martial_arts: 'mma'
   };
-  const an = sportMap[sport];
-  if (!an) return res.status(200).json({games:[]});
+  const s = sportMap[sport];
+  if (!s) return res.status(200).json([]);
   try {
     const r = await fetch(
-      `https://api.actionnetwork.com/web/v1/games?sport=${an}&include=odds&game_status=scheduled`,
+      `https://www.covers.com/api/odds/v2/public-betting/${s}`,
       { headers: {
         'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-        'Referer': 'https://www.actionnetwork.com/',
+        'Referer': 'https://www.covers.com/',
         'Accept': 'application/json'
       }}
     );
