@@ -46,6 +46,24 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   .odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
   .pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
   .neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
+
+  /* Splits */
+  .splits-section{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05)}
+  .splits-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+  .splits-row{margin-bottom:8px}
+  .splits-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .splits-team{font-size:11px;color:#888}
+  .splits-pcts{display:flex;gap:8px}
+  .splits-pct{font-family:'Space Mono',monospace;font-size:10px}
+  .pct-tickets{color:#7eb8f7}
+  .pct-money{color:#f7c77e}
+  .bar-wrap{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;gap:2px}
+  .bar-tickets{height:4px;background:#7eb8f7;border-radius:2px;transition:width 0.4s}
+  .bar-money{height:4px;background:#f7c77e;border-radius:2px;transition:width 0.4s}
+  .splits-legend{display:flex;gap:12px;margin-top:6px}
+  .legend-item{display:flex;align-items:center;gap:4px;font-family:'Space Mono',monospace;font-size:9px;color:#555}
+  .legend-dot{width:8px;height:4px;border-radius:2px}
+
   .expand-area{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .expand-area.one{grid-template-columns:1fr}
   .mkt-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
@@ -70,7 +88,7 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   </div>
   <div class="header-right">
     <div id="hBadge"></div>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadOdds()" title="Refresh">↻</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadAll()" title="Refresh">↻</button>
   </div>
 </div>
 <div class="main">
@@ -79,14 +97,15 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   <div class="filters" id="filters"></div>
   <div class="count" id="count"></div>
   <div id="content"></div>
-  <div class="footer">BPR MODEL · Powered by The Odds API<br>Verify all lines before wagering</div>
+  <div class="footer">BPR MODEL · Odds: The Odds API · Splits: Action Network<br>Verify all lines before wagering</div>
 </div>
 <script>
 const BASE = window.location.origin;
 const WEEK = 7*24*3600*1000;
-const S_ICONS={basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',soccer:'⚽',mma:'🥊',tennis:'🎾',golf:'⛳',boxing:'🥊'};
-const S_COLORS={basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',soccer:'#3D195B',mma:'#B8242B',boxing:'#B8242B',default:'#555'};
-let allGames=[],currentFilter='All',expanded={};
+const S_ICONS={basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',mma:'🥊',boxing:'🥊'};
+const S_COLORS={basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',mma:'#B8242B',boxing:'#B8242B',default:'#555'};
+let allGames=[],splitsMap={},currentFilter='All',expanded={};
+
 const si=k=>S_ICONS[k.split('_')[0]]||'🎯';
 const sc=k=>S_COLORS[k.split('_')[0]]||S_COLORS.default;
 const fmt=p=>p>0?'+'+p:''+p;
@@ -98,43 +117,85 @@ function fmtTime(t){
   if(diff<10800000){const m=Math.floor(diff/60000),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m';}
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
-async function loadOdds(){
+
+// Match AN game to odds game by team name fuzzy match
+function matchSplits(game, anGames){
+  if(!anGames||!anGames.length)return null;
+  const homeL=game.home_team.toLowerCase();
+  const awayL=game.away_team.toLowerCase();
+  return anGames.find(ag=>{
+    const t=ag.teams||[];
+    return t.some(tm=>{
+      const n=(tm.full_name||tm.last_name||'').toLowerCase();
+      return homeL.includes(n)||awayL.includes(n)||n.includes(homeL.split(' ').pop())||n.includes(awayL.split(' ').pop());
+    });
+  })||null;
+}
+
+function getSplitPcts(anGame, teamName){
+  if(!anGame)return null;
+  const teams=anGame.teams||[];
+  const teamL=teamName.toLowerCase();
+  const t=teams.find(tm=>{
+    const n=(tm.full_name||tm.last_name||'').toLowerCase();
+    return teamL.includes(n)||n.includes(teamL.split(' ').pop());
+  });
+  if(!t)return null;
+  const ml=anGame.markets?.find(m=>m.key==='moneyline')||anGame.markets?.[0];
+  if(!ml)return null;
+  const side=ml.books?.[0]?.odds?.find(o=>o.team_id===t.id);
+  if(!side)return null;
+  return {tickets:side.bets_pct||null, money:side.money_pct||null};
+}
+
+async function loadAll(){
   const btn=document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   document.getElementById('hSub').textContent='LOADING…';
   document.getElementById('hBadge').innerHTML='';
   document.getElementById('errMsg').style.display='none';
-  document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports list…</div></div>';
+  document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS & SPLITS</div><div class="loading-sub" id="loadSub">Getting sports…</div></div>';
+
   try{
     const sports=await fetch(`${BASE}/api/sports`).then(r=>r.json());
     if(!Array.isArray(sports))throw new Error(sports.message||sports.error||'API error');
-    const now=Date.now(),results=[];
+
+    const now=Date.now(), results=[], newSplits={};
+
     for(const sport of sports){
       const sub=document.getElementById('loadSub');
       if(sub)sub.textContent=`Fetching ${sport.title}…`;
       try{
-        const data=await fetch(`${BASE}/api/odds?sport=${sport.key}`).then(r=>r.json());
-        if(Array.isArray(data)){
-          results.push(...data.filter(g=>{
+        // Fetch odds and splits in parallel
+        const [oddsData, splitsData] = await Promise.all([
+          fetch(`${BASE}/api/odds?sport=${sport.key}`).then(r=>r.json()),
+          fetch(`${BASE}/api/splits?sport=${sport.key}`).then(r=>r.json()).catch(()=>[])
+        ]);
+        if(Array.isArray(oddsData)){
+          const upcoming=oddsData.filter(g=>{
             const t=new Date(g.commence_time).getTime();
             return t>=now-7200000&&t<=now+WEEK;
-          }));
+          });
+          upcoming.forEach(g=>{ newSplits[g.id]=matchSplits(g, splitsData); });
+          results.push(...upcoming);
         }
       }catch(e){}
     }
+
     results.sort((a,b)=>new Date(a.commence_time)-new Date(b.commence_time));
     allGames=results;
+    splitsMap=newSplits;
+
     if(!results.length){
       document.getElementById('hSub').textContent='NO GAMES FOUND';
       document.getElementById('content').innerHTML='<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>';
     }else{
-      const fCount=results.filter(g=>g.bookmakers?.[0]?.key==='fanatics').length;
       const sCount=new Set(results.map(g=>g.sport_title)).size;
       document.getElementById('hBadge').innerHTML='<span class="badge-live">LIVE</span>';
       document.getElementById('hSub').textContent='UPDATED '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       document.getElementById('sLeft').textContent=`${results.length} GAMES · ${sCount} SPORTS`;
-      document.getElementById('sRight').textContent=fCount>0?`${fCount} FANATICS`:'BEST US BOOK';
-      renderFilters();renderGames();
+      document.getElementById('sRight').textContent='ODDS + SPLITS';
+      renderFilters(); renderGames();
     }
   }catch(e){
     document.getElementById('errMsg').textContent='Error: '+e.message;
@@ -143,6 +204,7 @@ async function loadOdds(){
     document.getElementById('content').innerHTML='';
   }finally{btn.classList.remove('spinning');}
 }
+
 function renderFilters(){
   const sports=['All',...new Set(allGames.map(g=>g.sport_title))];
   document.getElementById('filters').innerHTML=sports.map(s=>{
@@ -152,6 +214,51 @@ function renderFilters(){
 }
 function setFilter(f){currentFilter=f;renderFilters();renderGames();}
 function toggleExpand(id){expanded[id]=!expanded[id];renderGames();}
+
+function renderSplits(game, anGame){
+  if(!anGame)return'';
+  const teams=anGame.teams||[];
+  const ml=anGame.markets?.find(m=>m.key==='moneyline')||anGame.markets?.[0];
+  if(!ml||!ml.books?.[0]?.odds)return'';
+
+  const rows=[game.away_team, game.home_team].map(teamName=>{
+    const teamL=teamName.toLowerCase();
+    const t=teams.find(tm=>{
+      const n=(tm.full_name||tm.last_name||'').toLowerCase();
+      return teamL.includes(n)||n.includes(teamL.split(' ').pop());
+    });
+    if(!t)return'';
+    const side=ml.books[0].odds.find(o=>o.team_id===t.id);
+    if(!side)return'';
+    const tp=Math.round(side.bets_pct||0);
+    const mp=Math.round(side.money_pct||0);
+    if(!tp&&!mp)return'';
+    return`<div class="splits-row">
+      <div class="splits-label">
+        <span class="splits-team">${teamName.split(' ').pop()}</span>
+        <div class="splits-pcts">
+          <span class="splits-pct pct-tickets">${tp}% tickets</span>
+          <span class="splits-pct pct-money">${mp}% money</span>
+        </div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-tickets" style="width:${tp}%"></div>
+        <div class="bar-money" style="width:${mp}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(!rows.trim())return'';
+  return`<div class="splits-section">
+    <div class="splits-title">PUBLIC BETTING SPLITS · ACTION NETWORK</div>
+    ${rows}
+    <div class="splits-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#7eb8f7"></div>Tickets</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f7c77e"></div>Money</div>
+    </div>
+  </div>`;
+}
+
 function renderGames(){
   const filtered=currentFilter==='All'?allGames:allGames.filter(g=>g.sport_title===currentFilter);
   document.getElementById('count').textContent=`${filtered.length} GAME${filtered.length!==1?'S':''} · NEXT 7 DAYS`;
@@ -174,13 +281,19 @@ function renderGames(){
       const awayO=h2h?.outcomes?.find(o=>o.name===game.away_team);
       const homeO=h2h?.outcomes?.find(o=>o.name===game.home_team);
       const isExp=!!expanded[game.id];
+      const anGame=splitsMap[game.id];
+
       let mkts='';
-      if(isExp&&(spreads||totals)){
-        mkts=`<div class="expand-area ${spreads&&totals?'':'one'}">`;
-        if(spreads)mkts+=`<div><div class="mkt-title">SPREAD</div>${spreads.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name.split(' ').pop()} ${o.point>0?'+'+o.point:o.point}</span>${chip(o.price)}</div>`).join('')}</div>`;
-        if(totals)mkts+=`<div><div class="mkt-title">TOTAL (${totals.outcomes?.[0]?.point||''})</div>${totals.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name}</span>${chip(o.price)}</div>`).join('')}</div>`;
-        mkts+='</div>';
+      if(isExp){
+        mkts+=renderSplits(game, anGame);
+        if(spreads||totals){
+          mkts+=`<div class="expand-area ${spreads&&totals?'':'one'}">`;
+          if(spreads)mkts+=`<div><div class="mkt-title">SPREAD</div>${spreads.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name.split(' ').pop()} ${o.point>0?'+'+o.point:o.point}</span>${chip(o.price)}</div>`).join('')}</div>`;
+          if(totals)mkts+=`<div><div class="mkt-title">TOTAL (${totals.outcomes?.[0]?.point||''})</div>${totals.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name}</span>${chip(o.price)}</div>`).join('')}</div>`;
+          mkts+='</div>';
+        }
       }
+
       return`<div class="game-card" style="border-left:3px solid ${accent}" onclick="toggleExpand('${game.id}')">
         <div class="card-top">
           <div class="card-top-left">
@@ -196,14 +309,14 @@ function renderGames(){
           <div class="vs">VS</div>
           <div class="team-right"><div class="team-name">${game.home_team}</div><div class="team-side">Home</div>${homeO?chip(homeO.price):''}</div>
         </div>${mkts}
-        <div class="expand-hint">${isExp?'▲ collapse':'▼ spreads & totals'}</div>
+        <div class="expand-hint">${isExp?'▲ collapse':'▼ odds · splits'}</div>
       </div>`;
     }).join('');
   }
   html+='</div>';
   document.getElementById('content').innerHTML=html;
 }
-loadOdds();
+loadAll();
 </script>
 </body>
 </html>
