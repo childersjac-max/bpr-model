@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     'americanfootball_ncaaf',
     'basketball_nba',
     'basketball_ncaab',
-    'baseball_mlb',
+    'baseball_mlb', 
     'icehockey_nhl', 
     'mma_mixed_martial_arts',
     'boxing_boxing'
