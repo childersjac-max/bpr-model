@@ -1,5 +1,5 @@
+cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -12,342 +12,199 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  input::placeholder{color:#444}
   .header{background:linear-gradient(135deg,#0d0d1a,#111122);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
   .header-left{display:flex;align-items:center;gap:10px}
   .header-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#c8102e,#041e42);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
   .header-title{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:900;letter-spacing:1px;color:#fff}
   .header-sub{font-size:10px;color:#555;letter-spacing:1px;margin-top:1px}
   .header-right{display:flex;align-items:center;gap:10px}
-  .refresh-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#aaa;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;flex-shrink:0}
-  .refresh-btn:hover{background:rgba(255,255,255,0.1);color:#fff}
+  .refresh-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#aaa;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.2s;flex-shrink:0}
   .refresh-btn.spinning{animation:spin 1s linear infinite}
   .badge-live{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px;background:rgba(78,204,163,0.1);border:1px solid rgba(78,204,163,0.3);color:#4ecca3}
-  .badge-demo{background:rgba(200,16,46,0.15);border:1px solid rgba(200,16,46,0.3);color:#c8102e;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px}
   .main{max-width:680px;margin:0 auto;padding:20px 16px}
-
-/* Key panel - only shown when no key saved */
-.key-panel{background:rgba(200,16,46,0.06);border:1px solid rgba(200,16,46,0.2);border-radius:12px;padding:16px 18px;margin-bottom:20px}
-.key-label{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;color:#c8102e;margin-bottom:6px}
-.key-desc{font-size:11px;color:#555;margin-bottom:12px;line-height:1.5}
-.key-desc strong{color:#888}
-.key-row{display:flex;gap:8px}
-.key-input{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0e0e0;font-family:‘Space Mono’,monospace;font-size:11px;outline:none}
-.key-save-btn{background:linear-gradient(135deg,#c8102e,#8a0b20);border:none;border-radius:8px;color:#fff;padding:9px 16px;font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;cursor:pointer;white-space:nowrap}
-.key-note{font-size:10px;color:#444;margin-top:8px;font-family:‘Space Mono’,monospace}
-
-.status-bar{font-family:‘Space Mono’,monospace;font-size:10px;color:#555;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
-.status-err{color:#ff6b6b;font-size:11px;margin-bottom:12px;font-family:‘Space Mono’,monospace}
-
-.filters{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
-.filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:5px 12px;font-size:11px;font-family:‘Barlow Condensed’,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s}
-.filter-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
-
-.count{font-family:‘Space Mono’,monospace;font-size:10px;color:#444;margin-bottom:14px;letter-spacing:1px}
-.section-label{font-family:‘Barlow Condensed’,sans-serif;font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.04)}
-
-.games{animation:fadeIn 0.3s ease}
-.game-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;cursor:pointer;transition:background 0.2s;margin-bottom:8px}
-.game-card:hover,.game-card:active{background:rgba(255,255,255,0.06)}
-.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.card-top-left{display:flex;align-items:center;gap:7px}
-.sport-label{font-family:‘Space Mono’,monospace;font-size:10px;color:#666;letter-spacing:1px;text-transform:uppercase}
-.live-dot{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;animation:pulse 1.5s infinite}
-.book-tag{font-family:‘Space Mono’,monospace;font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,16,46,0.15);color:#c8102e;border:1px solid rgba(200,16,46,0.25)}
-.time-label{font-family:‘Space Mono’,monospace;font-size:10px;color:#444}
-.matchup{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
-.team-name{font-family:‘Barlow Condensed’,sans-serif;font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
-.team-side{font-size:10px;color:#555;margin-top:1px;margin-bottom:5px}
-.team-right{text-align:right}
-.vs{font-family:‘Barlow Condensed’,sans-serif;font-size:16px;font-weight:900;color:#222;letter-spacing:2px;text-align:center}
-.odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:‘Space Mono’,monospace;font-size:12px;font-weight:700}
-.pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
-.neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
-.expand-area{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.expand-area.one{grid-template-columns:1fr}
-.mkt-title{font-family:‘Space Mono’,monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
-.mkt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-.mkt-label{font-size:11px;color:#777}
-.expand-hint{text-align:center;margin-top:8px;color:#333;font-size:10px;font-family:‘Space Mono’,monospace}
-
-.loading-state{text-align:center;padding:50px 20px;color:#555}
-.spinner-icon{font-size:32px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:14px}
-.loading-text{font-family:‘Barlow Condensed’,sans-serif;font-size:14px;letter-spacing:2px}
-.loading-sub{font-size:10px;color:#444;margin-top:6px;font-family:‘Space Mono’,monospace}
-
-.footer{margin-top:36px;text-align:center;font-size:10px;color:#222;font-family:‘Space Mono’,monospace;padding-bottom:32px;line-height:1.8}
+  .err-msg{color:#ff6b6b;font-size:11px;margin-bottom:12px;font-family:'Space Mono',monospace}
+  .status-bar{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:16px;display:flex;justify-content:space-between}
+  .filters{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+  .filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:5px 12px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+  .filter-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
+  .count{font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-bottom:14px;letter-spacing:1px}
+  .section-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .games{animation:fadeIn 0.3s ease}
+  .game-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;cursor:pointer;transition:background 0.2s;margin-bottom:8px}
+  .game-card:active{background:rgba(255,255,255,0.06)}
+  .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .card-top-left{display:flex;align-items:center;gap:7px}
+  .sport-label{font-family:'Space Mono',monospace;font-size:10px;color:#666;letter-spacing:1px;text-transform:uppercase}
+  .live-dot{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;animation:pulse 1.5s infinite}
+  .book-tag{font-family:'Space Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(200,16,46,0.15);color:#c8102e;border:1px solid rgba(200,16,46,0.25)}
+  .time-label{font-family:'Space Mono',monospace;font-size:10px;color:#444}
+  .matchup{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+  .team-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
+  .team-side{font-size:10px;color:#555;margin-top:1px;margin-bottom:5px}
+  .team-right{text-align:right}
+  .vs{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;color:#222;letter-spacing:2px;text-align:center}
+  .odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+  .pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
+  .neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
+  .expand-area{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .expand-area.one{grid-template-columns:1fr}
+  .mkt-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
+  .mkt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .mkt-label{font-size:11px;color:#777}
+  .expand-hint{text-align:center;margin-top:8px;color:#333;font-size:10px;font-family:'Space Mono',monospace}
+  .loading-state{text-align:center;padding:50px 20px;color:#555}
+  .spin-icon{font-size:32px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:14px}
+  .loading-text{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:2px}
+  .loading-sub{font-size:10px;color:#444;margin-top:6px;font-family:'Space Mono',monospace}
+  .footer{margin-top:36px;text-align:center;font-size:10px;color:#222;font-family:'Space Mono',monospace;padding-bottom:32px;line-height:1.8}
 </style>
-
 </head>
 <body>
-
 <div class="header">
   <div class="header-left">
     <div class="header-icon">🎰</div>
     <div>
       <div class="header-title">BPR MODEL</div>
-      <div class="header-sub" id="hSub">READY</div>
+      <div class="header-sub" id="hSub">LOADING…</div>
     </div>
   </div>
   <div class="header-right">
     <div id="hBadge"></div>
-    <button class="refresh-btn" id="refreshBtn" onclick="refresh()" title="Refresh odds">↻</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadOdds()" title="Refresh">↻</button>
   </div>
 </div>
-
 <div class="main">
-  <div id="keyPanel" class="key-panel">
-    <div class="key-label">🔑 ODDS API KEY</div>
-    <div class="key-desc">Free key from <strong>the-odds-api.com</strong> — saved to your device, never sent anywhere except the Odds API.</div>
-    <div class="key-row">
-      <input class="key-input" id="keyInput" type="text" placeholder="Paste key from the-odds-api.com…"/>
-      <button class="key-save-btn" onclick="saveKey()">SAVE & LOAD</button>
-    </div>
-    <div class="key-note" id="keyNote"></div>
-  </div>
-
-  <div id="errMsg" class="status-err" style="display:none"></div>
-  <div class="status-bar">
-    <span id="statusLeft">—</span>
-    <span id="statusRight"></span>
-  </div>
-
+  <div id="errMsg" class="err-msg" style="display:none"></div>
+  <div class="status-bar"><span id="sLeft">—</span><span id="sRight"></span></div>
   <div class="filters" id="filters"></div>
   <div class="count" id="count"></div>
   <div id="content"></div>
-
-  <div class="footer">
-    BPR MODEL · Powered by The Odds API<br>
-    Verify all lines before wagering
-  </div>
+  <div class="footer">BPR MODEL · Powered by The Odds API<br>Verify all lines before wagering</div>
 </div>
-
 <script>
+const BASE = window.location.origin;
 const WEEK = 7*24*3600*1000;
-const SPORT_ICONS = {basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',soccer:'⚽',mma:'🥊',tennis:'🎾',golf:'⛳',rugby:'🏉',boxing:'🥊'};
-const SPORT_COLORS = {basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',soccer:'#3D195B',mma:'#B8242B',default:'#555'};
-
-let allGames = [], currentFilter = 'All', expanded = {};
-
-function sportIcon(key){ return SPORT_ICONS[key.split('_')[0]] || '🎯'; }
-function sportColor(key){ return SPORT_COLORS[key.split('_')[0]] || SPORT_COLORS.default; }
-function fmt(p){ return p > 0 ? '+'+p : ''+p; }
-function chip(p){
-  const cls = p >= 0 ? 'pos' : 'neg';
-  return `<span class="odds-chip ${cls}">${fmt(p)}</span>`;
-}
-function chipS(s){
-  const n = parseInt(s);
-  const cls = n >= 0 ? 'pos' : 'neg';
-  return `<span class="odds-chip ${cls}">${s}</span>`;
-}
-function isLive(iso){ return new Date(iso) < new Date(); }
-function fmtTime(iso){
-  const d = new Date(iso), now = new Date(), diff = d - now;
-  if(diff < 0) return 'In Progress';
-  if(diff < 10800000){ const m=Math.floor(diff/60000),h=Math.floor(m/60); return h>0?h+'h '+m%60+'m':m+'m'; }
+const S_ICONS={basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',soccer:'⚽',mma:'🥊',tennis:'🎾',golf:'⛳',boxing:'🥊'};
+const S_COLORS={basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',soccer:'#3D195B',mma:'#B8242B',boxing:'#B8242B',default:'#555'};
+let allGames=[],currentFilter='All',expanded={};
+const si=k=>S_ICONS[k.split('_')[0]]||'🎯';
+const sc=k=>S_COLORS[k.split('_')[0]]||S_COLORS.default;
+const fmt=p=>p>0?'+'+p:''+p;
+const chip=p=>`<span class="odds-chip ${p>=0?'pos':'neg'}">${fmt(p)}</span>`;
+function isLive(t){return new Date(t)<new Date();}
+function fmtTime(t){
+  const d=new Date(t),now=new Date(),diff=d-now;
+  if(diff<0)return'In Progress';
+  if(diff<10800000){const m=Math.floor(diff/60000),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m';}
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
-
-// ── KEY MANAGEMENT ─────────────────────────────────────────────────────────
-function getSavedKey(){ return localStorage.getItem('bpr_odds_key') || ''; }
-function saveKey(){
-  const k = document.getElementById('keyInput').value.trim();
-  if(!k){ document.getElementById('keyNote').textContent = 'Please enter a key.'; return; }
-  localStorage.setItem('bpr_odds_key', k);
-  document.getElementById('keyPanel').style.display = 'none';
-  loadOdds(k);
-}
-
-// ── FETCH ──────────────────────────────────────────────────────────────────
-async function fetchJSON(url){
-  const r = await fetch(url);
-  if(!r.ok){
-    if(r.status === 401) throw new Error('Invalid API key — tap ⚙ to update');
-    throw new Error('HTTP '+r.status);
-  }
-  return r.json();
-}
-
-async function loadOdds(key){
-  if(!key){ key = getSavedKey(); }
-  if(!key){
-    document.getElementById('keyPanel').style.display = 'block';
-    return;
-  }
-  document.getElementById('keyPanel').style.display = 'none';
-  document.getElementById('errMsg').style.display = 'none';
-
-  const btn = document.getElementById('refreshBtn');
+async function loadOdds(){
+  const btn=document.getElementById('refreshBtn');
   btn.classList.add('spinning');
-  document.getElementById('hSub').textContent = 'LOADING…';
-  document.getElementById('hBadge').innerHTML = '';
-  document.getElementById('content').innerHTML = '<div class="loading-state"><div class="spinner-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting active sports…</div></div>';
-
-  try {
-    // Step 1: get active sports list
-    const sports = await fetchJSON(`https://api.the-odds-api.com/v4/sports/?apiKey=${key}`);
-    const active = sports.filter(s => s.active && !s.has_outrights);
-
-    const now = Date.now();
-    const results = [];
-
-    // Step 2: fetch odds per sport
-    for(const sport of active){
-      const sub = document.getElementById('loadSub');
-      if(sub) sub.textContent = `Fetching ${sport.title}…`;
+  document.getElementById('hSub').textContent='LOADING…';
+  document.getElementById('hBadge').innerHTML='';
+  document.getElementById('errMsg').style.display='none';
+  document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports list…</div></div>';
+  try{
+    const sports=await fetch(`${BASE}/api/sports`).then(r=>r.json());
+    if(!Array.isArray(sports))throw new Error(sports.message||sports.error||'API error');
+    const now=Date.now(),results=[];
+    for(const sport of sports){
+      const sub=document.getElementById('loadSub');
+      if(sub)sub.textContent=`Fetching ${sport.title}…`;
       try{
-        // Try Fanatics first
-        let data = await fetchJSON(
-          `https://api.the-odds-api.com/v4/sports/${sport.key}/odds/?apiKey=${key}&regions=us&markets=h2h,spreads,totals&bookmakers=fanatics&oddsFormat=american`
-        );
-        if(!data.length){
-          data = await fetchJSON(
-            `https://api.the-odds-api.com/v4/sports/${sport.key}/odds/?apiKey=${key}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`
-          );
+        const data=await fetch(`${BASE}/api/odds?sport=${sport.key}`).then(r=>r.json());
+        if(Array.isArray(data)){
+          results.push(...data.filter(g=>{
+            const t=new Date(g.commence_time).getTime();
+            return t>=now-7200000&&t<=now+WEEK;
+          }));
         }
-        const upcoming = data.filter(g => {
-          const t = new Date(g.commence_time).getTime();
-          return t >= now - 7200000 && t <= now + WEEK;
-        });
-        results.push(...upcoming);
-      }catch(e){
-        if(e.message.includes('Invalid API key')) throw e;
-        // skip sport on error
-      }
+      }catch(e){}
     }
-
-    results.sort((a,b) => new Date(a.commence_time) - new Date(b.commence_time));
-    allGames = results;
-
+    results.sort((a,b)=>new Date(a.commence_time)-new Date(b.commence_time));
+    allGames=results;
     if(!results.length){
-      document.getElementById('hSub').textContent = 'NO GAMES FOUND';
-      document.getElementById('content').innerHTML = '<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games in the next 7 days</div></div>';
-    } else {
-      const fCount = results.filter(g=>g.bookmakers?.[0]?.key==='fanatics').length;
-      const sCount = new Set(results.map(g=>g.sport_title)).size;
-      document.getElementById('hBadge').innerHTML = '<span class="badge-live">LIVE</span>';
-      document.getElementById('hSub').textContent = `UPDATED ${new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`;
-      document.getElementById('statusLeft').textContent = `${results.length} GAMES · ${sCount} SPORTS`;
-      document.getElementById('statusRight').textContent = fCount > 0 ? `${fCount} FANATICS` : 'BEST US BOOK';
-      renderFilters();
-      renderGames();
+      document.getElementById('hSub').textContent='NO GAMES FOUND';
+      document.getElementById('content').innerHTML='<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>';
+    }else{
+      const fCount=results.filter(g=>g.bookmakers?.[0]?.key==='fanatics').length;
+      const sCount=new Set(results.map(g=>g.sport_title)).size;
+      document.getElementById('hBadge').innerHTML='<span class="badge-live">LIVE</span>';
+      document.getElementById('hSub').textContent='UPDATED '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      document.getElementById('sLeft').textContent=`${results.length} GAMES · ${sCount} SPORTS`;
+      document.getElementById('sRight').textContent=fCount>0?`${fCount} FANATICS`:'BEST US BOOK';
+      renderFilters();renderGames();
     }
   }catch(e){
-    document.getElementById('errMsg').textContent = 'Error: ' + e.message;
-    document.getElementById('errMsg').style.display = 'block';
-    document.getElementById('hSub').textContent = 'ERROR';
-    document.getElementById('content').innerHTML = '';
-    // if bad key, show key panel again
-    if(e.message.includes('Invalid API key')){
-      localStorage.removeItem('bpr_odds_key');
-      document.getElementById('keyPanel').style.display = 'block';
-    }
-  }finally{
-    btn.classList.remove('spinning');
-  }
+    document.getElementById('errMsg').textContent='Error: '+e.message;
+    document.getElementById('errMsg').style.display='block';
+    document.getElementById('hSub').textContent='ERROR';
+    document.getElementById('content').innerHTML='';
+  }finally{btn.classList.remove('spinning');}
 }
-
-function refresh(){ loadOdds(getSavedKey()); }
-
-// ── FILTERS & RENDER ───────────────────────────────────────────────────────
 function renderFilters(){
-  const sports = ['All', ...new Set(allGames.map(g=>g.sport_title))];
-  document.getElementById('filters').innerHTML = sports.map(s => {
-    const key = allGames.find(g=>g.sport_title===s)?.sport_key || '';
-    return `<button class="filter-btn ${currentFilter===s?'active':''}" onclick="setFilter(${JSON.stringify(s)})">${s==='All'?'All':sportIcon(key)+' '+s}</button>`;
+  const sports=['All',...new Set(allGames.map(g=>g.sport_title))];
+  document.getElementById('filters').innerHTML=sports.map(s=>{
+    const k=allGames.find(g=>g.sport_title===s)?.sport_key||'';
+    return`<button class="filter-btn ${currentFilter===s?'active':''}" onclick="setFilter(${JSON.stringify(s)})">${s==='All'?'All':si(k)+' '+s}</button>`;
   }).join('');
 }
-function setFilter(f){ currentFilter=f; renderFilters(); renderGames(); }
-function toggleExpand(id){ expanded[id]=!expanded[id]; renderGames(); }
-
+function setFilter(f){currentFilter=f;renderFilters();renderGames();}
+function toggleExpand(id){expanded[id]=!expanded[id];renderGames();}
 function renderGames(){
-  const filtered = currentFilter==='All' ? allGames : allGames.filter(g=>g.sport_title===currentFilter);
-  document.getElementById('count').textContent = `${filtered.length} GAME${filtered.length!==1?'S':''} · NEXT 7 DAYS`;
-
-  const byDate = {};
-  filtered.forEach(g => {
-    const label = new Date(g.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
-    if(!byDate[label]) byDate[label] = [];
+  const filtered=currentFilter==='All'?allGames:allGames.filter(g=>g.sport_title===currentFilter);
+  document.getElementById('count').textContent=`${filtered.length} GAME${filtered.length!==1?'S':''} · NEXT 7 DAYS`;
+  const byDate={};
+  filtered.forEach(g=>{
+    const label=new Date(g.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(!byDate[label])byDate[label]=[];
     byDate[label].push(g);
   });
-
-  let html = '<div class="games">';
-  for(const [dateLabel, games] of Object.entries(byDate)){
-    html += `<div class="section-label">${dateLabel}</div>`;
-    html += games.map(game => {
-      const bk = game.bookmakers?.[0];
-      const h2h = bk?.markets?.find(m=>m.key==='h2h');
-      const spreads = bk?.markets?.find(m=>m.key==='spreads');
-      const totals = bk?.markets?.find(m=>m.key==='totals');
-      const accent = sportColor(game.sport_key);
-      const isFan = bk?.key === 'fanatics';
-      const bookName = bk?.title || '';
-      const awayO = h2h?.outcomes?.find(o=>o.name===game.away_team);
-      const homeO = h2h?.outcomes?.find(o=>o.name===game.home_team);
-      const isExp = !!expanded[game.id];
-
-      let mkts = '';
-      if(isExp && (spreads||totals)){
-        mkts = `<div class="expand-area ${spreads&&totals?'':'one'}">`;
-        if(spreads){
-          mkts += `<div><div class="mkt-title">SPREAD</div>
-            ${spreads.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name.split(' ').pop()} ${o.point>0?'+'+o.point:o.point}</span>${chip(o.price)}</div>`).join('')}
-          </div>`;
-        }
-        if(totals){
-          mkts += `<div><div class="mkt-title">TOTAL (${totals.outcomes?.[0]?.point||''})</div>
-            ${totals.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name}</span>${chip(o.price)}</div>`).join('')}
-          </div>`;
-        }
-        mkts += '</div>';
+  let html='<div class="games">';
+  for(const[dateLabel,games]of Object.entries(byDate)){
+    html+=`<div class="section-label">${dateLabel}</div>`;
+    html+=games.map(game=>{
+      const bk=game.bookmakers?.[0];
+      const h2h=bk?.markets?.find(m=>m.key==='h2h');
+      const spreads=bk?.markets?.find(m=>m.key==='spreads');
+      const totals=bk?.markets?.find(m=>m.key==='totals');
+      const accent=sc(game.sport_key);
+      const isFan=bk?.key==='fanatics';
+      const awayO=h2h?.outcomes?.find(o=>o.name===game.away_team);
+      const homeO=h2h?.outcomes?.find(o=>o.name===game.home_team);
+      const isExp=!!expanded[game.id];
+      let mkts='';
+      if(isExp&&(spreads||totals)){
+        mkts=`<div class="expand-area ${spreads&&totals?'':'one'}">`;
+        if(spreads)mkts+=`<div><div class="mkt-title">SPREAD</div>${spreads.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name.split(' ').pop()} ${o.point>0?'+'+o.point:o.point}</span>${chip(o.price)}</div>`).join('')}</div>`;
+        if(totals)mkts+=`<div><div class="mkt-title">TOTAL (${totals.outcomes?.[0]?.point||''})</div>${totals.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name}</span>${chip(o.price)}</div>`).join('')}</div>`;
+        mkts+='</div>';
       }
-
-      return `<div class="game-card" style="border-left:3px solid ${accent}" onclick="toggleExpand('${game.id}')">
+      return`<div class="game-card" style="border-left:3px solid ${accent}" onclick="toggleExpand('${game.id}')">
         <div class="card-top">
           <div class="card-top-left">
-            <span>${sportIcon(game.sport_key)}</span>
+            <span>${si(game.sport_key)}</span>
             <span class="sport-label">${game.sport_title}</span>
             ${isLive(game.commence_time)?'<span class="live-dot">LIVE</span>':''}
-            ${isFan?`<span class="book-tag">${bookName}</span>`:''}
+            ${isFan?'<span class="book-tag">Fanatics</span>':''}
           </div>
           <span class="time-label">🕐 ${fmtTime(game.commence_time)}</span>
         </div>
         <div class="matchup">
-          <div>
-            <div class="team-name">${game.away_team}</div>
-            <div class="team-side">Away</div>
-            ${awayO ? chip(awayO.price) : ''}
-          </div>
+          <div><div class="team-name">${game.away_team}</div><div class="team-side">Away</div>${awayO?chip(awayO.price):''}</div>
           <div class="vs">VS</div>
-          <div class="team-right">
-            <div class="team-name">${game.home_team}</div>
-            <div class="team-side">Home</div>
-            ${homeO ? chip(homeO.price) : ''}
-          </div>
-        </div>
-        ${mkts}
+          <div class="team-right"><div class="team-name">${game.home_team}</div><div class="team-side">Home</div>${homeO?chip(homeO.price):''}</div>
+        </div>${mkts}
         <div class="expand-hint">${isExp?'▲ collapse':'▼ spreads & totals'}</div>
       </div>`;
     }).join('');
   }
-  html += '</div>';
-  document.getElementById('content').innerHTML = html;
+  html+='</div>';
+  document.getElementById('content').innerHTML=html;
 }
-
-// ── INIT ──────────────────────────────────────────────────────────────────
-(function init(){
-  const saved = getSavedKey();
-  if(saved){
-    document.getElementById('keyInput').value = saved;
-    document.getElementById('keyPanel').style.display = 'none';
-    loadOdds(saved);
-  } else {
-    document.getElementById('keyPanel').style.display = 'block';
-    renderFilters();
-  }
-})();
+loadOdds();
 </script>
-
 </body>
 </html>
+ENDOFFILE
