@@ -11,13 +11,20 @@ export default async function handler(req, res) {
   const an = sportMap[sport];
   if (!an) return res.status(200).json([]);
   try {
+    const today = new Date().toISOString().split('T')[0].replace(/-/g,'');
     const r = await fetch(
-      `https://api.actionnetwork.com/web/v1/games?sport=${an}&date=upcoming`,
-      { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.actionnetwork.com' } }
+      `https://api.actionnetwork.com/web/v1/games?sport=${an}&date=${today}`,
+      { headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'Referer': 'https://www.actionnetwork.com/',
+        'Accept': 'application/json'
+      }}
     );
-    const data = await r.json();
-    res.status(200).json(data.games || []);
+    const text = await r.text();
+    const data = JSON.parse(text);
+    // Return full raw response so frontend can parse it
+    res.status(200).json(data);
   } catch(e) {
-    res.status(200).json([]);
+    res.status(200).json({ error: e.message });
   }
 }
