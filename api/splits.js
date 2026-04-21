@@ -15,8 +15,7 @@ export default async function handler(req, res) {
     const today = new Date().toISOString().split('T')[0];
     const r = await fetch(
       `https://therundown.io/api/v2/sports/${id}/events/${today}?include=betting_splits`,
-      { headers: { 'api-key': KEY } }
-
+      { headers: { 'X-TheRundown-Key': KEY } }
     );
     const data = await r.json();
     res.status(200).json(data);
