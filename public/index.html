@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,13 +23,13 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   .main{max-width:680px;margin:0 auto;padding:20px 16px}
   .err-msg{color:#ff6b6b;font-size:11px;margin-bottom:12px;font-family:'Space Mono',monospace}
   .status-bar{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:16px;display:flex;justify-content:space-between}
-  .filters{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
-  .filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:5px 12px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+  .filters{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:8px 14px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .filter-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
   .count{font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-bottom:14px;letter-spacing:1px}
   .section-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.04)}
   .games{animation:fadeIn 0.3s ease}
-  .game-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;cursor:pointer;transition:background 0.2s;margin-bottom:8px}
+  .game-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;cursor:pointer;margin-bottom:8px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .game-card:active{background:rgba(255,255,255,0.06)}
   .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
   .card-top-left{display:flex;align-items:center;gap:7px}
@@ -45,8 +44,6 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   .odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
   .pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
   .neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
-
-  /* Sharp money indicator */
   .sharp-bar{margin-top:6px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px}
   .sharp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   .sharp-row:last-child{margin-bottom:0}
@@ -60,8 +57,7 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
   .signal-public{background:rgba(255,107,107,0.1);color:#ff6b6b;border:1px solid rgba(255,107,107,0.2)}
   .signal-none{background:rgba(255,255,255,0.04);color:#555;border:1px solid rgba(255,255,255,0.06)}
   .sharp-legend{display:flex;gap:10px;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.04)}
-  .legend-item{font-family:'Space Mono',monospace;font-size:9px;color:#444;display:flex;align-items:center;gap:4px}
-
+  .legend-item{font-family:'Space Mono',monospace;font-size:9px;color:#444}
   .expand-area{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .expand-area.one{grid-template-columns:1fr}
   .mkt-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
@@ -81,217 +77,299 @@ cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
     <div class="header-icon">🎰</div>
     <div>
       <div class="header-title">BPR MODEL</div>
-      <div class="header-sub" id="hSub">LOADING…</div>
+      <div class="header-sub" id="hSub">LOADING...</div>
     </div>
   </div>
   <div class="header-right">
     <div id="hBadge"></div>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadOdds()" title="Refresh">↻</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadOdds()" title="Refresh">&#8635;</button>
   </div>
 </div>
 <div class="main">
   <div id="errMsg" class="err-msg" style="display:none"></div>
-  <div class="status-bar"><span id="sLeft">—</span><span id="sRight"></span></div>
+  <div class="status-bar"><span id="sLeft">--</span><span id="sRight"></span></div>
   <div class="filters" id="filters"></div>
   <div class="count" id="count"></div>
   <div id="content"></div>
-  <div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle vs Public<br>⚡ = Sharp money indicator · Verify all lines before wagering</div>
+  <div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
 <script>
-const BASE = window.location.origin;
-const WEEK = 7*24*3600*1000;
-const S_ICONS={basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',mma:'🥊',boxing:'🥊'};
-const S_COLORS={basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',mma:'#B8242B',boxing:'#B8242B',default:'#555'};
-const PUBLIC_BOOKS=['draftkings','fanduel','betmgm','bovada','williamhill_us','barstool'];
-const SHARP_BOOKS=['pinnacle','circa','bookmaker'];
+var BASE = window.location.origin;
+var WEEK = 7*24*3600*1000;
+var S_ICONS = {basketball:'basketball',americanfootball:'football',baseball:'baseball',icehockey:'hockey',mma:'mma',boxing:'boxing'};
+var SPORT_EMOJI = {basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',mma:'🥊',boxing:'🥊'};
+var S_COLORS = {basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',mma:'#B8242B',boxing:'#B8242B'};
+var PUBLIC_BOOKS = ['draftkings','fanduel','betmgm','bovada','williamhill_us','barstool','bet365'];
+var SHARP_BOOKS = ['pinnacle','circa','bookmaker'];
 
-let allGames=[],currentFilter='All',expanded={};
-const si=k=>S_ICONS[k.split('_')[0]]||'🎯';
-const sc=k=>S_COLORS[k.split('_')[0]]||S_COLORS.default;
-const fmt=p=>p>0?'+'+p:''+p;
-const chip=p=>`<span class="odds-chip ${p>=0?'pos':'neg'}">${fmt(p)}</span>`;
-function isLive(t){return new Date(t)<new Date();}
+var allGames = [];
+var currentFilter = 'All';
+var expanded = {};
+
+function si(k){ return SPORT_EMOJI[k.split('_')[0]] || '🎯'; }
+function sc(k){ return S_COLORS[k.split('_')[0]] || '#555'; }
+function fmt(p){ return p > 0 ? '+' + p : '' + p; }
+function chip(p){
+  var cls = p >= 0 ? 'pos' : 'neg';
+  return '<span class="odds-chip ' + cls + '">' + fmt(p) + '</span>';
+}
+function isLive(t){ return new Date(t) < new Date(); }
 function fmtTime(t){
-  const d=new Date(t),now=new Date(),diff=d-now;
-  if(diff<0)return'In Progress';
-  if(diff<10800000){const m=Math.floor(diff/60000),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m';}
+  var d = new Date(t), now = new Date(), diff = d - now;
+  if(diff < 0) return 'In Progress';
+  if(diff < 10800000){
+    var m = Math.floor(diff/60000), h = Math.floor(m/60);
+    return h > 0 ? h + 'h ' + (m%60) + 'm' : m + 'm';
+  }
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
 
-// Find sharp book odds and public book odds for a team
 function getBookOdds(bookmakers, teamName, bookKeys){
-  for(const bk of bookmakers){
-    if(bookKeys.includes(bk.key)){
-      const h2h=bk.markets?.find(m=>m.key==='h2h');
-      const o=h2h?.outcomes?.find(o=>o.name===teamName);
-      if(o)return{book:bk.title,odds:o.price};
+  for(var i=0; i<bookmakers.length; i++){
+    var bk = bookmakers[i];
+    if(bookKeys.indexOf(bk.key) >= 0){
+      var h2h = null;
+      for(var j=0; j<(bk.markets||[]).length; j++){
+        if(bk.markets[j].key === 'h2h'){ h2h = bk.markets[j]; break; }
+      }
+      if(h2h){
+        for(var k=0; k<h2h.outcomes.length; k++){
+          if(h2h.outcomes[k].name === teamName) return {book: bk.title, odds: h2h.outcomes[k].price};
+        }
+      }
     }
   }
   return null;
 }
 
-// Sharp signal: if Pinnacle has team shorter (more negative/less positive) than public = sharp on that team
 function sharpSignal(pinOdds, pubOdds){
-  if(pinOdds===null||pubOdds===null)return'none';
-  const diff=pinOdds-pubOdds;
-  // Pin shorter than public = sharp money on this side
-  if(diff<=-8)return'sharp';
-  // Pin longer than public = public money on this side
-  if(diff>=8)return'public';
-  return'none';
+  if(pinOdds === null || pubOdds === null) return 'none';
+  var diff = pinOdds - pubOdds;
+  if(diff <= -8) return 'sharp';
+  if(diff >= 8) return 'public';
+  return 'none';
 }
 
 function renderSharpMoney(game){
-  const bks=game.bookmakers||[];
-  if(!bks.length)return'';
-  const teams=[game.away_team,game.home_team];
-  let rows='';
-  let hasData=false;
-
-  for(const team of teams){
-    const pin=getBookOdds(bks,team,SHARP_BOOKS);
-    const pub=getBookOdds(bks,team,PUBLIC_BOOKS);
-    if(!pin&&!pub)continue;
-    hasData=true;
-    const sig=pin&&pub?sharpSignal(pin.odds,pub.odds):'none';
-    const sigHtml=sig==='sharp'
-      ?'<span class="sharp-signal signal-sharp">⚡ SHARP</span>'
-      :sig==='public'
-      ?'<span class="sharp-signal signal-public">👥 PUBLIC</span>'
-      :'<span class="sharp-signal signal-none">—</span>';
-    rows+=`<div class="sharp-row">
-      <span class="sharp-team">${team.split(' ').slice(-1)[0]}</span>
-      <div class="sharp-pills">
-        ${pin?`<span class="sharp-pill pill-pin">PIN ${fmt(pin.odds)}</span>`:''}
-        ${pub?`<span class="sharp-pill pill-pub">${pub.book.split(' ')[0].toUpperCase()} ${fmt(pub.odds)}</span>`:''}
-        ${sigHtml}
-      </div>
-    </div>`;
+  var bks = game.bookmakers || [];
+  if(!bks.length) return '';
+  var teams = [game.away_team, game.home_team];
+  var rows = '';
+  var hasData = false;
+  for(var i=0; i<teams.length; i++){
+    var team = teams[i];
+    var pin = getBookOdds(bks, team, SHARP_BOOKS);
+    var pub = getBookOdds(bks, team, PUBLIC_BOOKS);
+    if(!pin && !pub) continue;
+    hasData = true;
+    var sig = (pin && pub) ? sharpSignal(pin.odds, pub.odds) : 'none';
+    var sigHtml = sig === 'sharp'
+      ? '<span class="sharp-signal signal-sharp">⚡ SHARP</span>'
+      : sig === 'public'
+      ? '<span class="sharp-signal signal-public">👥 PUBLIC</span>'
+      : '<span class="sharp-signal signal-none">--</span>';
+    var lastName = team.split(' ').slice(-1)[0];
+    rows += '<div class="sharp-row">'
+      + '<span class="sharp-team">' + lastName + '</span>'
+      + '<div class="sharp-pills">'
+      + (pin ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pin.odds) + '</span>' : '')
+      + (pub ? '<span class="sharp-pill pill-pub">' + pub.book.split(' ')[0].toUpperCase() + ' ' + fmt(pub.odds) + '</span>' : '')
+      + sigHtml
+      + '</div></div>';
   }
-  if(!hasData)return'';
-  return`<div class="sharp-bar">
-    <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px">SHARP MONEY INDICATOR</div>
-    ${rows}
-    <div class="sharp-legend">
-      <div class="legend-item">📌 PIN = Pinnacle (sharp book)</div>
-      <div class="legend-item">⚡ = Sharp side | 👥 = Public side</div>
-    </div>
-  </div>`;
+  if(!hasData) return '';
+  return '<div class="sharp-bar">'
+    + '<div style="font-family:Space Mono,monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px">SHARP MONEY INDICATOR</div>'
+    + rows
+    + '<div class="sharp-legend">'
+    + '<div class="legend-item">📌 PIN = Pinnacle</div>'
+    + '<div class="legend-item">⚡ Sharp | 👥 Public</div>'
+    + '</div></div>';
 }
 
-async function loadOdds(){
-  const btn=document.getElementById('refreshBtn');
-  btn.classList.add('spinning');
-  document.getElementById('hSub').textContent='LOADING…';
-  document.getElementById('hBadge').innerHTML='';
-  document.getElementById('errMsg').style.display='none';
-  document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports…</div></div>';
-  try{
-    const sports=await fetch(`${BASE}/api/sports`).then(r=>r.json());
-    if(!Array.isArray(sports))throw new Error(sports.message||sports.error||'API error');
-    const now=Date.now(),results=[];
-    for(const sport of sports){
-      const sub=document.getElementById('loadSub');
-      if(sub)sub.textContent=`Fetching ${sport.title}…`;
-      try{
-        const data=await fetch(`${BASE}/api/odds?sport=${sport.key}`).then(r=>r.json());
-        if(Array.isArray(data)){
-          results.push(...data.filter(g=>{
-            const t=new Date(g.commence_time).getTime();
-            return t>=now-7200000&&t<=now+WEEK;
-          }));
-        }
-      }catch(e){}
-    }
-    results.sort((a,b)=>new Date(a.commence_time)-new Date(b.commence_time));
-    allGames=results;
-    if(!results.length){
-      document.getElementById('hSub').textContent='NO GAMES FOUND';
-      document.getElementById('content').innerHTML='<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>';
-    }else{
-      const sCount=new Set(results.map(g=>g.sport_title)).size;
-      document.getElementById('hBadge').innerHTML='<span class="badge-live">LIVE</span>';
-      document.getElementById('hSub').textContent='UPDATED '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      document.getElementById('sLeft').textContent=`${results.length} GAMES · ${sCount} SPORTS`;
-      document.getElementById('sRight').textContent='ODDS + SHARP';
-      renderFilters();renderGames();
-    }
-  }catch(e){
-    document.getElementById('errMsg').textContent='Error: '+e.message;
-    document.getElementById('errMsg').style.display='block';
-    document.getElementById('hSub').textContent='ERROR';
-    document.getElementById('content').innerHTML='';
-  }finally{btn.classList.remove('spinning');}
+function setFilter(f){
+  currentFilter = f;
+  renderFilters();
+  renderGames();
+}
+
+function toggleExpand(id){
+  expanded[id] = !expanded[id];
+  renderGames();
 }
 
 function renderFilters(){
-  const sports=['All',...new Set(allGames.map(g=>g.sport_title))];
-  document.getElementById('filters').innerHTML=sports.map(s=>{
-    const k=allGames.find(g=>g.sport_title===s)?.sport_key||'';
-    return`<button class="filter-btn ${currentFilter===s?'active':''}" onclick="setFilter(${JSON.stringify(s)})">${s==='All'?'All':si(k)+' '+s}</button>`;
-  }).join('');
+  var sports = ['All'];
+  var seen = {};
+  for(var i=0; i<allGames.length; i++){
+    if(!seen[allGames[i].sport_title]){
+      seen[allGames[i].sport_title] = true;
+      sports.push(allGames[i].sport_title);
+    }
+  }
+  var html = '';
+  for(var i=0; i<sports.length; i++){
+    var s = sports[i];
+    var active = currentFilter === s ? ' active' : '';
+    var key = '';
+    for(var j=0; j<allGames.length; j++){
+      if(allGames[j].sport_title === s){ key = allGames[j].sport_key; break; }
+    }
+    var label = s === 'All' ? 'All' : si(key) + ' ' + s;
+    html += '<button class="filter-btn' + active + '" onclick="setFilter(\'' + s.replace(/'/g,"\\'") + '\')">' + label + '</button>';
+  }
+  document.getElementById('filters').innerHTML = html;
 }
-function setFilter(f){currentFilter=f;renderFilters();renderGames();}
-function toggleExpand(id){expanded[id]=!expanded[id];renderGames();}
 
 function renderGames(){
-  const filtered=currentFilter==='All'?allGames:allGames.filter(g=>g.sport_title===currentFilter);
-  document.getElementById('count').textContent=`${filtered.length} GAME${filtered.length!==1?'S':''} · NEXT 7 DAYS`;
-  const byDate={};
-  filtered.forEach(g=>{
-    const label=new Date(g.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
-    if(!byDate[label])byDate[label]=[];
-    byDate[label].push(g);
-  });
-  let html='<div class="games">';
-  for(const[dateLabel,games]of Object.entries(byDate)){
-    html+=`<div class="section-label">${dateLabel}</div>`;
-    html+=games.map(game=>{
-      // Use best available public book for moneyline display
-      const bks=game.bookmakers||[];
-      const pubBk=bks.find(b=>PUBLIC_BOOKS.includes(b.key))||bks[0];
-      const h2h=pubBk?.markets?.find(m=>m.key==='h2h');
-      const spreads=pubBk?.markets?.find(m=>m.key==='spreads');
-      const totals=pubBk?.markets?.find(m=>m.key==='totals');
-      const accent=sc(game.sport_key);
-      const awayO=h2h?.outcomes?.find(o=>o.name===game.away_team);
-      const homeO=h2h?.outcomes?.find(o=>o.name===game.home_team);
-      const isExp=!!expanded[game.id];
+  var filtered = [];
+  for(var i=0; i<allGames.length; i++){
+    if(currentFilter === 'All' || allGames[i].sport_title === currentFilter){
+      filtered.push(allGames[i]);
+    }
+  }
+  document.getElementById('count').textContent = filtered.length + ' GAME' + (filtered.length !== 1 ? 'S' : '') + ' · NEXT 7 DAYS';
 
-      let details='';
-      if(isExp){
-        details+=renderSharpMoney(game);
-        if(spreads||totals){
-          details+=`<div class="expand-area ${spreads&&totals?'':'one'}">`;
-          if(spreads)details+=`<div><div class="mkt-title">SPREAD</div>${spreads.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name.split(' ').pop()} ${o.point>0?'+'+o.point:o.point}</span>${chip(o.price)}</div>`).join('')}</div>`;
-          if(totals)details+=`<div><div class="mkt-title">TOTAL (${totals.outcomes?.[0]?.point||''})</div>${totals.outcomes.map(o=>`<div class="mkt-row"><span class="mkt-label">${o.name}</span>${chip(o.price)}</div>`).join('')}</div>`;
-          details+='</div>';
+  var byDate = {};
+  var dateOrder = [];
+  for(var i=0; i<filtered.length; i++){
+    var g = filtered[i];
+    var label = new Date(g.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(!byDate[label]){ byDate[label] = []; dateOrder.push(label); }
+    byDate[label].push(g);
+  }
+
+  var html = '<div class="games">';
+  for(var di=0; di<dateOrder.length; di++){
+    var dateLabel = dateOrder[di];
+    var games = byDate[dateLabel];
+    html += '<div class="section-label">' + dateLabel + '</div>';
+    for(var gi=0; gi<games.length; gi++){
+      var game = games[gi];
+      var bks = game.bookmakers || [];
+      var pubBk = null;
+      for(var bi=0; bi<bks.length; bi++){
+        if(PUBLIC_BOOKS.indexOf(bks[bi].key) >= 0){ pubBk = bks[bi]; break; }
+      }
+      if(!pubBk && bks.length) pubBk = bks[0];
+      var h2h = null, spreads = null, totals = null;
+      if(pubBk){
+        for(var mi=0; mi<(pubBk.markets||[]).length; mi++){
+          if(pubBk.markets[mi].key==='h2h') h2h = pubBk.markets[mi];
+          if(pubBk.markets[mi].key==='spreads') spreads = pubBk.markets[mi];
+          if(pubBk.markets[mi].key==='totals') totals = pubBk.markets[mi];
         }
       }
-
-      return`<div class="game-card" style="border-left:3px solid ${accent}" onclick="toggleExpand('${game.id}')">
-        <div class="card-top">
-          <div class="card-top-left">
-            <span>${si(game.sport_key)}</span>
-            <span class="sport-label">${game.sport_title}</span>
-            ${isLive(game.commence_time)?'<span class="live-dot">LIVE</span>':''}
-          </div>
-          <span class="time-label">🕐 ${fmtTime(game.commence_time)}</span>
-        </div>
-        <div class="matchup">
-          <div><div class="team-name">${game.away_team}</div><div class="team-side">Away</div>${awayO?chip(awayO.price):''}</div>
-          <div class="vs">VS</div>
-          <div class="team-right"><div class="team-name">${game.home_team}</div><div class="team-side">Home</div>${homeO?chip(homeO.price):''}</div>
-        </div>${details}
-        <div class="expand-hint">${isExp?'▲ collapse':'▼ sharp money + lines'}</div>
-      </div>`;
-    }).join('');
+      var awayO = null, homeO = null;
+      if(h2h){
+        for(var oi=0; oi<h2h.outcomes.length; oi++){
+          if(h2h.outcomes[oi].name === game.away_team) awayO = h2h.outcomes[oi];
+          if(h2h.outcomes[oi].name === game.home_team) homeO = h2h.outcomes[oi];
+        }
+      }
+      var isExp = !!expanded[game.id];
+      var accent = sc(game.sport_key);
+      var details = '';
+      if(isExp){
+        details += renderSharpMoney(game);
+        if(spreads || totals){
+          details += '<div class="expand-area' + (spreads && totals ? '' : ' one') + '">';
+          if(spreads){
+            details += '<div><div class="mkt-title">SPREAD</div>';
+            for(var si2=0; si2<spreads.outcomes.length; si2++){
+              var o = spreads.outcomes[si2];
+              var pt = o.point > 0 ? '+'+o.point : ''+o.point;
+              details += '<div class="mkt-row"><span class="mkt-label">' + o.name.split(' ').pop() + ' ' + pt + '</span>' + chip(o.price) + '</div>';
+            }
+            details += '</div>';
+          }
+          if(totals){
+            var totLine = totals.outcomes.length ? totals.outcomes[0].point : '';
+            details += '<div><div class="mkt-title">TOTAL (' + totLine + ')</div>';
+            for(var ti=0; ti<totals.outcomes.length; ti++){
+              var o = totals.outcomes[ti];
+              details += '<div class="mkt-row"><span class="mkt-label">' + o.name + '</span>' + chip(o.price) + '</div>';
+            }
+            details += '</div>';
+          }
+          details += '</div>';
+        }
+      }
+      html += '<div class="game-card" style="border-left:3px solid ' + accent + '" onclick="toggleExpand(\'' + game.id + '\')">'
+        + '<div class="card-top">'
+        + '<div class="card-top-left"><span>' + si(game.sport_key) + '</span><span class="sport-label">' + game.sport_title + '</span>'
+        + (isLive(game.commence_time) ? '<span class="live-dot">LIVE</span>' : '')
+        + '</div>'
+        + '<span class="time-label">🕐 ' + fmtTime(game.commence_time) + '</span>'
+        + '</div>'
+        + '<div class="matchup">'
+        + '<div><div class="team-name">' + game.away_team + '</div><div class="team-side">Away</div>' + (awayO ? chip(awayO.price) : '') + '</div>'
+        + '<div class="vs">VS</div>'
+        + '<div class="team-right"><div class="team-name">' + game.home_team + '</div><div class="team-side">Home</div>' + (homeO ? chip(homeO.price) : '') + '</div>'
+        + '</div>'
+        + details
+        + '<div class="expand-hint">' + (isExp ? '▲ collapse' : '▼ sharp money + lines') + '</div>'
+        + '</div>';
+    }
   }
-  html+='</div>';
-  document.getElementById('content').innerHTML=html;
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
 }
+
+async function loadOdds(){
+  var btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  document.getElementById('hSub').textContent = 'LOADING...';
+  document.getElementById('hBadge').innerHTML = '';
+  document.getElementById('errMsg').style.display = 'none';
+  document.getElementById('content').innerHTML = '<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports...</div></div>';
+  try {
+    var sportsResp = await fetch(BASE + '/api/sports');
+    var sports = await sportsResp.json();
+    if(!Array.isArray(sports)) throw new Error(sports.message || sports.error || 'API error');
+    var now = Date.now();
+    var results = [];
+    for(var i=0; i<sports.length; i++){
+      var sport = sports[i];
+      var sub = document.getElementById('loadSub');
+      if(sub) sub.textContent = 'Fetching ' + sport.title + '...';
+      try {
+        var resp = await fetch(BASE + '/api/odds?sport=' + sport.key);
+        var data = await resp.json();
+        if(Array.isArray(data)){
+          for(var j=0; j<data.length; j++){
+            var t = new Date(data[j].commence_time).getTime();
+            if(t >= now - 7200000 && t <= now + WEEK) results.push(data[j]);
+          }
+        }
+      } catch(e){}
+    }
+    results.sort(function(a,b){ return new Date(a.commence_time) - new Date(b.commence_time); });
+    allGames = results;
+    if(!results.length){
+      document.getElementById('hSub').textContent = 'NO GAMES FOUND';
+      document.getElementById('content').innerHTML = '<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>';
+    } else {
+      var sCount = {};
+      for(var i=0; i<results.length; i++) sCount[results[i].sport_title] = true;
+      document.getElementById('hBadge').innerHTML = '<span class="badge-live">LIVE</span>';
+      document.getElementById('hSub').textContent = 'UPDATED ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      document.getElementById('sLeft').textContent = results.length + ' GAMES · ' + Object.keys(sCount).length + ' SPORTS';
+      document.getElementById('sRight').textContent = 'ODDS + SHARP';
+      renderFilters();
+      renderGames();
+    }
+  } catch(e) {
+    document.getElementById('errMsg').textContent = 'Error: ' + e.message;
+    document.getElementById('errMsg').style.display = 'block';
+    document.getElementById('hSub').textContent = 'ERROR';
+    document.getElementById('content').innerHTML = '';
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
 loadOdds();
 </script>
 </body>
 </html>
-ENDOFFILE
