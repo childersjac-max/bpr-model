@@ -1,4 +1,4 @@
-const KEY = 'YOUR_ODDS_API_KEY_HERE';
+const KEY = '056939ecab105dc266b1ef43eb8b3eba';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
