@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -105,323 +104,319 @@ var PUBLIC_BOOKS = ['draftkings','fanduel','betmgm','bovada','williamhill_us','b
 var SHARP_BOOKS = ['pinnacle','circa','bookmaker'];
 var allGames = [], currentFilter = 'All', expanded = {};
 
-function si(k){ return SPORT_EMOJI[k.split(’*’)[0]] || ‘🎯’; }
-function sc(k){ return S_COLORS[k.split(’*’)[0]] || ‘#555’; }
-function fmt(p){ return p > 0 ? ‘+’ + p : ‘’ + p; }
+function si(k){ return SPORT_EMOJI[k.split('_')[0]] || '🎯'; }
+function sc(k){ return S_COLORS[k.split('_')[0]] || '#555'; }
+function fmt(p){ return p > 0 ? '+' + p : '' + p; }
 function chip(p){
-return ‘<span class="odds-chip ' + (p >= 0 ? 'pos' : 'neg') + '">’ + fmt(p) + ‘</span>’;
+  return '<span class="odds-chip ' + (p >= 0 ? 'pos' : 'neg') + '">' + fmt(p) + '</span>';
 }
 function isLive(t){ return new Date(t) < new Date(); }
 function fmtTime(t){
-var d = new Date(t), now = new Date(), diff = d - now;
-if(diff < 0) return ‘In Progress’;
-if(diff < 10800000){ var m=Math.floor(diff/60000),h=Math.floor(m/60); return h>0?h+’h ’+(m%60)+‘m’:m+‘m’; }
-return d.toLocaleDateString(‘en-US’,{weekday:‘short’,month:‘short’,day:‘numeric’,hour:‘numeric’,minute:‘2-digit’});
+  var d = new Date(t), now = new Date(), diff = d - now;
+  if(diff < 0) return 'In Progress';
+  if(diff < 10800000){ var m=Math.floor(diff/60000),h=Math.floor(m/60); return h>0?h+'h '+(m%60)+'m':m+'m'; }
+  return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
 
 function getBookOdds(bookmakers, teamName, bookKeys){
-for(var i=0; i<bookmakers.length; i++){
-var bk = bookmakers[i];
-if(bookKeys.indexOf(bk.key) >= 0){
-for(var j=0; j<(bk.markets||[]).length; j++){
-if(bk.markets[j].key === ‘h2h’){
-for(var k=0; k<bk.markets[j].outcomes.length; k++){
-if(bk.markets[j].outcomes[k].name === teamName)
-return {book:bk.title, odds:bk.markets[j].outcomes[k].price};
-}
-}
-}
-}
-}
-return null;
+  for(var i=0; i<bookmakers.length; i++){
+    var bk = bookmakers[i];
+    if(bookKeys.indexOf(bk.key) >= 0){
+      for(var j=0; j<(bk.markets||[]).length; j++){
+        if(bk.markets[j].key === 'h2h'){
+          for(var k=0; k<bk.markets[j].outcomes.length; k++){
+            if(bk.markets[j].outcomes[k].name === teamName)
+              return {book:bk.title, odds:bk.markets[j].outcomes[k].price};
+          }
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function getBookTotal(bookmakers, side, bookKeys){
-// side = ‘Over’ or ‘Under’
-for(var i=0; i<bookmakers.length; i++){
-var bk = bookmakers[i];
-if(bookKeys.indexOf(bk.key) >= 0){
-for(var j=0; j<(bk.markets||[]).length; j++){
-if(bk.markets[j].key === ‘totals’){
-for(var k=0; k<bk.markets[j].outcomes.length; k++){
-if(bk.markets[j].outcomes[k].name === side)
-return {book:bk.title, odds:bk.markets[j].outcomes[k].price, point:bk.markets[j].outcomes[k].point};
-}
-}
-}
-}
-}
-return null;
+  // side = 'Over' or 'Under'
+  for(var i=0; i<bookmakers.length; i++){
+    var bk = bookmakers[i];
+    if(bookKeys.indexOf(bk.key) >= 0){
+      for(var j=0; j<(bk.markets||[]).length; j++){
+        if(bk.markets[j].key === 'totals'){
+          for(var k=0; k<bk.markets[j].outcomes.length; k++){
+            if(bk.markets[j].outcomes[k].name === side)
+              return {book:bk.title, odds:bk.markets[j].outcomes[k].price, point:bk.markets[j].outcomes[k].point};
+          }
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function sharpSignal(pinOdds, pubOdds){
-if(pinOdds===null||pubOdds===null) return ‘none’;
-var diff = pinOdds - pubOdds;
-if(diff <= -8) return ‘sharp’;
-if(diff >= 8) return ‘public’;
-return ‘none’;
+  if(pinOdds===null||pubOdds===null) return 'none';
+  var diff = pinOdds - pubOdds;
+  if(diff <= -8) return 'sharp';
+  if(diff >= 8) return 'public';
+  return 'none';
 }
 
 // Total sharp signal: if Pinnacle line is LOWER than public = sharp money on OVER (total being bet up)
 // If Pinnacle line is HIGHER = sharp money on UNDER
 function totalSharpSignal(pinPoint, pubPoint){
-if(pinPoint===null||pubPoint===null) return ‘none’;
-var diff = pinPoint - pubPoint;
-if(diff >= 0.5) return ‘over’; // pin higher = sharp on over pushed it up
-if(diff <= -0.5) return ‘under’; // pin lower = sharp on under pushed it down
-return ‘none’;
+  if(pinPoint===null||pubPoint===null) return 'none';
+  var diff = pinPoint - pubPoint;
+  if(diff >= 0.5) return 'over'; // pin higher = sharp on over pushed it up
+  if(diff <= -0.5) return 'under'; // pin lower = sharp on under pushed it down
+  return 'none';
 }
 
 function renderSharpMoney(game){
-var bks = game.bookmakers || [];
-if(!bks.length) return ‘’;
-var html = ‘<div class="sharp-bar">’;
+  var bks = game.bookmakers || [];
+  if(!bks.length) return '';
+  var html = '<div class="sharp-bar">';
 
-// ── MONEYLINE SECTION ──
-var teams = [game.away_team, game.home_team];
-var mlRows = ‘’;
-var hasMl = false;
-for(var i=0; i<teams.length; i++){
-var team = teams[i];
-var pin = getBookOdds(bks, team, SHARP_BOOKS);
-var pub = getBookOdds(bks, team, PUBLIC_BOOKS);
-if(!pin && !pub) continue;
-hasMl = true;
-var sig = (pin&&pub) ? sharpSignal(pin.odds, pub.odds) : ‘none’;
-var sigHtml = sig===‘sharp’
-? ‘<span class="sharp-signal signal-sharp">⚡ SHARP</span>’
-: sig===‘public’
-? ‘<span class="sharp-signal signal-public">👥 PUBLIC</span>’
-: ‘<span class="sharp-signal signal-none">–</span>’;
-mlRows += ‘<div class="sharp-row">’
-+ ‘<span class="sharp-team">’ + team.split(’ ’).slice(-1)[0] + ‘</span>’
-+ ‘<div class="sharp-pills">’
-+ (pin ? ‘<span class="sharp-pill pill-pin">PIN ’ + fmt(pin.odds) + ‘</span>’ : ‘’)
-+ (pub ? ‘<span class="sharp-pill pill-pub">’ + pub.book.split(’ ’)[0].toUpperCase() + ’ ’ + fmt(pub.odds) + ‘</span>’ : ‘’)
-+ sigHtml + ‘</div></div>’;
-}
-if(hasMl){
-html += ‘<div class="sharp-section-title">MONEYLINE SHARP INDICATOR</div>’ + mlRows;
-}
+  // ── MONEYLINE SECTION ──
+  var teams = [game.away_team, game.home_team];
+  var mlRows = '';
+  var hasMl = false;
+  for(var i=0; i<teams.length; i++){
+    var team = teams[i];
+    var pin = getBookOdds(bks, team, SHARP_BOOKS);
+    var pub = getBookOdds(bks, team, PUBLIC_BOOKS);
+    if(!pin && !pub) continue;
+    hasMl = true;
+    var sig = (pin&&pub) ? sharpSignal(pin.odds, pub.odds) : 'none';
+    var sigHtml = sig==='sharp'
+      ? '<span class="sharp-signal signal-sharp">⚡ SHARP</span>'
+      : sig==='public'
+      ? '<span class="sharp-signal signal-public">👥 PUBLIC</span>'
+      : '<span class="sharp-signal signal-none">--</span>';
+    mlRows += '<div class="sharp-row">'
+      + '<span class="sharp-team">' + team.split(' ').slice(-1)[0] + '</span>'
+      + '<div class="sharp-pills">'
+      + (pin ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pin.odds) + '</span>' : '')
+      + (pub ? '<span class="sharp-pill pill-pub">' + pub.book.split(' ')[0].toUpperCase() + ' ' + fmt(pub.odds) + '</span>' : '')
+      + sigHtml + '</div></div>';
+  }
+  if(hasMl){
+    html += '<div class="sharp-section-title">MONEYLINE SHARP INDICATOR</div>' + mlRows;
+  }
 
-// ── TOTALS SECTION ──
-var pinOver = getBookTotal(bks, ‘Over’, SHARP_BOOKS);
-var pubOver = getBookTotal(bks, ‘Over’, PUBLIC_BOOKS);
-var pinUnder = getBookTotal(bks, ‘Under’, SHARP_BOOKS);
-var pubUnder = getBookTotal(bks, ‘Under’, PUBLIC_BOOKS);
+  // ── TOTALS SECTION ──
+  var pinOver = getBookTotal(bks, 'Over', SHARP_BOOKS);
+  var pubOver = getBookTotal(bks, 'Over', PUBLIC_BOOKS);
+  var pinUnder = getBookTotal(bks, 'Under', SHARP_BOOKS);
+  var pubUnder = getBookTotal(bks, 'Under', PUBLIC_BOOKS);
 
-if(pinOver || pubOver || pinUnder || pubUnder){
-if(hasMl) html += ‘<div class="sharp-divider"></div>’;
-html += ‘<div class="sharp-section-title">O/U SHARP INDICATOR</div>’;
+  if(pinOver || pubOver || pinUnder || pubUnder){
+    if(hasMl) html += '<div class="sharp-divider"></div>';
+    html += '<div class="sharp-section-title">O/U SHARP INDICATOR</div>';
 
-```
-// Line discrepancy signal
-var pinPt = pinOver ? pinOver.point : null;
-var pubPt = pubOver ? pubOver.point : null;
-var totSig = totalSharpSignal(pinPt, pubPt);
-var totSigHtml = totSig==='over'
-  ? '<span class="sharp-signal signal-sharp">⚡ SHARP OVER</span>'
-  : totSig==='under'
-  ? '<span class="sharp-signal signal-sharp">⚡ SHARP UNDER</span>'
-  : '<span class="sharp-signal signal-none">--</span>';
+    // Line discrepancy signal
+    var pinPt = pinOver ? pinOver.point : null;
+    var pubPt = pubOver ? pubOver.point : null;
+    var totSig = totalSharpSignal(pinPt, pubPt);
+    var totSigHtml = totSig==='over'
+      ? '<span class="sharp-signal signal-sharp">⚡ SHARP OVER</span>'
+      : totSig==='under'
+      ? '<span class="sharp-signal signal-sharp">⚡ SHARP UNDER</span>'
+      : '<span class="sharp-signal signal-none">--</span>';
 
-// Over row
-var overOddsSig = (pinOver&&pubOver) ? sharpSignal(pinOver.odds, pubOver.odds) : 'none';
-var overSigHtml = overOddsSig==='sharp'
-  ? '<span class="sharp-signal signal-sharp">⚡</span>'
-  : overOddsSig==='public'
-  ? '<span class="sharp-signal signal-public">👥</span>'
-  : '';
+    // Over row
+    var overOddsSig = (pinOver&&pubOver) ? sharpSignal(pinOver.odds, pubOver.odds) : 'none';
+    var overSigHtml = overOddsSig==='sharp'
+      ? '<span class="sharp-signal signal-sharp">⚡</span>'
+      : overOddsSig==='public'
+      ? '<span class="sharp-signal signal-public">👥</span>'
+      : '';
 
-html += '<div class="sharp-row">'
-  + '<span class="sharp-team">Over' + (pubPt ? ' ' + pubPt : '') + '</span>'
-  + '<div class="sharp-pills">'
-  + (pinOver ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pinOver.odds) + '</span>' : '')
-  + (pubOver ? '<span class="sharp-pill pill-pub">' + pubOver.book.split(' ')[0].toUpperCase() + ' ' + fmt(pubOver.odds) + '</span>' : '')
-  + overSigHtml + '</div></div>';
+    html += '<div class="sharp-row">'
+      + '<span class="sharp-team">Over' + (pubPt ? ' ' + pubPt : '') + '</span>'
+      + '<div class="sharp-pills">'
+      + (pinOver ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pinOver.odds) + '</span>' : '')
+      + (pubOver ? '<span class="sharp-pill pill-pub">' + pubOver.book.split(' ')[0].toUpperCase() + ' ' + fmt(pubOver.odds) + '</span>' : '')
+      + overSigHtml + '</div></div>';
 
-// Under row
-var underOddsSig = (pinUnder&&pubUnder) ? sharpSignal(pinUnder.odds, pubUnder.odds) : 'none';
-var underSigHtml = underOddsSig==='sharp'
-  ? '<span class="sharp-signal signal-sharp">⚡</span>'
-  : underOddsSig==='public'
-  ? '<span class="sharp-signal signal-public">👥</span>'
-  : '';
+    // Under row
+    var underOddsSig = (pinUnder&&pubUnder) ? sharpSignal(pinUnder.odds, pubUnder.odds) : 'none';
+    var underSigHtml = underOddsSig==='sharp'
+      ? '<span class="sharp-signal signal-sharp">⚡</span>'
+      : underOddsSig==='public'
+      ? '<span class="sharp-signal signal-public">👥</span>'
+      : '';
 
-html += '<div class="sharp-row">'
-  + '<span class="sharp-team">Under' + (pinPt ? ' ' + pinPt : '') + '</span>'
-  + '<div class="sharp-pills">'
-  + (pinUnder ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pinUnder.odds) + '</span>' : '')
-  + (pubUnder ? '<span class="sharp-pill pill-pub">' + pubUnder.book.split(' ')[0].toUpperCase() + ' ' + fmt(pubUnder.odds) + '</span>' : '')
-  + underSigHtml + '</div></div>';
+    html += '<div class="sharp-row">'
+      + '<span class="sharp-team">Under' + (pinPt ? ' ' + pinPt : '') + '</span>'
+      + '<div class="sharp-pills">'
+      + (pinUnder ? '<span class="sharp-pill pill-pin">PIN ' + fmt(pinUnder.odds) + '</span>' : '')
+      + (pubUnder ? '<span class="sharp-pill pill-pub">' + pubUnder.book.split(' ')[0].toUpperCase() + ' ' + fmt(pubUnder.odds) + '</span>' : '')
+      + underSigHtml + '</div></div>';
 
-// Line discrepancy signal
-if(pinPt && pubPt && pinPt !== pubPt){
-  html += '<div class="sharp-row" style="margin-top:4px">'
-    + '<span class="sharp-team" style="color:#666">LINE MOVE</span>'
-    + '<div class="sharp-pills">'
-    + '<span class="sharp-pill pill-pub">PUB ' + pubPt + '</span>'
-    + '<span class="sharp-pill pill-pin">PIN ' + pinPt + '</span>'
-    + totSigHtml + '</div></div>';
-}
-```
+    // Line discrepancy signal
+    if(pinPt && pubPt && pinPt !== pubPt){
+      html += '<div class="sharp-row" style="margin-top:4px">'
+        + '<span class="sharp-team" style="color:#666">LINE MOVE</span>'
+        + '<div class="sharp-pills">'
+        + '<span class="sharp-pill pill-pub">PUB ' + pubPt + '</span>'
+        + '<span class="sharp-pill pill-pin">PIN ' + pinPt + '</span>'
+        + totSigHtml + '</div></div>';
+    }
+  }
 
-}
-
-html += ‘<div class="sharp-legend">’
-+ ‘<div class="legend-item">📌 PIN = Pinnacle</div>’
-+ ‘<div class="legend-item">⚡ Sharp | 👥 Public</div>’
-+ ‘</div></div>’;
-return html;
+  html += '<div class="sharp-legend">'
+    + '<div class="legend-item">📌 PIN = Pinnacle</div>'
+    + '<div class="legend-item">⚡ Sharp | 👥 Public</div>'
+    + '</div></div>';
+  return html;
 }
 
 function setFilter(f){ currentFilter=f; renderFilters(); renderGames(); }
 function toggleExpand(id){ expanded[id]=!expanded[id]; renderGames(); }
 
 function renderFilters(){
-var sports = [‘All’], seen = {};
-for(var i=0;i<allGames.length;i++){
-if(!seen[allGames[i].sport_title]){ seen[allGames[i].sport_title]=true; sports.push(allGames[i].sport_title); }
-}
-var html = ‘’;
-for(var i=0;i<sports.length;i++){
-var s=sports[i], active=currentFilter===s?’ active’:’’, key=’’;
-for(var j=0;j<allGames.length;j++){ if(allGames[j].sport_title===s){key=allGames[j].sport_key;break;} }
-var label = s===‘All’?‘All’:si(key)+’ ‘+s;
-html += ‘<button class=“filter-btn’+active+’” onclick=“setFilter('’+s.replace(/’/g,”\’”)+’')”>’ + label + ‘</button>’;
-}
-document.getElementById(‘filters’).innerHTML = html;
+  var sports = ['All'], seen = {};
+  for(var i=0;i<allGames.length;i++){
+    if(!seen[allGames[i].sport_title]){ seen[allGames[i].sport_title]=true; sports.push(allGames[i].sport_title); }
+  }
+  var html = '';
+  for(var i=0;i<sports.length;i++){
+    var s=sports[i], active=currentFilter===s?' active':'', key='';
+    for(var j=0;j<allGames.length;j++){ if(allGames[j].sport_title===s){key=allGames[j].sport_key;break;} }
+    var label = s==='All'?'All':si(key)+' '+s;
+    html += '<button class="filter-btn'+active+'" onclick="setFilter(\''+s.replace(/'/g,"\\'")+'\')">' + label + '</button>';
+  }
+  document.getElementById('filters').innerHTML = html;
 }
 
 function renderGames(){
-var filtered=[];
-for(var i=0;i<allGames.length;i++){
-if(currentFilter===‘All’||allGames[i].sport_title===currentFilter) filtered.push(allGames[i]);
-}
-document.getElementById(‘count’).textContent = filtered.length+’ GAME’+(filtered.length!==1?‘S’:’’)+’ · NEXT 7 DAYS’;
-var byDate={}, dateOrder=[];
-for(var i=0;i<filtered.length;i++){
-var g=filtered[i];
-var label=new Date(g.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});
-if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}
-byDate[label].push(g);
-}
-var html=’<div class="games">’;
-for(var di=0;di<dateOrder.length;di++){
-var dateLabel=dateOrder[di], games=byDate[dateLabel];
-html+=’<div class="section-label">’+dateLabel+’</div>’;
-for(var gi=0;gi<games.length;gi++){
-var game=games[gi], bks=game.bookmakers||[];
-var pubBk=null;
-for(var bi=0;bi<bks.length;bi++){ if(PUBLIC_BOOKS.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;} }
-if(!pubBk&&bks.length) pubBk=bks[0];
-var h2h=null,spreads=null,totals=null;
-if(pubBk){ for(var mi=0;mi<(pubBk.markets||[]).length;mi++){
-if(pubBk.markets[mi].key===‘h2h’) h2h=pubBk.markets[mi];
-if(pubBk.markets[mi].key===‘spreads’) spreads=pubBk.markets[mi];
-if(pubBk.markets[mi].key===‘totals’) totals=pubBk.markets[mi];
-}}
-var awayO=null,homeO=null;
-if(h2h){ for(var oi=0;oi<h2h.outcomes.length;oi++){
-if(h2h.outcomes[oi].name===game.away_team) awayO=h2h.outcomes[oi];
-if(h2h.outcomes[oi].name===game.home_team) homeO=h2h.outcomes[oi];
-}}
-var isExp=!!expanded[game.id], accent=sc(game.sport_key);
-var details=’’;
-if(isExp){
-details+=renderSharpMoney(game);
-if(spreads||totals){
-details+=’<div class="expand-area'+(spreads&&totals?'':' one')+'">’;
-if(spreads){
-details+=’<div><div class="mkt-title">SPREAD</div>’;
-for(var si2=0;si2<spreads.outcomes.length;si2++){
-var o=spreads.outcomes[si2],pt=o.point>0?’+’+o.point:’’+o.point;
-details+=’<div class="mkt-row"><span class="mkt-label">’+o.name.split(’ ‘).pop()+’ ‘+pt+’</span>’+chip(o.price)+’</div>’;
-}
-details+=’</div>’;
-}
-if(totals){
-var totLine=totals.outcomes.length?totals.outcomes[0].point:’’;
-details+=’<div><div class="mkt-title">TOTAL (’+totLine+’)</div>’;
-for(var ti=0;ti<totals.outcomes.length;ti++){
-var o=totals.outcomes[ti];
-details+=’<div class="mkt-row"><span class="mkt-label">’+o.name+’</span>’+chip(o.price)+’</div>’;
-}
-details+=’</div>’;
-}
-details+=’</div>’;
-}
-}
-html+=’<div class="game-card" style="border-left:3px solid '+accent+'" onclick="toggleExpand(\''+game.id+'\')">’
-+’<div class="card-top">’
-+’<div class="card-top-left"><span>’+si(game.sport_key)+’</span><span class="sport-label">’+game.sport_title+’</span>’
-+(isLive(game.commence_time)?’<span class="live-dot">LIVE</span>’:’’)
-+’</div>’
-+’<span class="time-label">🕐 ‘+fmtTime(game.commence_time)+’</span>’
-+’</div>’
-+’<div class="matchup">’
-+’<div><div class="team-name">’+game.away_team+’</div><div class="team-side">Away</div>’+(awayO?chip(awayO.price):’’)+’</div>’
-+’<div class="vs">VS</div>’
-+’<div class="team-right"><div class="team-name">’+game.home_team+’</div><div class="team-side">Home</div>’+(homeO?chip(homeO.price):’’)+’</div>’
-+’</div>’+details
-+’<div class="expand-hint">’+(isExp?‘▲ collapse’:‘▼ sharp money + lines’)+’</div>’
-+’</div>’;
-}
-}
-html+=’</div>’;
-document.getElementById(‘content’).innerHTML=html;
+  var filtered=[];
+  for(var i=0;i<allGames.length;i++){
+    if(currentFilter==='All'||allGames[i].sport_title===currentFilter) filtered.push(allGames[i]);
+  }
+  document.getElementById('count').textContent = filtered.length+' GAME'+(filtered.length!==1?'S':'')+' · NEXT 7 DAYS';
+  var byDate={}, dateOrder=[];
+  for(var i=0;i<filtered.length;i++){
+    var g=filtered[i];
+    var label=new Date(g.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}
+    byDate[label].push(g);
+  }
+  var html='<div class="games">';
+  for(var di=0;di<dateOrder.length;di++){
+    var dateLabel=dateOrder[di], games=byDate[dateLabel];
+    html+='<div class="section-label">'+dateLabel+'</div>';
+    for(var gi=0;gi<games.length;gi++){
+      var game=games[gi], bks=game.bookmakers||[];
+      var pubBk=null;
+      for(var bi=0;bi<bks.length;bi++){ if(PUBLIC_BOOKS.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;} }
+      if(!pubBk&&bks.length) pubBk=bks[0];
+      var h2h=null,spreads=null,totals=null;
+      if(pubBk){ for(var mi=0;mi<(pubBk.markets||[]).length;mi++){
+        if(pubBk.markets[mi].key==='h2h') h2h=pubBk.markets[mi];
+        if(pubBk.markets[mi].key==='spreads') spreads=pubBk.markets[mi];
+        if(pubBk.markets[mi].key==='totals') totals=pubBk.markets[mi];
+      }}
+      var awayO=null,homeO=null;
+      if(h2h){ for(var oi=0;oi<h2h.outcomes.length;oi++){
+        if(h2h.outcomes[oi].name===game.away_team) awayO=h2h.outcomes[oi];
+        if(h2h.outcomes[oi].name===game.home_team) homeO=h2h.outcomes[oi];
+      }}
+      var isExp=!!expanded[game.id], accent=sc(game.sport_key);
+      var details='';
+      if(isExp){
+        details+=renderSharpMoney(game);
+        if(spreads||totals){
+          details+='<div class="expand-area'+(spreads&&totals?'':' one')+'">';
+          if(spreads){
+            details+='<div><div class="mkt-title">SPREAD</div>';
+            for(var si2=0;si2<spreads.outcomes.length;si2++){
+              var o=spreads.outcomes[si2],pt=o.point>0?'+'+o.point:''+o.point;
+              details+='<div class="mkt-row"><span class="mkt-label">'+o.name.split(' ').pop()+' '+pt+'</span>'+chip(o.price)+'</div>';
+            }
+            details+='</div>';
+          }
+          if(totals){
+            var totLine=totals.outcomes.length?totals.outcomes[0].point:'';
+            details+='<div><div class="mkt-title">TOTAL ('+totLine+')</div>';
+            for(var ti=0;ti<totals.outcomes.length;ti++){
+              var o=totals.outcomes[ti];
+              details+='<div class="mkt-row"><span class="mkt-label">'+o.name+'</span>'+chip(o.price)+'</div>';
+            }
+            details+='</div>';
+          }
+          details+='</div>';
+        }
+      }
+      html+='<div class="game-card" style="border-left:3px solid '+accent+'" onclick="toggleExpand(\''+game.id+'\')">'
+        +'<div class="card-top">'
+        +'<div class="card-top-left"><span>'+si(game.sport_key)+'</span><span class="sport-label">'+game.sport_title+'</span>'
+        +(isLive(game.commence_time)?'<span class="live-dot">LIVE</span>':'')
+        +'</div>'
+        +'<span class="time-label">🕐 '+fmtTime(game.commence_time)+'</span>'
+        +'</div>'
+        +'<div class="matchup">'
+        +'<div><div class="team-name">'+game.away_team+'</div><div class="team-side">Away</div>'+(awayO?chip(awayO.price):'')+'</div>'
+        +'<div class="vs">VS</div>'
+        +'<div class="team-right"><div class="team-name">'+game.home_team+'</div><div class="team-side">Home</div>'+(homeO?chip(homeO.price):'')+'</div>'
+        +'</div>'+details
+        +'<div class="expand-hint">'+(isExp?'▲ collapse':'▼ sharp money + lines')+'</div>'
+        +'</div>';
+    }
+  }
+  html+='</div>';
+  document.getElementById('content').innerHTML=html;
 }
 
 async function loadOdds(){
-var btn=document.getElementById(‘refreshBtn’);
-btn.classList.add(‘spinning’);
-document.getElementById(‘hSub’).textContent=‘LOADING…’;
-document.getElementById(‘hBadge’).innerHTML=’’;
-document.getElementById(‘errMsg’).style.display=‘none’;
-document.getElementById(‘content’).innerHTML=’<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports…</div></div>’;
-try{
-var sportsResp=await fetch(BASE+’/api/sports’);
-var sports=await sportsResp.json();
-if(!Array.isArray(sports)) throw new Error(sports.message||sports.error||‘API error’);
-var now=Date.now(), results=[];
-for(var i=0;i<sports.length;i++){
-var sport=sports[i];
-var sub=document.getElementById(‘loadSub’);
-if(sub) sub.textContent=‘Fetching ‘+sport.title+’…’;
-try{
-var resp=await fetch(BASE+’/api/odds?sport=’+sport.key);
-var data=await resp.json();
-if(Array.isArray(data)){
-for(var j=0;j<data.length;j++){
-var t=new Date(data[j].commence_time).getTime();
-if(t>=now-7200000&&t<=now+WEEK) results.push(data[j]);
-}
-}
-}catch(e){}
-}
-results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
-allGames=results;
-if(!results.length){
-document.getElementById(‘hSub’).textContent=‘NO GAMES FOUND’;
-document.getElementById(‘content’).innerHTML=’<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>’;
-}else{
-var sCount={};
-for(var i=0;i<results.length;i++) sCount[results[i].sport_title]=true;
-document.getElementById(‘hBadge’).innerHTML=’<span class="badge-live">LIVE</span>’;
-document.getElementById(‘hSub’).textContent=‘UPDATED ‘+new Date().toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
-document.getElementById(‘sLeft’).textContent=results.length+’ GAMES · ‘+Object.keys(sCount).length+’ SPORTS’;
-document.getElementById(‘sRight’).textContent=‘ODDS + SHARP’;
-renderFilters(); renderGames();
-}
-}catch(e){
-document.getElementById(‘errMsg’).textContent=‘Error: ‘+e.message;
-document.getElementById(‘errMsg’).style.display=‘block’;
-document.getElementById(‘hSub’).textContent=‘ERROR’;
-document.getElementById(‘content’).innerHTML=’’;
-}finally{btn.classList.remove(‘spinning’);}
+  var btn=document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  document.getElementById('hSub').textContent='LOADING...';
+  document.getElementById('hBadge').innerHTML='';
+  document.getElementById('errMsg').style.display='none';
+  document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports...</div></div>';
+  try{
+    var sportsResp=await fetch(BASE+'/api/sports');
+    var sports=await sportsResp.json();
+    if(!Array.isArray(sports)) throw new Error(sports.message||sports.error||'API error');
+    var now=Date.now(), results=[];
+    for(var i=0;i<sports.length;i++){
+      var sport=sports[i];
+      var sub=document.getElementById('loadSub');
+      if(sub) sub.textContent='Fetching '+sport.title+'...';
+      try{
+        var resp=await fetch(BASE+'/api/odds?sport='+sport.key);
+        var data=await resp.json();
+        if(Array.isArray(data)){
+          for(var j=0;j<data.length;j++){
+            var t=new Date(data[j].commence_time).getTime();
+            if(t>=now-7200000&&t<=now+WEEK) results.push(data[j]);
+          }
+        }
+      }catch(e){}
+    }
+    results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
+    allGames=results;
+    if(!results.length){
+      document.getElementById('hSub').textContent='NO GAMES FOUND';
+      document.getElementById('content').innerHTML='<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>';
+    }else{
+      var sCount={};
+      for(var i=0;i<results.length;i++) sCount[results[i].sport_title]=true;
+      document.getElementById('hBadge').innerHTML='<span class="badge-live">LIVE</span>';
+      document.getElementById('hSub').textContent='UPDATED '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      document.getElementById('sLeft').textContent=results.length+' GAMES · '+Object.keys(sCount).length+' SPORTS';
+      document.getElementById('sRight').textContent='ODDS + SHARP';
+      renderFilters(); renderGames();
+    }
+  }catch(e){
+    document.getElementById('errMsg').textContent='Error: '+e.message;
+    document.getElementById('errMsg').style.display='block';
+    document.getElementById('hSub').textContent='ERROR';
+    document.getElementById('content').innerHTML='';
+  }finally{btn.classList.remove('spinning');}
 }
 loadOdds();
 </script>
-
 </body>
 </html>
