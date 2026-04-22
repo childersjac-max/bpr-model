@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/picks.js << 'ENDOFFILE'
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=1800');
@@ -170,4 +169,3 @@ export default async function handler(req, res) {
 
   res.status(200).json({ picks: picks.slice(0,40), updated: new Date().toISOString() });
 }
-ENDOFFILE
