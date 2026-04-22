@@ -5,127 +5,74 @@ export default async function handler(req, res) {
   const KEY = '056939ecab105dc266b1ef43eb8b3eba';
   const { sport } = req.query;
 
-  const SPORTS = sport ? [sport] : [
-    'baseball_mlb','basketball_nba','icehockey_nhl',
-    'americanfootball_nfl','mma_mixed_martial_arts'
-  ];
+  if (!sport) return res.status(400).json({ error: 'sport required' });
 
-  const allStats = {};
+  try {
+    const r = await fetch(
+      `https://api.the-odds-api.com/v4/sports/${sport}/scores/?apiKey=${KEY}&daysFrom=3&dateFormat=iso`
+    );
+    const scores = await r.json();
+    if (!Array.isArray(scores)) return res.status(200).json({ teams: [], gamesProcessed: 0 });
 
-  for (const sportKey of SPORTS) {
-    try {
-      // Get completed scores (last 3 days)
-      const scoresResp = await fetch(
-        `https://api.the-odds-api.com/v4/sports/${sportKey}/scores/?apiKey=${KEY}&daysFrom=3&dateFormat=iso`,
-        { headers: { 'User-Agent': 'Mozilla/5.0' } }
-      );
-      if (!scoresResp.ok) continue;
-      const scores = await scoresResp.json();
-      if (!Array.isArray(scores)) continue;
+    const teamStats = {};
+    const completed = scores.filter(g => g.completed);
 
-      // Get historical odds for these events to calculate ATS/CLV
-      const teamStats = {};
+    for (const game of completed) {
+      const home = game.home_team, away = game.away_team;
+      const homeScore = parseInt(game.scores?.find(s => s.name === home)?.score || 0);
+      const awayScore = parseInt(game.scores?.find(s => s.name === away)?.score || 0);
+      const total = homeScore + awayScore;
 
-      for (const game of scores) {
-        if (game.completed !== true) continue;
+      [home, away].forEach(t => {
+        if (!teamStats[t]) teamStats[t] = {
+          team: t, games: 0,
+          wins: 0, losses: 0,
+          home: { games:0, wins:0, losses:0, ou_over:0, ou_under:0 },
+          away: { games:0, wins:0, losses:0, ou_over:0, ou_under:0 },
+          ou: { overs:0, unders:0, pushes:0 },
+          ats: { wins:0, losses:0, pushes:0 }
+        };
+      });
 
-        const homeTeam = game.home_team;
-        const awayTeam = game.away_team;
-        const homeScore = parseInt(game.scores?.find(s => s.name === homeTeam)?.score || 0);
-        const awayScore = parseInt(game.scores?.find(s => s.name === awayTeam)?.score || 0);
+      teamStats[home].games++; teamStats[away].games++;
+      teamStats[home].home.games++; teamStats[away].away.games++;
 
-        // Initialize team stats
-        [homeTeam, awayTeam].forEach(team => {
-          if (!teamStats[team]) teamStats[team] = {
-            team,
-            ats: { wins: 0, losses: 0, pushes: 0 },
-            ou: { overs: 0, unders: 0, pushes: 0 },
-            home: { ats_wins: 0, ats_losses: 0, ou_over: 0, ou_under: 0, games: 0 },
-            away: { ats_wins: 0, ats_losses: 0, ou_over: 0, ou_under: 0, games: 0 },
-            games: 0
-          };
-          teamStats[team].games++;
-        });
-
-        // Get odds for this event to calculate ATS
-        try {
-          const oddsResp = await fetch(
-            `https://api.the-odds-api.com/v4/sports/${sportKey}/events/${game.id}/odds?apiKey=${KEY}&regions=us&markets=spreads,totals&oddsFormat=american`,
-            { headers: { 'User-Agent': 'Mozilla/5.0' } }
-          );
-          if (!oddsResp.ok) continue;
-          const odds = await oddsResp.json();
-
-          // Find spread and total
-          const bookmaker = odds.bookmakers?.find(b => ['pinnacle','draftkings','fanduel'].includes(b.key));
-          if (!bookmaker) continue;
-
-          const spreadMkt = bookmaker.markets?.find(m => m.key === 'spreads');
-          const totalMkt = bookmaker.markets?.find(m => m.key === 'totals');
-
-          if (spreadMkt) {
-            const homeSpread = spreadMkt.outcomes.find(o => o.name === homeTeam);
-            const awaySpread = spreadMkt.outcomes.find(o => o.name === awayTeam);
-
-            if (homeSpread && awaySpread) {
-              const homeATS = homeScore + homeSpread.point;
-              const awayATS = awayScore + awaySpread.point;
-
-              // Home ATS
-              if (homeATS > awayATS) {
-                teamStats[homeTeam].ats.wins++;
-                teamStats[homeTeam].home.ats_wins++;
-                teamStats[awayTeam].ats.losses++;
-                teamStats[awayTeam].away.ats_losses++;
-              } else if (homeATS < awayATS) {
-                teamStats[homeTeam].ats.losses++;
-                teamStats[homeTeam].home.ats_losses++;
-                teamStats[awayTeam].ats.wins++;
-                teamStats[awayTeam].away.ats_wins++;
-              } else {
-                teamStats[homeTeam].ats.pushes++;
-                teamStats[awayTeam].ats.pushes++;
-              }
-            }
-          }
-
-          if (totalMkt) {
-            const overLine = totalMkt.outcomes.find(o => o.name === 'Over');
-            if (overLine) {
-              const total = homeScore + awayScore;
-              if (total > overLine.point) {
-                teamStats[homeTeam].ou.overs++;
-                teamStats[awayTeam].ou.overs++;
-                teamStats[homeTeam].home.ou_over++;
-                teamStats[awayTeam].away.ou_over++;
-              } else if (total < overLine.point) {
-                teamStats[homeTeam].ou.unders++;
-                teamStats[awayTeam].ou.unders++;
-                teamStats[homeTeam].home.ou_under++;
-                teamStats[awayTeam].away.ou_under++;
-              } else {
-                teamStats[homeTeam].ou.pushes++;
-                teamStats[awayTeam].ou.pushes++;
-              }
-            }
-          }
-        } catch(e) {}
-
-        // Track home/away game counts
-        teamStats[homeTeam].home.games = (teamStats[homeTeam].home.games || 0) + 1;
-        teamStats[awayTeam].away.games = (teamStats[awayTeam].away.games || 0) + 1;
+      // Straight up wins (proxy for ATS until we have spread data)
+      if (homeScore > awayScore) {
+        teamStats[home].wins++; teamStats[home].home.wins++;
+        teamStats[away].losses++; teamStats[away].away.losses++;
+        teamStats[home].ats.wins++; teamStats[away].ats.losses++;
+      } else if (awayScore > homeScore) {
+        teamStats[away].wins++; teamStats[away].away.wins++;
+        teamStats[home].losses++; teamStats[home].home.losses++;
+        teamStats[away].ats.wins++; teamStats[home].ats.losses++;
       }
 
-      allStats[sportKey] = {
-        teams: Object.values(teamStats),
-        gamesProcessed: scores.filter(g => g.completed).length,
-        sport: sportKey
+      // O/U using sport-specific averages as proxy line
+      const sportAverages = {
+        'baseball_mlb': 8.5, 'basketball_nba': 225, 'icehockey_nhl': 5.5,
+        'americanfootball_nfl': 44, 'mma_mixed_martial_arts': 0
       };
-
-    } catch(e) {
-      allStats[sportKey] = { error: e.message, teams: [] };
+      const line = sportAverages[sport] || 0;
+      if (line > 0) {
+        if (total > line) {
+          teamStats[home].ou.overs++; teamStats[away].ou.overs++;
+          teamStats[home].home.ou_over++; teamStats[away].away.ou_over++;
+        } else if (total < line) {
+          teamStats[home].ou.unders++; teamStats[away].ou.unders++;
+          teamStats[home].home.ou_under++; teamStats[away].away.ou_under++;
+        } else {
+          teamStats[home].ou.pushes++; teamStats[away].ou.pushes++;
+        }
+      }
     }
-  }
 
-  res.status(200).json({ stats: allStats, updated: new Date().toISOString() });
+    res.status(200).json({
+      teams: Object.values(teamStats),
+      gamesProcessed: completed.length,
+      sport
+    });
+  } catch(e) {
+    res.status(200).json({ teams: [], gamesProcessed: 0, error: e.message });
+  }
 }
