@@ -26,7 +26,7 @@
   .tab-btn.active{background:rgba(255,255,255,0.08);color:#fff}
   .tab-btn:not(:last-child){border-right:1px solid rgba(255,255,255,0.08)}
   .err-msg{color:#ff6b6b;font-size:11px;margin-bottom:12px;font-family:'Space Mono',monospace}
-  .status-bar{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:12px;display:flex;justify-content:space-between}
+  .status-bar{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
   .filters{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:7px 12px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .filter-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
@@ -48,10 +48,11 @@
   .odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
   .pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
   .neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
+  /* Sharp cards */
   .sharp-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
   .sharp-card.rank-1{border-color:rgba(255,200,50,0.3);background:rgba(255,200,50,0.03)}
-  .sharp-card.rank-2{border-color:rgba(200,200,200,0.2);background:rgba(200,200,200,0.02)}
-  .sharp-card.rank-3{border-color:rgba(180,120,60,0.2);background:rgba(180,120,60,0.02)}
+  .sharp-card.rank-2{border-color:rgba(200,200,200,0.2)}
+  .sharp-card.rank-3{border-color:rgba(180,120,60,0.2)}
   .sharp-rank{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#333;min-width:32px}
   .sharp-rank.r1{color:#ffc832}.sharp-rank.r2{color:#aaa}.sharp-rank.r3{color:#cd7f32}
   .sharp-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -67,17 +68,18 @@
   .pill-pin{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.25)}
   .pill-pub{background:rgba(255,255,255,0.05);color:#666;border:1px solid rgba(255,255,255,0.08)}
   .pill-diff{background:rgba(78,204,163,0.1);color:#4ecca3;border:1px solid rgba(78,204,163,0.2);font-weight:700}
-  .sharp-type{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;letter-spacing:0.5px}
+  .sharp-type{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
   .type-ml{background:rgba(100,100,255,0.1);color:#8888ff;border:1px solid rgba(100,100,255,0.2)}
   .type-ou{background:rgba(255,150,50,0.1);color:#ff9632;border:1px solid rgba(255,150,50,0.2)}
+  /* Sharp expand */
   .sharp-bar{margin-top:6px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px}
-  .sharp-section-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+  .sharp-section-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px}
   .sharp-divider{height:1px;background:rgba(255,255,255,0.05);margin:8px 0}
   .sharp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   .sharp-row:last-child{margin-bottom:0}
   .sharp-team{font-size:11px;color:#888;font-family:'Barlow Condensed',sans-serif;font-weight:600}
   .sharp-pills{display:flex;gap:6px;align-items:center}
-  .sharp-signal{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;letter-spacing:0.5px}
+  .sharp-signal{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
   .signal-sharp{background:rgba(78,204,163,0.15);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
   .signal-public{background:rgba(255,107,107,0.1);color:#ff6b6b;border:1px solid rgba(255,107,107,0.2)}
   .signal-none{background:rgba(255,255,255,0.04);color:#555;border:1px solid rgba(255,255,255,0.06)}
@@ -89,30 +91,49 @@
   .mkt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
   .mkt-label{font-size:11px;color:#777}
   .expand-hint{text-align:center;margin-top:8px;color:#333;font-size:10px;font-family:'Space Mono',monospace}
-
-  /* Picks tab */
-  .picks-grid{animation:fadeIn 0.3s ease}
-  .pick-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px}
-  .pick-card.five-star{border-color:rgba(255,200,50,0.35);background:rgba(255,200,50,0.04)}
-  .pick-card.four-star{border-color:rgba(78,204,163,0.25);background:rgba(78,204,163,0.03)}
-  .pick-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-  .pick-expert{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
-  .pick-source{font-family:'Space Mono',monospace;font-size:9px;color:#555;margin-top:2px}
-  .pick-stars{font-size:14px;letter-spacing:1px}
-  .pick-sport-tag{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.06);color:#666;border:1px solid rgba(255,255,255,0.08)}
-  .pick-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3}
-  .pick-detail{font-size:11px;color:#666;line-height:1.5}
-  .picks-loading{text-align:center;padding:40px 20px;color:#555;font-family:'Space Mono',monospace;font-size:11px}
-  .picks-error{text-align:center;padding:30px 20px;color:#ff6b6b;font-family:'Space Mono',monospace;font-size:11px}
-  .picks-empty{text-align:center;padding:40px 20px;color:#444}
-  .picks-updated{font-family:'Space Mono',monospace;font-size:9px;color:#333;text-align:right;margin-bottom:12px}
-
+  /* Picks */
+  .pick-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
+  .pick-card.five-star{border-color:rgba(255,200,50,0.35);background:rgba(255,200,50,0.03)}
+  .pick-card.four-star{border-color:rgba(78,204,163,0.2)}
+  .pick-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+  .pick-expert-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
+  .pick-source-tag{font-family:'Space Mono',monospace;font-size:9px;color:#555;margin-top:2px}
+  .pick-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .pick-stars{font-size:13px}
+  .pick-sport-chip{font-family:'Space Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:#666;border:1px solid rgba(255,255,255,0.08)}
+  .pick-bet-box{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+  .pick-bet-type{font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;margin-bottom:4px}
+  .pick-bet-value{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff;line-height:1.2}
+  .pick-full-title{font-size:12px;color:#666;margin-top:4px;line-height:1.4}
+  .pick-detail{font-size:11px;color:#555;line-height:1.5;margin-top:6px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px}
+  .ev-badge{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
+  .ev-high{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.25)}
+  .ev-med{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.2)}
+  /* Model picks */
+  .model-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
+  .model-card.top{border-color:rgba(200,16,46,0.4);background:rgba(200,16,46,0.04)}
+  .model-rank{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#333;min-width:28px}
+  .model-rank.m1{color:#c8102e}.model-rank.m2{color:#ff6b6b}.model-rank.m3{color:#ff9999}
+  .model-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .model-info{flex:1}
+  .model-game{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
+  .model-time{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:2px}
+  .model-bet-box{background:rgba(200,16,46,0.08);border:1px solid rgba(200,16,46,0.2);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+  .model-bet-label{font-family:'Space Mono',monospace;font-size:9px;color:#c8102e;letter-spacing:1px;margin-bottom:4px}
+  .model-bet-value{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff}
+  .model-bet-sub{font-family:'Space Mono',monospace;font-size:10px;color:#666;margin-top:3px}
+  .model-scores{display:flex;gap:6px;flex-wrap:wrap}
+  .score-pill{font-family:'Space Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px}
+  .score-sharp{background:rgba(78,204,163,0.1);color:#4ecca3;border:1px solid rgba(78,204,163,0.2)}
+  .score-value{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.2)}
+  .score-total{background:rgba(200,16,46,0.1);color:#ff6b6b;border:1px solid rgba(200,16,46,0.2);font-weight:700}
   .loading-state{text-align:center;padding:50px 20px;color:#555}
   .spin-icon{font-size:32px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:14px}
   .loading-text{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:2px}
   .loading-sub{font-size:10px;color:#444;margin-top:6px;font-family:'Space Mono',monospace}
+  .no-sharp{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:#444;text-align:center;padding:30px 20px;line-height:1.6}
+  .picks-updated{font-family:'Space Mono',monospace;font-size:9px;color:#333;text-align:right;margin-bottom:10px}
   .footer{margin-top:36px;text-align:center;font-size:10px;color:#222;font-family:'Space Mono',monospace;padding-bottom:32px;line-height:1.8}
-  .no-sharp{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:#444;text-align:center;padding:30px 20px}
 </style>
 </head>
 <body>
@@ -134,23 +155,33 @@
   <div class="tab-bar">
     <button class="tab-btn active" id="tabGames" onclick="switchTab('games')">🎮 GAMES</button>
     <button class="tab-btn" id="tabSharp" onclick="switchTab('sharp')">⚡ SHARP</button>
+    <button class="tab-btn" id="tabModel" onclick="switchTab('model')">🏆 MODEL</button>
     <button class="tab-btn" id="tabPicks" onclick="switchTab('picks')">🎯 PICKS</button>
   </div>
+
   <div id="tabGamesContent">
     <div class="status-bar"><span id="sLeft">--</span><span id="sRight"></span></div>
     <div class="filters" id="filters"></div>
     <div class="count" id="count"></div>
     <div id="content"></div>
   </div>
+
   <div id="tabSharpContent" style="display:none">
     <div class="status-bar"><span>RANKED BY PINNACLE VS PUBLIC DISCREPANCY</span></div>
     <div id="sharpContent"></div>
   </div>
+
+  <div id="tabModelContent" style="display:none">
+    <div class="status-bar"><span>BPR MODEL TOP PICKS · SHARP + VALUE SCORE</span></div>
+    <div id="modelContent"></div>
+  </div>
+
   <div id="tabPicksContent" style="display:none">
     <div class="picks-updated" id="picksUpdated"></div>
-    <div id="picksContent"><div class="picks-loading">Loading picks...</div></div>
+    <div id="picksContent"><div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">LOADING PICKS</div></div></div>
   </div>
-  <div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle vs Public · Picks: Covers / Doc's<br>Verify all lines before wagering</div>
+
+  <div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle · Picks: Covers/Doc's/Pregame/SCP<br>Verify all lines before wagering</div>
 </div>
 <script>
 var BASE=window.location.origin,WEEK=7*24*3600*1000;
@@ -171,45 +202,143 @@ function fmtTime(t){
   if(diff<10800000){var m=Math.floor(diff/60000),h=Math.floor(m/60);return h>0?h+'h '+(m%60)+'m':m+'m';}
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
-function stars(n){var s='';for(var i=0;i<n;i++)s+='⭐';return s;}
+function starsHtml(n){var s='';for(var i=0;i<Math.min(n,5);i++)s+='⭐';return s;}
 
 function switchTab(tab){
   currentTab=tab;
-  ['games','sharp','picks'].forEach(function(t){
+  var tabs=['games','sharp','model','picks'];
+  tabs.forEach(function(t){
     document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).className='tab-btn'+(tab===t?' active':'');
     document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)+'Content').style.display=tab===t?'block':'none';
   });
 }
 
-function getBookOdds(bks,teamName,keys){
-  for(var i=0;i<bks.length;i++){
-    if(keys.indexOf(bks[i].key)>=0){
-      for(var j=0;j<(bks[i].markets||[]).length;j++){
-        if(bks[i].markets[j].key==='h2h'){
-          for(var k=0;k<bks[i].markets[j].outcomes.length;k++){
-            if(bks[i].markets[j].outcomes[k].name===teamName)
-              return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price};
-          }
-        }
-      }
-    }
-  }
-  return null;
+function getBookOdds(bks,name,keys){
+  for(var i=0;i<bks.length;i++){if(keys.indexOf(bks[i].key)>=0){for(var j=0;j<(bks[i].markets||[]).length;j++){if(bks[i].markets[j].key==='h2h'){for(var k=0;k<bks[i].markets[j].outcomes.length;k++){if(bks[i].markets[j].outcomes[k].name===name)return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price};}}}}
+  }return null;
 }
 function getBookTotal(bks,side,keys){
-  for(var i=0;i<bks.length;i++){
-    if(keys.indexOf(bks[i].key)>=0){
-      for(var j=0;j<(bks[i].markets||[]).length;j++){
-        if(bks[i].markets[j].key==='totals'){
-          for(var k=0;k<bks[i].markets[j].outcomes.length;k++){
-            if(bks[i].markets[j].outcomes[k].name===side)
-              return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price,point:bks[i].markets[j].outcomes[k].point};
-          }
-        }
+  for(var i=0;i<bks.length;i++){if(keys.indexOf(bks[i].key)>=0){for(var j=0;j<(bks[i].markets||[]).length;j++){if(bks[i].markets[j].key==='totals'){for(var k=0;k<bks[i].markets[j].outcomes.length;k++){if(bks[i].markets[j].outcomes[k].name===side)return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price,point:bks[i].markets[j].outcomes[k].point};}}}}
+  }return null;
+}
+function getBookSpread(bks,name,keys){
+  for(var i=0;i<bks.length;i++){if(keys.indexOf(bks[i].key)>=0){for(var j=0;j<(bks[i].markets||[]).length;j++){if(bks[i].markets[j].key==='spreads'){for(var k=0;k<bks[i].markets[j].outcomes.length;k++){if(bks[i].markets[j].outcomes[k].name===name)return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price,point:bks[i].markets[j].outcomes[k].point};}}}}
+  }return null;
+}
+
+// Convert american odds to implied probability
+function impliedProb(odds){
+  if(odds>0)return 100/(odds+100);
+  return Math.abs(odds)/(Math.abs(odds)+100);
+}
+
+// Calculate EV: pinnacleFairOdds vs publicOdds
+function calcEV(pinOdds,pubOdds){
+  if(!pinOdds||!pubOdds)return 0;
+  var pinProb=impliedProb(pinOdds);
+  // Pinnacle has ~2% vig, so fair prob = pinProb * 1.02 (rough)
+  var fairProb=Math.min(pinProb*1.02,0.99);
+  // EV = fairProb * (pubOdds/100) - (1-fairProb) if pubOdds > 0
+  var decimalOdds=pubOdds>0?(pubOdds/100)+1:(100/Math.abs(pubOdds))+1;
+  var ev=(fairProb*decimalOdds)-1;
+  return Math.round(ev*1000)/10; // as percentage
+}
+
+// ── MODEL PICKS ──────────────────────────────────────────────────────────────
+function buildModelPicks(){
+  var candidates=[];
+  for(var i=0;i<allGames.length;i++){
+    var game=allGames[i],bks=game.bookmakers||[];
+    var teams=[game.away_team,game.home_team];
+    for(var t=0;t<teams.length;t++){
+      var team=teams[t];
+      var pin=getBookOdds(bks,team,SHARP_BOOKS);
+      var pub=getBookOdds(bks,team,PUBLIC_BOOKS);
+      if(!pin||!pub)continue;
+      var sharpDiff=pub.odds-pin.odds; // positive = pin shorter = sharp on this side
+      var ev=calcEV(pin.odds,pub.odds);
+      var score=sharpDiff*0.5+ev*2; // weighted score
+      if(score>5||ev>1){
+        candidates.push({
+          game:game,bet:team,betType:'ML',
+          pinOdds:pin.odds,pubOdds:pub.odds,
+          sharpScore:sharpDiff,ev:ev,score:score,
+          label:team+' ML',pubBook:pub.book
+        });
+      }
+    }
+    // Check totals
+    var sides=['Over','Under'];
+    for(var s=0;s<sides.length;s++){
+      var side=sides[s];
+      var pin2=getBookTotal(bks,side,SHARP_BOOKS);
+      var pub2=getBookTotal(bks,side,PUBLIC_BOOKS);
+      if(!pin2||!pub2)continue;
+      var sd=pub2.odds-pin2.odds;
+      var ev2=calcEV(pin2.odds,pub2.odds);
+      var score2=sd*0.5+ev2*2;
+      if(score2>5||ev2>1){
+        candidates.push({
+          game:game,bet:side+' '+(pub2.point||''),betType:'O/U',
+          pinOdds:pin2.odds,pubOdds:pub2.odds,
+          sharpScore:sd,ev:ev2,score:score2,
+          label:side+' '+(pub2.point||''),pubBook:pub2.book
+        });
       }
     }
   }
-  return null;
+  // Sort by score desc
+  candidates.sort(function(a,b){return b.score-a.score;});
+  return candidates;
+}
+
+function renderModelTab(){
+  var picks=buildModelPicks();
+  if(!picks.length){
+    document.getElementById('modelContent').innerHTML='<div class="no-sharp">No high-value model picks found right now.<br><br>Model picks appear when Pinnacle\'s line shows positive expected value vs public books.</div>';
+    return;
+  }
+  // Group by date
+  var byDate={},dateOrder=[];
+  for(var i=0;i<picks.length;i++){
+    var label=new Date(picks[i].game.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}
+    byDate[label].push(picks[i]);
+  }
+  var html='<div class="games">';
+  for(var d=0;d<dateOrder.length;d++){
+    html+='<div class="section-label">'+dateOrder[d]+'</div>';
+    var dayPicks=byDate[dateOrder[d]];
+    for(var i=0;i<dayPicks.length;i++){
+      var p=dayPicks[i],g=p.game,rank=i+1;
+      var isTop=rank<=3;
+      var rc=rank===1?'top':'';
+      var rnc=rank===1?'m1':rank===2?'m2':rank===3?'m3':'';
+      var evClass=p.ev>3?'ev-high':'ev-med';
+      html+='<div class="model-card '+rc+'">'
+        +'<div class="model-header">'
+        +'<div class="model-rank '+rnc+'">#'+rank+'</div>'
+        +'<div class="model-info">'
+        +'<div class="model-game">'+g.away_team.split(' ').slice(-1)[0]+' @ '+g.home_team.split(' ').slice(-1)[0]+'</div>'
+        +'<div class="model-time">'+si(g.sport_key)+' '+g.sport_title+' · '+fmtTime(g.commence_time)+'</div>'
+        +'</div>'
+        +'<span class="ev-badge '+evClass+'">+EV '+p.ev+'%</span>'
+        +'</div>'
+        +'<div class="model-bet-box">'
+        +'<div class="model-bet-label">🏆 MODEL PICK · '+p.betType+'</div>'
+        +'<div class="model-bet-value">'+p.label+'</div>'
+        +'<div class="model-bet-sub">'+p.pubBook.split(' ')[0].toUpperCase()+' '+fmt(p.pubOdds)+' · Pinnacle fair: '+fmt(p.pinOdds)+'</div>'
+        +'</div>'
+        +'<div class="model-scores">'
+        +'<span class="score-pill score-sharp">SHARP: '+(p.sharpScore>0?'+':'')+Math.round(p.sharpScore)+'</span>'
+        +'<span class="score-pill score-value">EV: +'+p.ev+'%</span>'
+        +'<span class="score-pill score-total">SCORE: '+Math.round(p.score)+'</span>'
+        +'</div>'
+        +'</div>';
+    }
+  }
+  html+='</div>';
+  document.getElementById('modelContent').innerHTML=html;
 }
 
 function extractSharpSignals(game){
@@ -221,7 +350,7 @@ function extractSharpSignals(game){
   }
   var pinOv=getBookTotal(bks,'Over',SHARP_BOOKS),pubOv=getBookTotal(bks,'Over',PUBLIC_BOOKS);
   var pinUn=getBookTotal(bks,'Under',SHARP_BOOKS),pubUn=getBookTotal(bks,'Under',PUBLIC_BOOKS);
-  if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var ld=Math.abs(pinOv.point-pubOv.point);if(ld>=0.5){var side=pinOv.point>pubOv.point?'Over':'Under';signals.push({score:ld*20,game:game,type:'ou',label:side+' '+pubOv.point,pinLine:pinOv.point,pubLine:pubOv.point,pinOdds:pinOv.odds,pubOdds:pubOv.odds,pubBook:pubOv.book,diff:ld});}}
+  if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var ld=Math.abs(pinOv.point-pubOv.point);if(ld>=0.5){var side2=pinOv.point>pubOv.point?'Over':'Under';signals.push({score:ld*20,game:game,type:'ou',label:side2+' '+pubOv.point,pinLine:pinOv.point,pubLine:pubOv.point,pinOdds:pinOv.odds,pubOdds:pubOv.odds,pubBook:pubOv.book,diff:ld});}}
   if(pinOv&&pubOv){var od=pubOv.odds-pinOv.odds;if(od>=8)signals.push({score:od,game:game,type:'ou',label:'Over '+(pubOv.point||''),pinOdds:pinOv.odds,pubOdds:pubOv.odds,pubBook:pubOv.book,diff:od});}
   if(pinUn&&pubUn){var ud=pubUn.odds-pinUn.odds;if(ud>=8)signals.push({score:ud,game:game,type:'ou',label:'Under '+(pubUn.point||''),pinOdds:pinUn.odds,pubOdds:pubUn.odds,pubBook:pubUn.book,diff:ud});}
   return signals;
@@ -230,7 +359,7 @@ function extractSharpSignals(game){
 function renderSharpTab(){
   var all=[];
   for(var i=0;i<allGames.length;i++){var s=extractSharpSignals(allGames[i]);for(var j=0;j<s.length;j++)all.push(s[j]);}
-  if(!all.length){document.getElementById('sharpContent').innerHTML='<div class="no-sharp">No sharp signals detected right now.<br><br>Signals appear when Pinnacle line differs significantly from public books.</div>';return;}
+  if(!all.length){document.getElementById('sharpContent').innerHTML='<div class="no-sharp">No sharp signals detected right now.</div>';return;}
   var byDate={},dateOrder=[];
   for(var i=0;i<all.length;i++){
     var label=new Date(all[i].game.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
@@ -256,41 +385,36 @@ function renderSharpTab(){
 }
 
 async function loadPicks(){
-  document.getElementById('picksContent').innerHTML='<div class="picks-loading">⚙️ Loading expert picks...</div>';
   try{
     var resp=await fetch(BASE+'/api/picks');
     var data=await resp.json();
     var picks=data.picks||[];
     if(data.updated)document.getElementById('picksUpdated').textContent='Updated: '+new Date(data.updated).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    if(!picks.length){
-      document.getElementById('picksContent').innerHTML='<div class="picks-empty"><div style="font-size:32px;margin-bottom:12px">🎯</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;color:#444">No high-confidence picks found right now.<br>Check back closer to game time.</div></div>';
-      return;
-    }
-    // Sort by confidence desc
-    picks.sort(function(a,b){return(b.confidence||0)-(a.confidence||0);});
-    var html='<div class="picks-grid">';
+    if(!picks.length){document.getElementById('picksContent').innerHTML='<div class="no-sharp">No high-confidence picks found right now.</div>';return;}
+    picks.sort(function(a,b){if(b.confidence!==a.confidence)return b.confidence-a.confidence;if(a.ev==='HIGH'&&b.ev!=='HIGH')return-1;if(b.ev==='HIGH'&&a.ev!=='HIGH')return 1;return 0;});
+    var html='<div class="games">';
     for(var i=0;i<picks.length;i++){
       var p=picks[i];
-      var conf=p.confidence||3;
-      var isFive=conf>=5;
-      var isFour=conf>=4&&conf<5;
-      var cardClass=isFive?'pick-card five-star':isFour?'pick-card four-star':'pick-card';
-      var starsHtml=stars(Math.min(conf,5));
-      html+='<div class="'+cardClass+'">'
-        +'<div class="pick-header">'
-        +'<div><div class="pick-expert">'+(p.expert||p.source||'Expert')+'</div><div class="pick-source">'+(p.source||'')+'</div></div>'
-        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
-        +'<div class="pick-stars">'+starsHtml+'</div>'
-        +(p.sport?'<span class="pick-sport-tag">'+p.sport+'</span>':'')
-        +'</div></div>'
-        +'<div class="pick-title">'+(p.pick||p.title||'Pick unavailable')+'</div>'
-        +(p.detail?'<div class="pick-detail">'+p.detail+'</div>':'')
+      var isFive=p.confidence>=5,isFour=p.confidence>=4;
+      var cc=isFive?'pick-card five-star':isFour?'pick-card four-star':'pick-card';
+      var evBadge=p.ev==='HIGH'?'<span class="ev-badge ev-high">HIGH EV</span>':'<span class="ev-badge ev-med">MED EV</span>';
+      html+='<div class="'+cc+'">'
+        +'<div class="pick-top">'
+        +'<div><div class="pick-expert-name">'+p.expert+'</div><div class="pick-source-tag">'+p.source+'</div></div>'
+        +'<div class="pick-right"><div class="pick-stars">'+starsHtml(p.confidence)+'</div>'+(p.sport?'<span class="pick-sport-chip">'+p.sport+'</span>':'')+evBadge+'</div>'
+        +'</div>'
+        +'<div class="pick-bet-box">'
+        +'<div class="pick-bet-type">'+p.betType+' · THE PICK</div>'
+        +'<div class="pick-bet-value">'+p.bet+'</div>'
+        +(p.pick&&p.pick!==p.bet?'<div class="pick-full-title">'+p.pick+'</div>':'')
+        +'</div>'
+        +(p.detail&&p.detail.length>10?'<div class="pick-detail">'+p.detail+'</div>':'')
         +'</div>';
     }
     html+='</div>';
     document.getElementById('picksContent').innerHTML=html;
   }catch(e){
-    document.getElementById('picksContent').innerHTML='<div class="picks-error">Failed to load picks: '+e.message+'</div>';
+    document.getElementById('picksContent').innerHTML='<div class="no-sharp">Failed to load picks: '+e.message+'</div>';
   }
 }
 
@@ -312,7 +436,7 @@ function renderSharpMoney(game){
     html+='<div class="sharp-section-title">O/U SHARP</div>';
     if(pinOv&&pubOv){var od=pubOv.odds-pinOv.odds,os=od>=8?'<span class="sharp-signal signal-sharp">⚡</span>':od<=-8?'<span class="sharp-signal signal-public">👥</span>':'';html+='<div class="sharp-row"><span class="sharp-team">Over '+(pubOv.point||'')+'</span><div class="sharp-pills"><span class="sharp-pill pill-pin">PIN '+fmt(pinOv.odds)+'</span><span class="sharp-pill pill-pub">'+pubOv.book.split(' ')[0].toUpperCase()+' '+fmt(pubOv.odds)+'</span>'+os+'</div></div>';}
     if(pinUn&&pubUn){var ud=pubUn.odds-pinUn.odds,us=ud>=8?'<span class="sharp-signal signal-sharp">⚡</span>':ud<=-8?'<span class="sharp-signal signal-public">👥</span>':'';html+='<div class="sharp-row"><span class="sharp-team">Under '+(pubUn.point||'')+'</span><div class="sharp-pills"><span class="sharp-pill pill-pin">PIN '+fmt(pinUn.odds)+'</span><span class="sharp-pill pill-pub">'+pubUn.book.split(' ')[0].toUpperCase()+' '+fmt(pubUn.odds)+'</span>'+us+'</div></div>';}
-    if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var lside=pinOv.point>pubOv.point?'⚡ SHARP OVER':'⚡ SHARP UNDER';html+='<div class="sharp-row" style="margin-top:4px"><span class="sharp-team" style="color:#666">LINE</span><div class="sharp-pills"><span class="sharp-pill pill-pub">PUB '+pubOv.point+'</span><span class="sharp-pill pill-pin">PIN '+pinOv.point+'</span><span class="sharp-signal signal-sharp">'+lside+'</span></div></div>';}
+    if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var ls=pinOv.point>pubOv.point?'⚡ SHARP OVER':'⚡ SHARP UNDER';html+='<div class="sharp-row" style="margin-top:4px"><span class="sharp-team" style="color:#666">LINE</span><div class="sharp-pills"><span class="sharp-pill pill-pub">PUB '+pubOv.point+'</span><span class="sharp-pill pill-pin">PIN '+pinOv.point+'</span><span class="sharp-signal signal-sharp">'+ls+'</span></div></div>';}
   }
   html+='<div class="sharp-legend"><div class="legend-item">📌 PIN = Pinnacle</div><div class="legend-item">⚡ Sharp | 👥 Public</div></div></div>';
   return html;
@@ -382,21 +506,16 @@ async function loadAll(){
   document.getElementById('hBadge').innerHTML='';
   document.getElementById('errMsg').style.display='none';
   document.getElementById('content').innerHTML='<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports...</div></div>';
-  // Load picks in parallel
   loadPicks();
   try{
-    var sportsResp=await fetch(BASE+'/api/sports');
-    var sports=await sportsResp.json();
+    var sr=await fetch(BASE+'/api/sports');
+    var sports=await sr.json();
     if(!Array.isArray(sports))throw new Error(sports.message||sports.error||'API error');
     var now=Date.now(),results=[];
     for(var i=0;i<sports.length;i++){
       var sport=sports[i];
       var sub=document.getElementById('loadSub');if(sub)sub.textContent='Fetching '+sport.title+'...';
-      try{
-        var resp=await fetch(BASE+'/api/odds?sport='+sport.key);
-        var data=await resp.json();
-        if(Array.isArray(data)){for(var j=0;j<data.length;j++){var t=new Date(data[j].commence_time).getTime();if(t>=now-7200000&&t<=now+WEEK)results.push(data[j]);}}
-      }catch(e){}
+      try{var resp=await fetch(BASE+'/api/odds?sport='+sport.key);var data=await resp.json();if(Array.isArray(data)){for(var j=0;j<data.length;j++){var t=new Date(data[j].commence_time).getTime();if(t>=now-7200000&&t<=now+WEEK)results.push(data[j]);}}}catch(e){}
     }
     results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
     allGames=results;
@@ -408,8 +527,8 @@ async function loadAll(){
       document.getElementById('hBadge').innerHTML='<span class="badge-live">LIVE</span>';
       document.getElementById('hSub').textContent='UPDATED '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       document.getElementById('sLeft').textContent=results.length+' GAMES · '+Object.keys(sCount).length+' SPORTS';
-      document.getElementById('sRight').textContent='ODDS + SHARP';
-      renderFilters();renderGames();renderSharpTab();
+      document.getElementById('sRight').textContent='ODDS + SHARP + MODEL';
+      renderFilters();renderGames();renderSharpTab();renderModelTab();
     }
   }catch(e){
     document.getElementById('errMsg').textContent='Error: '+e.message;
