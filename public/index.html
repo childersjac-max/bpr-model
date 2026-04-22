@@ -593,7 +593,7 @@ loadPicks();
 initStatsSportSelector();
 try{
 var sr=await fetch(BASE+’/api/sports’);var sports=await sr.json();
-if(!Array.isArray(sports))throw new Error(sports.message||sports.error||‘API error’);
+if(!Array.isArray(sports))throw new Error(‘Sports API: ‘+(sports.message||sports.error||JSON.stringify(sports).slice(0,100)));
 var now=Date.now(),results=[];
 var sub=document.getElementById(‘loadSub’);if(sub)sub.textContent=‘Fetching all sports…’;
 var fetches=sports.map(function(sport){
@@ -620,7 +620,7 @@ renderFilters();renderGames();renderSharpTab();renderModelTab();
 document.getElementById(‘errMsg’).textContent=‘Error: ‘+e.message;
 document.getElementById(‘errMsg’).style.display=‘block’;
 document.getElementById(‘hSub’).textContent=‘ERROR’;
-document.getElementById(‘content’).innerHTML=’’;
+document.getElementById(‘content’).innerHTML=’<div style="padding:20px;font-family:Space Mono,monospace;font-size:11px;color:#ff6b6b;line-height:1.6">’+e.message+’</div>’;
 }finally{btn.classList.remove(‘spinning’);}
 }
 loadAll();
