@@ -289,50 +289,67 @@ function renderSharpTab(){
     var sigs=extractSharpSignals(allGames[i]);
     for(var j=0;j<sigs.length;j++) allSignals.push(sigs[j]);
   }
-  allSignals.sort(function(a,b){return b.score-a.score;});
 
   if(!allSignals.length){
     document.getElementById('sharpContent').innerHTML='<div class="no-sharp">No sharp signals detected right now.<br><br>Sharp signals appear when Pinnacle\'s line differs significantly from public books.</div>';
     return;
   }
 
-  var html='<div class="games">';
+  // Group by date, sort each day by score descending
+  var byDate={}, dateOrder=[];
   for(var i=0;i<allSignals.length;i++){
-    var s=allSignals[i], g=s.game;
-    var rank=i+1;
-    var rankClass=rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'';
-    var rankNumClass=rank===1?'r1':rank===2?'r2':rank===3?'r3':'';
-    var typeTag=s.type==='ml'
-      ?'<span class="sharp-type type-ml">MONEYLINE</span>'
-      :'<span class="sharp-type type-ou">OVER/UNDER</span>';
-    var diffDisplay=s.type==='ou'&&s.pinLine
-      ?'LINE: '+s.pubLine+' → '+s.pinLine
-      :'DIFF: '+fmt(Math.round(s.diff))+' pts';
+    var s=allSignals[i];
+    var label=new Date(s.game.commence_time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}
+    byDate[label].push(s);
+  }
+  // Sort each day's signals by score
+  for(var d=0;d<dateOrder.length;d++){
+    byDate[dateOrder[d]].sort(function(a,b){return b.score-a.score;});
+  }
 
-    html+='<div class="sharp-card '+rankClass+'">'
-      +'<div class="sharp-header">'
-      +'<div class="sharp-rank '+rankNumClass+'">#'+rank+'</div>'
-      +'<div class="sharp-info">'
-      +'<div class="sharp-matchup">'+g.away_team.split(' ').slice(-1)[0]+' vs '+g.home_team.split(' ').slice(-1)[0]+'</div>'
-      +'<div class="sharp-meta">'+si(g.sport_key)+' '+g.sport_title+' · '+fmtTime(g.commence_time)+'</div>'
-      +'</div>'
-      +typeTag
-      +'</div>'
-      +'<div class="sharp-bet-box">'
-      +'<div class="sharp-bet-label">⚡ SHARP SIDE</div>'
-      +'<div class="sharp-bet-value">'+s.label+'</div>'
-      +'<div class="sharp-bet-detail">'+g.away_team+' @ '+g.home_team+'</div>'
-      +'</div>'
-      +'<div class="sharp-diff">'
-      +'<span class="sharp-pill pill-pin">PIN '+fmt(s.pinOdds)+'</span>'
-      +'<span class="sharp-pill pill-pub">'+(s.pubBook?s.pubBook.split(' ')[0].toUpperCase():'PUB')+' '+fmt(s.pubOdds)+'</span>'
-      +'<span class="sharp-pill pill-diff">'+diffDisplay+'</span>'
-      +'</div>'
-      +'</div>';
+  var html='<div class="games">';
+  for(var d=0;d<dateOrder.length;d++){
+    var dateLabel=dateOrder[d];
+    var signals=byDate[dateLabel];
+    html+='<div class="section-label">'+dateLabel+'</div>';
+    for(var i=0;i<signals.length;i++){
+      var s=signals[i], g=s.game;
+      var rank=i+1;
+      var rankClass=rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'';
+      var rankNumClass=rank===1?'r1':rank===2?'r2':rank===3?'r3':'';
+      var typeTag=s.type==='ml'
+        ?'<span class="sharp-type type-ml">MONEYLINE</span>'
+        :'<span class="sharp-type type-ou">OVER/UNDER</span>';
+      var diffDisplay=s.type==='ou'&&s.pinLine
+        ?'LINE: '+s.pubLine+' → '+s.pinLine
+        :'DIFF: '+fmt(Math.round(s.diff))+' pts';
+      html+='<div class="sharp-card '+rankClass+'">'
+        +'<div class="sharp-header">'
+        +'<div class="sharp-rank '+rankNumClass+'">#'+rank+'</div>'
+        +'<div class="sharp-info">'
+        +'<div class="sharp-matchup">'+g.away_team.split(' ').slice(-1)[0]+' vs '+g.home_team.split(' ').slice(-1)[0]+'</div>'
+        +'<div class="sharp-meta">'+si(g.sport_key)+' '+g.sport_title+' · '+fmtTime(g.commence_time)+'</div>'
+        +'</div>'
+        +typeTag
+        +'</div>'
+        +'<div class="sharp-bet-box">'
+        +'<div class="sharp-bet-label">⚡ SHARP SIDE</div>'
+        +'<div class="sharp-bet-value">'+s.label+'</div>'
+        +'<div class="sharp-bet-detail">'+g.away_team+' @ '+g.home_team+'</div>'
+        +'</div>'
+        +'<div class="sharp-diff">'
+        +'<span class="sharp-pill pill-pin">PIN '+fmt(s.pinOdds)+'</span>'
+        +'<span class="sharp-pill pill-pub">'+(s.pubBook?s.pubBook.split(' ')[0].toUpperCase():'PUB')+' '+fmt(s.pubOdds)+'</span>'
+        +'<span class="sharp-pill pill-diff">'+diffDisplay+'</span>'
+        +'</div>'
+        +'</div>';
+    }
   }
   html+='</div>';
   document.getElementById('sharpContent').innerHTML=html;
 }
+
 
 function renderSharpMoney(game){
   var bks=game.bookmakers||[];
