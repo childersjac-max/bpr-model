@@ -6,601 +6,575 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BPR Model</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700;900&family=Space+Mono:wght@400;700&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0a0a0f;color:#e0e0e0;font-family:'Barlow',sans-serif;min-height:100vh}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .header{background:linear-gradient(135deg,#0d0d1a,#111122);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-  .header-left{display:flex;align-items:center;gap:10px}
-  .header-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#c8102e,#041e42);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-  .header-title{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:900;letter-spacing:1px;color:#fff}
-  .header-sub{font-size:10px;color:#555;letter-spacing:1px;margin-top:1px}
-  .header-right{display:flex;align-items:center;gap:10px}
-  .refresh-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#aaa;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-  .refresh-btn.spinning{animation:spin 1s linear infinite}
-  .badge-live{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(78,204,163,0.1);border:1px solid rgba(78,204,163,0.3);color:#4ecca3}
-  .main{max-width:680px;margin:0 auto;padding:16px 16px}
-  .tab-bar{display:flex;gap:0;margin-bottom:16px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden}
-  .tab-btn{flex:1;background:transparent;border:none;color:#555;padding:10px 2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.3px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:all 0.2s}
-  .tab-btn.active{background:rgba(255,255,255,0.08);color:#fff}
-  .tab-btn:not(:last-child){border-right:1px solid rgba(255,255,255,0.08)}
-  .err-msg{color:#ff6b6b;font-size:11px;margin-bottom:12px;font-family:'Space Mono',monospace}
-  .status-bar{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
-  .filters{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-  .filter-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:7px 12px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-  .filter-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
-  .count{font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-bottom:12px;letter-spacing:1px}
-  .section-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.04)}
-  .games{animation:fadeIn 0.3s ease}
-  .game-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;cursor:pointer;margin-bottom:8px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-  .game-card:active{background:rgba(255,255,255,0.06)}
-  .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .card-top-left{display:flex;align-items:center;gap:7px}
-  .sport-label{font-family:'Space Mono',monospace;font-size:10px;color:#666;letter-spacing:1px;text-transform:uppercase}
-  .live-dot{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;animation:pulse 1.5s infinite}
-  .time-label{font-family:'Space Mono',monospace;font-size:10px;color:#444}
-  .matchup{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:10px}
-  .team-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
-  .team-side{font-size:10px;color:#555;margin-top:1px;margin-bottom:5px}
-  .team-right{text-align:right}
-  .vs{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;color:#222;letter-spacing:2px;text-align:center}
-  .odds-chip{display:inline-block;padding:3px 9px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
-  .pos{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
-  .neg{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)}
-  .sharp-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
-  .sharp-card.rank-1{border-color:rgba(255,200,50,0.3);background:rgba(255,200,50,0.03)}
-  .sharp-card.rank-2{border-color:rgba(200,200,200,0.2)}.sharp-card.rank-3{border-color:rgba(180,120,60,0.2)}
-  .sharp-rank{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#333;min-width:32px}
-  .sharp-rank.r1{color:#ffc832}.sharp-rank.r2{color:#aaa}.sharp-rank.r3{color:#cd7f32}
-  .sharp-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-  .sharp-info{flex:1}
-  .sharp-matchup{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#f0f0f0}
-  .sharp-meta{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:2px}
-  .sharp-bet-box{background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.2);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-  .sharp-bet-label{font-family:'Space Mono',monospace;font-size:9px;color:#4ecca3;letter-spacing:1px;margin-bottom:4px}
-  .sharp-bet-value{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#fff}
-  .sharp-bet-detail{font-family:'Space Mono',monospace;font-size:10px;color:#666;margin-top:2px}
-  .sharp-diff{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .sharp-pill{font-family:'Space Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px}
-  .pill-pin{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.25)}
-  .pill-pub{background:rgba(255,255,255,0.05);color:#666;border:1px solid rgba(255,255,255,0.08)}
-  .pill-diff{background:rgba(78,204,163,0.1);color:#4ecca3;border:1px solid rgba(78,204,163,0.2);font-weight:700}
-  .sharp-type{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
-  .type-ml{background:rgba(100,100,255,0.1);color:#8888ff;border:1px solid rgba(100,100,255,0.2)}
-  .type-ou{background:rgba(255,150,50,0.1);color:#ff9632;border:1px solid rgba(255,150,50,0.2)}
-  .sharp-bar{margin-top:6px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px}
-  .sharp-section-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:8px}
-  .sharp-divider{height:1px;background:rgba(255,255,255,0.05);margin:8px 0}
-  .sharp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-  .sharp-row:last-child{margin-bottom:0}
-  .sharp-team{font-size:11px;color:#888;font-family:'Barlow Condensed',sans-serif;font-weight:600}
-  .sharp-pills{display:flex;gap:6px;align-items:center}
-  .sharp-signal{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
-  .signal-sharp{background:rgba(78,204,163,0.15);color:#4ecca3;border:1px solid rgba(78,204,163,0.3)}
-  .signal-public{background:rgba(255,107,107,0.1);color:#ff6b6b;border:1px solid rgba(255,107,107,0.2)}
-  .signal-none{background:rgba(255,255,255,0.04);color:#555;border:1px solid rgba(255,255,255,0.06)}
-  .sharp-legend{display:flex;gap:10px;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.04)}
-  .legend-item{font-family:'Space Mono',monospace;font-size:9px;color:#444}
-  .expand-area{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .expand-area.one{grid-template-columns:1fr}
-  .mkt-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
-  .mkt-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-  .mkt-label{font-size:11px;color:#777}
-  .expand-hint{text-align:center;margin-top:8px;color:#333;font-size:10px;font-family:'Space Mono',monospace}
-  .pick-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
-  .pick-card.five-star{border-color:rgba(255,200,50,0.35);background:rgba(255,200,50,0.03)}
-  .pick-card.four-star{border-color:rgba(78,204,163,0.2)}
-  .pick-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-  .pick-expert-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
-  .pick-source-tag{font-family:'Space Mono',monospace;font-size:9px;color:#555;margin-top:2px}
-  .pick-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-  .pick-stars{font-size:13px}
-  .pick-sport-chip{font-family:'Space Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:#666;border:1px solid rgba(255,255,255,0.08)}
-  .pick-bet-box{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-  .pick-bet-type{font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;margin-bottom:4px}
-  .pick-bet-value{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff;line-height:1.2}
-  .pick-full-title{font-size:12px;color:#666;margin-top:4px;line-height:1.4}
-  .pick-detail{font-size:11px;color:#555;line-height:1.5;margin-top:6px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px}
-  .ev-badge{font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px}
-  .ev-high{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.25)}
-  .ev-med{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.2)}
-  .model-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;margin-bottom:8px;animation:fadeIn 0.3s ease}
-  .model-card.top{border-color:rgba(200,16,46,0.4);background:rgba(200,16,46,0.04)}
-  .model-rank{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#333;min-width:28px}
-  .model-rank.m1{color:#c8102e}.model-rank.m2{color:#ff6b6b}.model-rank.m3{color:#ff9999}
-  .model-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .model-info{flex:1}
-  .model-game{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
-  .model-time{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:2px}
-  .model-bet-box{background:rgba(200,16,46,0.08);border:1px solid rgba(200,16,46,0.2);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-  .model-bet-label{font-family:'Space Mono',monospace;font-size:9px;color:#c8102e;letter-spacing:1px;margin-bottom:4px}
-  .model-bet-value{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff}
-  .model-bet-sub{font-family:'Space Mono',monospace;font-size:10px;color:#666;margin-top:3px}
-  .model-scores{display:flex;gap:6px;flex-wrap:wrap}
-  .score-pill{font-family:'Space Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px}
-  .score-sharp{background:rgba(78,204,163,0.1);color:#4ecca3;border:1px solid rgba(78,204,163,0.2)}
-  .score-value{background:rgba(255,200,50,0.1);color:#ffc832;border:1px solid rgba(255,200,50,0.2)}
-  .score-total{background:rgba(200,16,46,0.1);color:#ff6b6b;border:1px solid rgba(200,16,46,0.2);font-weight:700}
-
-/* ── STATS TAB ── */
-.stats-sport-selector{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-.stats-sport-btn{background:transparent;border:1px solid rgba(255,255,255,0.07);border-radius:20px;color:#555;padding:7px 12px;font-size:11px;font-family:‘Barlow Condensed’,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.stats-sport-btn.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff}
-.stats-sort-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
-.sort-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#555;padding:5px 10px;font-size:10px;font-family:‘Space Mono’,monospace;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.sort-btn.active{background:rgba(78,204,163,0.1);border-color:rgba(78,204,163,0.3);color:#4ecca3}
-.stats-table{width:100%;border-collapse:collapse;animation:fadeIn 0.3s ease}
-.stats-table th{font-family:‘Space Mono’,monospace;font-size:9px;color:#444;letter-spacing:1px;text-align:left;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.06);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.stats-table th.active{color:#4ecca3}
-.stats-table th span{margin-left:2px;font-size:8px}
-.stats-table td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;vertical-align:middle}
-.stats-table tr:last-child td{border-bottom:none}
-.stats-table tr:hover td{background:rgba(255,255,255,0.02)}
-.team-cell{font-family:‘Barlow Condensed’,sans-serif;font-size:13px;font-weight:700;color:#e0e0e0;white-space:nowrap}
-.record-cell{font-family:‘Space Mono’,monospace;font-size:11px;white-space:nowrap}
-.pct-cell{font-family:‘Space Mono’,monospace;font-size:11px;font-weight:700}
-.pct-hot{color:#4ecca3}.pct-cold{color:#ff6b6b}.pct-neutral{color:#888}
-.stat-badge{display:inline-block;font-family:‘Space Mono’,monospace;font-size:9px;padding:2px 6px;border-radius:3px;white-space:nowrap}
-.badge-ats-hot{background:rgba(78,204,163,0.12);color:#4ecca3;border:1px solid rgba(78,204,163,0.2)}
-.badge-ats-cold{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.2)}
-.badge-ou-over{background:rgba(255,200,50,0.12);color:#ffc832;border:1px solid rgba(255,200,50,0.2)}
-.badge-ou-under{background:rgba(100,150,255,0.12);color:#88aaff;border:1px solid rgba(100,150,255,0.2)}
-.stats-meta{font-family:‘Space Mono’,monospace;font-size:9px;color:#333;margin-bottom:12px}
-.stats-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.stats-leg-item{display:flex;align-items:center;gap:5px;font-family:‘Space Mono’,monospace;font-size:9px;color:#444}
-.stats-empty{text-align:center;padding:40px 20px;color:#444;font-family:‘Barlow Condensed’,sans-serif;font-size:15px}
-.home-away-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px}
-.ha-cell{font-family:‘Space Mono’,monospace;font-size:9px;color:#555}
-
-.loading-state{text-align:center;padding:50px 20px;color:#555}
-.spin-icon{font-size:32px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:14px}
-.loading-text{font-family:‘Barlow Condensed’,sans-serif;font-size:14px;letter-spacing:2px}
-.loading-sub{font-size:10px;color:#444;margin-top:6px;font-family:‘Space Mono’,monospace}
-.no-sharp{font-family:‘Barlow Condensed’,sans-serif;font-size:15px;color:#444;text-align:center;padding:30px 20px;line-height:1.6}
-.picks-updated{font-family:‘Space Mono’,monospace;font-size:9px;color:#333;text-align:right;margin-bottom:10px}
-.footer{margin-top:36px;text-align:center;font-size:10px;color:#222;font-family:‘Space Mono’,monospace;padding-bottom:32px;line-height:1.8}
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700;900&family=Space+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#e0e0e0;font-family:'Barlow',sans-serif;min-height:100vh}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hdr{background:linear-gradient(135deg,#0d0d1a,#111122);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.hdr-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#c8102e,#041e42);display:flex;align-items:center;justify-content:center;font-size:16px}
+.hdr-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;letter-spacing:1px;color:#fff}
+.hdr-sub{font-size:10px;color:#555;letter-spacing:1px}
+.rfsh{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#aaa;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.rfsh.spin{animation:spin 1s linear infinite}
+.badge{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(78,204,163,.1);border:1px solid rgba(78,204,163,.3);color:#4ecca3}
+.main{max-width:680px;margin:0 auto;padding:14px}
+.tabs{display:flex;margin-bottom:14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden}
+.tab{flex:1;background:transparent;border:none;color:#555;padding:9px 2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.tab.on{background:rgba(255,255,255,.08);color:#fff}
+.tab+.tab{border-left:1px solid rgba(255,255,255,.08)}
+.sb{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between}
+.fltrs{display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:3px;-webkit-overflow-scrolling:touch}
+.fbtn{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:20px;color:#555;padding:6px 11px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.fbtn.on{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}
+.cnt{font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-bottom:10px}
+.dl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:14px 0 7px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.04)}
+.gc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;cursor:pointer;margin-bottom:7px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.gc:active{background:rgba(255,255,255,.06)}
+.gt{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.gtl{display:flex;align-items:center;gap:6px}
+.sl{font-family:'Space Mono',monospace;font-size:10px;color:#666;letter-spacing:1px}
+.live{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;animation:pulse 1.5s infinite}
+.tl{font-family:'Space Mono',monospace;font-size:10px;color:#444}
+.mu{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:7px;margin-bottom:9px}
+.tn{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
+.ts{font-size:10px;color:#555;margin-top:1px;margin-bottom:4px}
+.tr{text-align:right}
+.vs{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:900;color:#222;letter-spacing:2px;text-align:center}
+.oc{display:inline-block;padding:3px 8px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+.pos{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
+.neg{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
+.eh{text-align:center;color:#333;font-size:10px;font-family:'Space Mono',monospace;margin-top:6px}
+.xp{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)}
+.xp-title{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px}
+.xp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.xp-team{font-family:'Barlow Condensed',sans-serif;font-size:12px;color:#888;font-weight:600}
+.xp-pills{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.pp{font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;border-radius:4px}
+.pin{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.25)}
+.pub{background:rgba(255,255,255,.05);color:#666;border:1px solid rgba(255,255,255,.08)}
+.sig{font-family:'Space Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px}
+.s-sharp{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
+.s-pub{background:rgba(255,107,107,.1);color:#ff6b6b;border:1px solid rgba(255,107,107,.2)}
+.xp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)}
+.xp-mkt{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;margin-bottom:5px}
+.xp-mrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.xp-ml{font-size:11px;color:#777}
+.sc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;margin-bottom:7px}
+.sc.g1{border-color:rgba(255,200,50,.3);background:rgba(255,200,50,.03)}
+.sc.g2{border-color:rgba(200,200,200,.2)}
+.sc.g3{border-color:rgba(180,120,60,.2)}
+.sr{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:#333;min-width:30px}
+.sr.r1{color:#ffc832}.sr.r2{color:#aaa}.sr.r3{color:#cd7f32}
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.si2{flex:1}
+.sm{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
+.smeta{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:2px}
+.sbb{background:rgba(78,204,163,.08);border:1px solid rgba(78,204,163,.2);border-radius:8px;padding:9px 11px;margin-bottom:7px}
+.sbl{font-family:'Space Mono',monospace;font-size:9px;color:#4ecca3;letter-spacing:1px;margin-bottom:3px}
+.sbv{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#fff}
+.sbd{font-family:'Space Mono',monospace;font-size:10px;color:#666;margin-top:2px}
+.sdiff{display:flex;gap:6px;flex-wrap:wrap}
+.pd{background:rgba(78,204,163,.1);color:#4ecca3;border:1px solid rgba(78,204,163,.2);font-weight:700}
+.stype{font-family:'Space Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px}
+.tml{background:rgba(100,100,255,.1);color:#8888ff;border:1px solid rgba(100,100,255,.2)}
+.tou{background:rgba(255,150,50,.1);color:#ff9632;border:1px solid rgba(255,150,50,.2)}
+.mc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;margin-bottom:7px}
+.mc.top{border-color:rgba(200,16,46,.4);background:rgba(200,16,46,.04)}
+.mr{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#333;min-width:26px}
+.mr.m1{color:#c8102e}.mr.m2{color:#ff6b6b}.mr.m3{color:#ff9999}
+.mh{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.mi{flex:1}
+.mg{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
+.mt2{font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:2px}
+.mbb{background:rgba(200,16,46,.08);border:1px solid rgba(200,16,46,.2);border-radius:8px;padding:9px 11px;margin-bottom:7px}
+.mbl{font-family:'Space Mono',monospace;font-size:9px;color:#c8102e;letter-spacing:1px;margin-bottom:3px}
+.mbv{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;color:#fff}
+.mbs{font-family:'Space Mono',monospace;font-size:10px;color:#666;margin-top:2px}
+.msc{display:flex;gap:5px;flex-wrap:wrap}
+.sp{font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px}
+.sp-s{background:rgba(78,204,163,.1);color:#4ecca3;border:1px solid rgba(78,204,163,.2)}
+.sp-v{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.2)}
+.sp-t{background:rgba(200,16,46,.1);color:#ff6b6b;border:1px solid rgba(200,16,46,.2);font-weight:700}
+.ev{font-family:'Space Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px}
+.evh{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.25)}
+.evm{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.2)}
+.pc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;margin-bottom:7px}
+.pc.p5{border-color:rgba(255,200,50,.35);background:rgba(255,200,50,.03)}
+.pc.p4{border-color:rgba(78,204,163,.2)}
+.pt{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.pn{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f0f0f0}
+.ps{font-family:'Space Mono',monospace;font-size:9px;color:#555;margin-top:2px}
+.pr{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pst{font-size:13px}
+.psc{font-family:'Space Mono',monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.06);color:#666;border:1px solid rgba(255,255,255,.08)}
+.pbb{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:9px 11px;margin-bottom:7px}
+.pbt{font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;margin-bottom:3px}
+.pbv{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:900;color:#fff;line-height:1.2}
+.pft{font-size:11px;color:#666;margin-top:3px;line-height:1.4}
+.pd2{font-size:11px;color:#555;line-height:1.5;margin-top:5px;border-top:1px solid rgba(255,255,255,.05);padding-top:5px}
+.sts-sp{display:flex;gap:5px;margin-bottom:13px;overflow-x:auto;padding-bottom:3px;-webkit-overflow-scrolling:touch}
+.sts-sb{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:20px;color:#555;padding:6px 11px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.sts-sb.on{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}
+.srt-bar{display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;padding-bottom:3px}
+.srt-btn{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;color:#555;padding:4px 9px;font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.srt-btn.on{background:rgba(78,204,163,.1);border-color:rgba(78,204,163,.3);color:#4ecca3}
+.stbl{width:100%;border-collapse:collapse}
+.stbl th{font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;text-align:left;padding:7px 5px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.stbl th.on{color:#4ecca3}
+.stbl td{padding:7px 5px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;vertical-align:middle}
+.stbl tr:last-child td{border-bottom:none}
+.tc{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:#e0e0e0;white-space:nowrap}
+.rc{font-family:'Space Mono',monospace;font-size:10px;white-space:nowrap}
+.pc2{font-family:'Space Mono',monospace;font-size:11px;font-weight:700}
+.hot{color:#4ecca3}.cold{color:#ff6b6b}.neu{color:#888}
+.bah{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.2);font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;display:inline-block}
+.bac{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.2);font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;display:inline-block}
+.bov{background:rgba(255,200,50,.12);color:#ffc832;border:1px solid rgba(255,200,50,.2);font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;display:inline-block}
+.bun{background:rgba(100,150,255,.12);color:#88aaff;border:1px solid rgba(100,150,255,.2);font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;display:inline-block}
+.ls{font-family:'Space Mono',monospace;font-size:9px;color:#333;text-align:right;margin-bottom:9px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.li{font-family:'Space Mono',monospace;font-size:9px;color:#444;display:flex;align-items:center;gap:4px}
+.lstate{text-align:center;padding:40px 20px;color:#555}
+.lico{font-size:30px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:12px}
+.ltxt{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:2px}
+.lsub{font-size:10px;color:#444;margin-top:5px;font-family:'Space Mono',monospace}
+.empty{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:#444;text-align:center;padding:28px 20px;line-height:1.6}
+.err{color:#ff6b6b;font-size:11px;margin-bottom:10px;font-family:'Space Mono',monospace}
+.footer{margin-top:32px;text-align:center;font-size:10px;color:#222;font-family:'Space Mono',monospace;padding-bottom:28px;line-height:1.8}
 </style>
-
 </head>
 <body>
-<div class="header">
-  <div class="header-left">
-    <div class="header-icon">🎰</div>
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="hdr-icon">🎰</div>
     <div>
-      <div class="header-title">BPR MODEL</div>
-      <div class="header-sub" id="hSub">LOADING...</div>
+      <div class="hdr-title">BPR MODEL</div>
+      <div class="hdr-sub" id="hSub">LOADING...</div>
     </div>
   </div>
-  <div class="header-right">
+  <div style="display:flex;align-items:center;gap:8px">
     <div id="hBadge"></div>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadAll()" title="Refresh">&#8635;</button>
+    <button class="rfsh" id="rfBtn" onclick="init()">&#8635;</button>
   </div>
 </div>
 <div class="main">
-  <div id="errMsg" class="err-msg" style="display:none"></div>
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tabGames" onclick="switchTab('games')">🎮 GAMES</button>
-    <button class="tab-btn" id="tabSharp" onclick="switchTab('sharp')">⚡ SHARP</button>
-    <button class="tab-btn" id="tabModel" onclick="switchTab('model')">🏆 MODEL</button>
-    <button class="tab-btn" id="tabPicks" onclick="switchTab('picks')">🎯 PICKS</button>
-    <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">📊 STATS</button>
+  <div id="errDiv" class="err" style="display:none"></div>
+  <div class="tabs">
+    <button class="tab on" id="t0" onclick="goTab(0)">🎮 GAMES</button>
+    <button class="tab" id="t1" onclick="goTab(1)">⚡ SHARP</button>
+    <button class="tab" id="t2" onclick="goTab(2)">🏆 MODEL</button>
+    <button class="tab" id="t3" onclick="goTab(3)">🎯 PICKS</button>
+    <button class="tab" id="t4" onclick="goTab(4)">📊 STATS</button>
   </div>
-
-  <div id="tabGamesContent">
-    <div class="status-bar"><span id="sLeft">--</span><span id="sRight"></span></div>
-    <div class="filters" id="filters"></div>
-    <div class="count" id="count"></div>
-    <div id="content"></div>
+  <div id="v0">
+    <div class="sb"><span id="sL">--</span><span id="sR"></span></div>
+    <div class="fltrs" id="fltrs"></div>
+    <div class="cnt" id="cnt"></div>
+    <div id="games"></div>
   </div>
-  <div id="tabSharpContent" style="display:none">
-    <div class="status-bar"><span>RANKED BY PINNACLE VS PUBLIC DISCREPANCY</span></div>
-    <div id="sharpContent"></div>
+  <div id="v1" style="display:none">
+    <div class="sb"><span>RANKED BY PINNACLE VS PUBLIC DISCREPANCY</span></div>
+    <div id="sharp"></div>
   </div>
-  <div id="tabModelContent" style="display:none">
-    <div class="status-bar"><span>BPR MODEL · SHARP + EV SCORE</span></div>
-    <div id="modelContent"></div>
+  <div id="v2" style="display:none">
+    <div class="sb"><span>BPR MODEL · SHARP + EV SCORE</span></div>
+    <div id="model"></div>
   </div>
-  <div id="tabPicksContent" style="display:none">
-    <div class="picks-updated" id="picksUpdated"></div>
-    <div id="picksContent"><div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">LOADING PICKS</div></div></div>
+  <div id="v3" style="display:none">
+    <div class="ls" id="picksTs"></div>
+    <div id="picks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING PICKS</div></div></div>
   </div>
-  <div id="tabStatsContent" style="display:none">
-    <div class="status-bar"><span>TEAM STATS · ATS · O/U · HOME/AWAY · CLV</span><span id="statsUpdated"></span></div>
-    <div class="stats-sport-selector" id="statsSportSelector"></div>
-    <div class="stats-sort-bar" id="statsSortBar"></div>
-    <div class="stats-legend">
-      <div class="stats-leg-item"><span class="stat-badge badge-ats-hot">ATS+</span> &gt;55% ATS</div>
-      <div class="stats-leg-item"><span class="stat-badge badge-ats-cold">ATS-</span> &lt;45% ATS</div>
-      <div class="stats-leg-item"><span class="stat-badge badge-ou-over">OVER</span> &gt;55% Over</div>
-      <div class="stats-leg-item"><span class="stat-badge badge-ou-under">UNDER</span> &gt;55% Under</div>
+  <div id="v4" style="display:none">
+    <div class="sb"><span>ATS · O/U · HOME/AWAY SPLITS</span><span id="statsTs"></span></div>
+    <div class="sts-sp" id="stsSp"></div>
+    <div class="legend">
+      <div class="li"><span class="bah">ATS+</span> &gt;55% ATS</div>
+      <div class="li"><span class="bac">ATS-</span> &lt;45% ATS</div>
+      <div class="li"><span class="bov">OVER</span> &gt;55% Over</div>
+      <div class="li"><span class="bun">UNDER</span> &gt;55% Under</div>
     </div>
-    <div id="statsContent"><div class="stats-empty">Select a sport above to load stats</div></div>
+    <div class="srt-bar" id="srtBar"></div>
+    <div id="statsDiv"><div class="empty">Select a sport above</div></div>
   </div>
-
-  <div class="footer">BPR MODEL · Odds: The Odds API · Stats: 3-day rolling window<br>Verify all lines before wagering</div>
+  <div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
 <script>
-var BASE=window.location.origin,WEEK=7*24*3600*1000;
-var SPORT_EMOJI={basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',mma:'🥊',boxing:'🥊'};
-var S_COLORS={basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',mma:'#B8242B',boxing:'#B8242B'};
-var PUBLIC_BOOKS=['draftkings','fanduel','betmgm','bovada','williamhill_us','barstool','bet365'];
-var SHARP_BOOKS=['pinnacle','circa','bookmaker'];
-var STAT_SPORTS=[
-  {key:'baseball_mlb',label:'⚾ MLB'},
-  {key:'basketball_nba',label:'🏀 NBA'},
-  {key:'icehockey_nhl',label:'🏒 NHL'},
-  {key:'americanfootball_nfl',label:'🏈 NFL'},
-  {key:'mma_mixed_martial_arts',label:'🥊 MMA'}
+var B = window.location.origin;
+var WEEK = 7*24*3600*1000;
+var EMO = {basketball:'🏀',americanfootball:'🏈',baseball:'⚾',icehockey:'🏒',mma:'🥊',boxing:'🥊'};
+var COL = {basketball:'#C9082A',americanfootball:'#013369',baseball:'#002D72',icehockey:'#0033A0',mma:'#B8242B',boxing:'#B8242B'};
+var PUB = ['draftkings','fanduel','betmgm','bovada','williamhill_us','barstool','bet365'];
+var SHP = ['pinnacle','circa','bookmaker'];
+var SSPORTS = [
+  {k:'baseball_mlb',l:'⚾ MLB'},
+  {k:'basketball_nba',l:'🏀 NBA'},
+  {k:'icehockey_nhl',l:'🏒 NHL'},
+  {k:'americanfootball_nfl',l:'🏈 NFL'},
+  {k:'mma_mixed_martial_arts',l:'🥊 MMA'}
 ];
-var allGames=[],currentFilter='All',expanded={},currentTab='games';
-var statsData={},currentStatSport='baseball_mlb',statsSort='ats_pct',statsDir=-1;
 
-function si(k){return SPORT_EMOJI[k.split(’*’)[0]]||‘🎯’;}
-function sc(k){return S_COLORS[k.split(’*’)[0]]||’#555’;}
+var allGames=[], curFilter=‘All’, curTab=0, expanded={};
+var statsData={}, curStatSport=‘baseball_mlb’, srtCol=‘ats_pct’, srtDir=-1;
+
+function em(k){return EMO[k.split(’*’)[0]]||‘🎯’;}
+function cl(k){return COL[k.split(’*’)[0]]||’#555’;}
 function fmt(p){return p>0?’+’+p:’’+p;}
-function chip(p){return’<span class="odds-chip '+(p>=0?'pos':'neg')+'">’+fmt(p)+’</span>’;}
-function isLive(t){return new Date(t)<new Date();}
-function fmtTime(t){
-var d=new Date(t),now=new Date(),diff=d-now;
-if(diff<0)return’In Progress’;
-if(diff<10800000){var m=Math.floor(diff/60000),h=Math.floor(m/60);return h>0?h+‘h ‘+(m%60)+‘m’:m+‘m’;}
+function chip(p){return ‘<span class="oc '+(p>=0?'pos':'neg')+'">’+fmt(p)+’</span>’;}
+function live(t){return new Date(t)<new Date();}
+function fmtT(t){
+var d=new Date(t),now=new Date(),df=d-now;
+if(df<0)return ‘In Progress’;
+if(df<10800000){var m=Math.floor(df/60000),h=Math.floor(m/60);return h>0?h+‘h ‘+(m%60)+‘m’:m+‘m’;}
 return d.toLocaleDateString(‘en-US’,{weekday:‘short’,month:‘short’,day:‘numeric’,hour:‘numeric’,minute:‘2-digit’});
 }
-function pct(w,t){return t>0?Math.round(w/t*100):0;}
-function pctClass(p){return p>=55?‘pct-hot’:p<=45?‘pct-cold’:‘pct-neutral’;}
-function starsHtml(n){var s=’’;for(var i=0;i<Math.min(n,5);i++)s+=‘⭐’;return s;}
+function stars(n){var s=’’;for(var i=0;i<Math.min(n,5);i++)s+=‘⭐’;return s;}
+function pctCl(p){return p>=55?‘hot’:p<=45?‘cold’:‘neu’;}
 
-function switchTab(tab){
-currentTab=tab;
-var tabs=[‘games’,‘sharp’,‘model’,‘picks’,‘stats’];
-tabs.forEach(function(t){
-document.getElementById(‘tab’+t.charAt(0).toUpperCase()+t.slice(1)).className=‘tab-btn’+(tab===t?’ active’:’’);
-document.getElementById(‘tab’+t.charAt(0).toUpperCase()+t.slice(1)+‘Content’).style.display=tab===t?‘block’:‘none’;
-});
-if(tab===‘stats’&&!statsData[currentStatSport])loadStats(currentStatSport);
+function goTab(n){
+curTab=n;
+for(var i=0;i<5;i++){
+document.getElementById(‘t’+i).className=‘tab’+(i===n?’ on’:’’);
+document.getElementById(‘v’+i).style.display=i===n?‘block’:‘none’;
+}
+if(n===4&&!statsData[curStatSport])loadStats(curStatSport);
 }
 
-// ── STATS ─────────────────────────────────────────────────────────────────
-function initStatsSportSelector(){
-var html=’’;
-for(var i=0;i<STAT_SPORTS.length;i++){
-var s=STAT_SPORTS[i];
-html+=’<button class="stats-sport-btn'+(currentStatSport===s.key?' active':'')+'" onclick="selectStatSport(\''+s.key+'\')">’+s.label+’</button>’;
-}
-document.getElementById(‘statsSportSelector’).innerHTML=html;
-}
-
-function selectStatSport(key){
-currentStatSport=key;
-initStatsSportSelector();
-if(!statsData[key])loadStats(key);
-else renderStatsTable();
-}
-
-var SORT_COLS=[
-{key:‘ats_pct’,label:‘ATS%’},
-{key:‘ou_over_pct’,label:‘OVER%’},
-{key:‘ou_under_pct’,label:‘UNDER%’},
-{key:‘home_ats_pct’,label:‘H.ATS%’},
-{key:‘away_ats_pct’,label:‘A.ATS%’},
-{key:‘games’,label:‘GAMES’}
-];
-
-function initSortBar(){
-var html=’<span style="font-family:Space Mono,monospace;font-size:9px;color:#444;padding:5px 0;white-space:nowrap">SORT: </span>’;
-for(var i=0;i<SORT_COLS.length;i++){
-var c=SORT_COLS[i];
-html+=’<button class="sort-btn'+(statsSort===c.key?' active':'')+'" onclick="setStatsSort(\''+c.key+'\')">’+c.label+(statsSort===c.key?(statsDir===-1?’ ↓’:’ ↑’):’’)+’</button>’;
-}
-document.getElementById(‘statsSortBar’).innerHTML=html;
-}
-
-function setStatsSort(col){
-if(statsSort===col)statsDir*=-1;
-else{statsSort=col;statsDir=-1;}
-initSortBar();
-renderStatsTable();
-}
-
-async function loadStats(sportKey){
-document.getElementById(‘statsContent’).innerHTML=’<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">LOADING STATS</div><div class="loading-sub">Fetching ATS, O/U & splits…</div></div>’;
-try{
-var resp=await fetch(BASE+’/api/stats?sport=’+sportKey);
-var data=await resp.json();
-if(data.stats&&data.stats[sportKey]){
-statsData[sportKey]=data.stats[sportKey];
-if(data.updated)document.getElementById(‘statsUpdated’).textContent=new Date(data.updated).toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
-}
-renderStatsTable();
-}catch(e){
-document.getElementById(‘statsContent’).innerHTML=’<div class="stats-empty">Failed to load stats: ‘+e.message+’</div>’;
+function bkOdds(bks,name,keys){
+for(var i=0;i<bks.length;i++){
+if(keys.indexOf(bks[i].key)>=0){
+for(var j=0;j<(bks[i].markets||[]).length;j++){
+if(bks[i].markets[j].key===‘h2h’){
+for(var k=0;k<bks[i].markets[j].outcomes.length;k++){
+if(bks[i].markets[j].outcomes[k].name===name)
+return {bk:bks[i].title,o:bks[i].markets[j].outcomes[k].price};
 }
 }
-
-function renderStatsTable(){
-initSortBar();
-var sd=statsData[currentStatSport];
-if(!sd||!sd.teams||!sd.teams.length){
-document.getElementById(‘statsContent’).innerHTML=’<div class="stats-empty">No stats available yet.<br><br>Stats are built from completed games over the last 3 days. Check back after more games have been played.</div>’;
-return;
 }
-
-// Compute derived stats per team
-var teams=sd.teams.map(function(t){
-var atsTotal=t.ats.wins+t.ats.losses+t.ats.pushes;
-var ouTotal=t.ou.overs+t.ou.unders+t.ou.pushes;
-var homeAtsTotal=(t.home.ats_wins||0)+(t.home.ats_losses||0);
-var awayAtsTotal=(t.away.ats_wins||0)+(t.away.ats_losses||0);
-return{
-name:t.team,
-games:t.games||atsTotal,
-ats_w:t.ats.wins,ats_l:t.ats.losses,ats_p:t.ats.pushes,
-ats_pct:atsTotal>0?Math.round(t.ats.wins/atsTotal*100):0,
-ou_over:t.ou.overs,ou_under:t.ou.unders,
-ou_over_pct:ouTotal>0?Math.round(t.ou.overs/ouTotal*100):0,
-ou_under_pct:ouTotal>0?Math.round(t.ou.unders/ouTotal*100):0,
-home_ats_w:t.home.ats_wins||0,home_ats_l:t.home.ats_losses||0,
-home_ats_pct:homeAtsTotal>0?Math.round((t.home.ats_wins||0)/homeAtsTotal*100):0,
-away_ats_w:t.away.ats_wins||0,away_ats_l:t.away.ats_losses||0,
-away_ats_pct:awayAtsTotal>0?Math.round((t.away.ats_wins||0)/awayAtsTotal*100):0,
-home_games:t.home.games||homeAtsTotal,
-away_games:t.away.games||awayAtsTotal
-};
-});
-
-// Sort
-teams.sort(function(a,b){return(b[statsSort]-a[statsSort])*statsDir;});
-
-var html=’<div style="overflow-x:auto"><table class="stats-table">’
-+’<thead><tr>’
-+’<th onclick="setStatsSort(\'name\')">TEAM<span>’+(statsSort===‘name’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'ats_pct\')" class="'+(statsSort==='ats_pct'?'active':'')+'">ATS%<span>’+(statsSort===‘ats_pct’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'ou_over_pct\')" class="'+(statsSort==='ou_over_pct'?'active':'')+'">O%<span>’+(statsSort===‘ou_over_pct’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'ou_under_pct\')" class="'+(statsSort==='ou_under_pct'?'active':'')+'">U%<span>’+(statsSort===‘ou_under_pct’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'home_ats_pct\')" class="'+(statsSort==='home_ats_pct'?'active':'')+'">H.ATS<span>’+(statsSort===‘home_ats_pct’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'away_ats_pct\')" class="'+(statsSort==='away_ats_pct'?'active':'')+'">A.ATS<span>’+(statsSort===‘away_ats_pct’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’<th onclick="setStatsSort(\'games\')" class="'+(statsSort==='games'?'active':'')+'">G<span>’+(statsSort===‘games’?(statsDir===-1?‘↓’:‘↑’):’’)+’</span></th>’
-+’</tr></thead><tbody>’;
-
-for(var i=0;i<teams.length;i++){
-var t=teams[i];
-var atsBadge=t.ats_pct>=55?’<span class="stat-badge badge-ats-hot">ATS+</span>’:t.ats_pct<=45&&(t.ats_w+t.ats_l)>2?’<span class="stat-badge badge-ats-cold">ATS-</span>’:’’;
-var ouBadge=t.ou_over_pct>=55?’<span class="stat-badge badge-ou-over">OVER</span>’:t.ou_under_pct>=55?’<span class="stat-badge badge-ou-under">UNDER</span>’:’’;
-html+=’<tr>’
-+’<td><div class="team-cell">’+t.name.split(’ ‘).slice(-1)[0]+’</div>’
-+’<div style="font-size:9px;color:#444;font-family:Space Mono,monospace;margin-top:2px">’+t.name.split(’ ‘).slice(0,-1).join(’ ‘)+’</div></td>’
-+’<td><div class="pct-cell '+pctClass(t.ats_pct)+'">’+t.ats_pct+’%</div>’
-+’<div class="record-cell" style="color:#444;font-size:10px">’+t.ats_w+’-’+t.ats_l+(t.ats_p?’-’+t.ats_p:’’)+’</div>’
-+atsBadge+’</td>’
-+’<td><div class="pct-cell '+pctClass(t.ou_over_pct)+'">’+t.ou_over_pct+’%</div>’
-+’<div class="record-cell" style="color:#444;font-size:10px">’+t.ou_over+’ O</div></td>’
-+’<td><div class="pct-cell '+pctClass(t.ou_under_pct)+'">’+t.ou_under_pct+’%</div>’
-+’<div class="record-cell" style="color:#444;font-size:10px">’+t.ou_under+’ U</div></td>’
-+’<td><div class="pct-cell '+pctClass(t.home_ats_pct)+'">’+t.home_ats_pct+’%</div>’
-+’<div class="record-cell" style="color:#444;font-size:10px">’+t.home_ats_w+’-’+t.home_ats_l+’</div></td>’
-+’<td><div class="pct-cell '+pctClass(t.away_ats_pct)+'">’+t.away_ats_pct+’%</div>’
-+’<div class="record-cell" style="color:#444;font-size:10px">’+t.away_ats_w+’-’+t.away_ats_l+’</div></td>’
-+’<td><div class="pct-cell pct-neutral">’+t.games+’</div></td>’
-+’</tr>’;
 }
-html+=’</tbody></table></div>’;
-html+=’<div class="stats-meta" style="margin-top:12px">’+teams.length+’ teams · ‘+sd.gamesProcessed+’ games processed · Tap column headers to sort</div>’;
-document.getElementById(‘statsContent’).innerHTML=html;
 }
-
-// ── BOOK ODDS HELPERS ──────────────────────────────────────────────────────
-function getBookOdds(bks,name,keys){
-for(var i=0;i<bks.length;i++){if(keys.indexOf(bks[i].key)>=0){for(var j=0;j<(bks[i].markets||[]).length;j++){if(bks[i].markets[j].key===‘h2h’){for(var k=0;k<bks[i].markets[j].outcomes.length;k++){if(bks[i].markets[j].outcomes[k].name===name)return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price};}}}}}return null;
+return null;
 }
-function getBookTotal(bks,side,keys){
-for(var i=0;i<bks.length;i++){if(keys.indexOf(bks[i].key)>=0){for(var j=0;j<(bks[i].markets||[]).length;j++){if(bks[i].markets[j].key===‘totals’){for(var k=0;k<bks[i].markets[j].outcomes.length;k++){if(bks[i].markets[j].outcomes[k].name===side)return{book:bks[i].title,odds:bks[i].markets[j].outcomes[k].price,point:bks[i].markets[j].outcomes[k].point};}}}}}return null;
+function bkTot(bks,side,keys){
+for(var i=0;i<bks.length;i++){
+if(keys.indexOf(bks[i].key)>=0){
+for(var j=0;j<(bks[i].markets||[]).length;j++){
+if(bks[i].markets[j].key===‘totals’){
+for(var k=0;k<bks[i].markets[j].outcomes.length;k++){
+if(bks[i].markets[j].outcomes[k].name===side)
+return {bk:bks[i].title,o:bks[i].markets[j].outcomes[k].price,pt:bks[i].markets[j].outcomes[k].point};
 }
-function impliedProb(o){return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);}
-function calcEV(pin,pub){
+}
+}
+}
+}
+return null;
+}
+function iProb(o){return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);}
+function ev(pin,pub){
 if(!pin||!pub)return 0;
-var fp=Math.min(impliedProb(pin)*1.02,0.99);
+var fp=Math.min(iProb(pin)*1.02,0.99);
 var dec=pub>0?(pub/100)+1:(100/Math.abs(pub))+1;
 return Math.round((fp*dec-1)*1000)/10;
 }
 
-// ── MODEL ──────────────────────────────────────────────────────────────────
-function buildModelPicks(){
+function sharpSigs(game){
+var bks=game.bookmakers||[],sigs=[];
+[game.away_team,game.home_team].forEach(function(t){
+var pin=bkOdds(bks,t,SHP),pub=bkOdds(bks,t,PUB);
+if(pin&&pub){var d=pub.o-pin.o;if(d>=8)sigs.push({score:d,game:game,label:t,pin:pin.o,pub:pub.o,bk:pub.bk,type:‘ml’,diff:d});}
+});
+var pOv=bkTot(bks,‘Over’,SHP),uOv=bkTot(bks,‘Over’,PUB);
+var pUn=bkTot(bks,‘Under’,SHP),uUn=bkTot(bks,‘Under’,PUB);
+if(pOv&&uOv&&pOv.pt!==uOv.pt){var ld=Math.abs(pOv.pt-uOv.pt);if(ld>=0.5){var sd2=pOv.pt>uOv.pt?‘Over’:‘Under’;sigs.push({score:ld*20,game:game,label:sd2+’ ’+uOv.pt,pin:pOv.o,pub:uOv.o,bk:uOv.bk,type:‘ou’,pinLine:pOv.pt,pubLine:uOv.pt,diff:ld});}}
+if(pOv&&uOv){var od=uOv.o-pOv.o;if(od>=8)sigs.push({score:od,game:game,label:‘Over ‘+(uOv.pt||’’),pin:pOv.o,pub:uOv.o,bk:uOv.bk,type:‘ou’,diff:od});}
+if(pUn&&uUn){var ud=uUn.o-pUn.o;if(ud>=8)sigs.push({score:ud,game:game,label:‘Under ‘+(uUn.pt||’’),pin:pUn.o,pub:uUn.o,bk:uUn.bk,type:‘ou’,diff:ud});}
+return sigs;
+}
+
+function renderSharp(){
+var all=[];
+for(var i=0;i<allGames.length;i++){var s=sharpSigs(allGames[i]);for(var j=0;j<s.length;j++)all.push(s[j]);}
+if(!all.length){document.getElementById(‘sharp’).innerHTML=’<div class="empty">No sharp signals detected right now.</div>’;return;}
+var bd={},bo=[];
+for(var i=0;i<all.length;i++){
+var lbl=new Date(all[i].game.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});
+if(!bd[lbl]){bd[lbl]=[];bo.push(lbl);}
+bd[lbl].push(all[i]);
+}
+for(var d=0;d<bo.length;d++)bd[bo[d]].sort(function(a,b){return b.score-a.score;});
+var h=’’;
+for(var d=0;d<bo.length;d++){
+h+=’<div class="dl">’+bo[d]+’</div>’;
+var sigs=bd[bo[d]];
+for(var i=0;i<sigs.length;i++){
+var s=sigs[i],g=s.game,rk=i+1;
+var rc=rk===1?‘g1’:rk===2?‘g2’:rk===3?‘g3’:’’;
+var rc2=rk===1?‘r1’:rk===2?‘r2’:rk===3?‘r3’:’’;
+var tt=s.type===‘ml’?’<span class="stype tml">ML</span>’:’<span class="stype tou">O/U</span>’;
+var dd=s.type===‘ou’&&s.pinLine?‘LINE: ‘+s.pubLine+’ → ‘+s.pinLine:‘DIFF: ‘+Math.round(s.diff)+‘pts’;
+h+=’<div class="sc '+rc+'"><div class="sh"><div class="sr '+rc2+'">#’+rk+’</div><div class="si2"><div class="sm">’+g.away_team.split(’ ‘).pop()+’ vs ‘+g.home_team.split(’ ‘).pop()+’</div><div class="smeta">’+em(g.sport_key)+’ ‘+g.sport_title+’ · ‘+fmtT(g.commence_time)+’</div></div>’+tt+’</div><div class="sbb"><div class="sbl">⚡ SHARP SIDE</div><div class="sbv">’+s.label+’</div><div class="sbd">’+g.away_team+’ @ ‘+g.home_team+’</div></div><div class="sdiff"><span class="pp pin">PIN ‘+fmt(s.pin)+’</span><span class="pp pub">’+(s.bk?s.bk.split(’ ‘)[0].toUpperCase():‘PUB’)+’ ‘+fmt(s.pub)+’</span><span class="pp pd">’+dd+’</span></div></div>’;
+}
+}
+document.getElementById(‘sharp’).innerHTML=h;
+}
+
+function renderModel(){
 var cands=[];
 for(var i=0;i<allGames.length;i++){
 var game=allGames[i],bks=game.bookmakers||[];
-var teams=[game.away_team,game.home_team];
-for(var t=0;t<teams.length;t++){
-var pin=getBookOdds(bks,teams[t],SHARP_BOOKS),pub=getBookOdds(bks,teams[t],PUBLIC_BOOKS);
-if(!pin||!pub)continue;
-var sd=pub.odds-pin.odds,ev=calcEV(pin.odds,pub.odds),score=sd*0.5+ev*2;
-if(score>5||ev>1)cands.push({game:game,bet:teams[t],betType:‘ML’,pinOdds:pin.odds,pubOdds:pub.odds,sharpScore:sd,ev:ev,score:score,label:teams[t]+’ ML’,pubBook:pub.book});
-}
-var sides=[‘Over’,‘Under’];
-for(var s=0;s<sides.length;s++){
-var pin2=getBookTotal(bks,sides[s],SHARP_BOOKS),pub2=getBookTotal(bks,sides[s],PUBLIC_BOOKS);
-if(!pin2||!pub2)continue;
-var sd2=pub2.odds-pin2.odds,ev2=calcEV(pin2.odds,pub2.odds),score2=sd2*0.5+ev2*2;
-if(score2>5||ev2>1)cands.push({game:game,bet:sides[s]+’ ‘+(pub2.point||’’),betType:‘O/U’,pinOdds:pin2.odds,pubOdds:pub2.odds,sharpScore:sd2,ev:ev2,score:score2,label:sides[s]+’ ‘+(pub2.point||’’),pubBook:pub2.book});
-}
+[game.away_team,game.home_team].forEach(function(t){
+var pin=bkOdds(bks,t,SHP),pub=bkOdds(bks,t,PUB);
+if(!pin||!pub)return;
+var sd=pub.o-pin.o,ev2=ev(pin.o,pub.o),sc=sd*0.5+ev2*2;
+if(sc>5||ev2>1)cands.push({game:game,label:t+’ ML’,type:‘ML’,pin:pin.o,pub:pub.o,bk:pub.bk,sharp:sd,ev:ev2,score:sc});
+});
+[‘Over’,‘Under’].forEach(function(side){
+var pin=bkTot(bks,side,SHP),pub=bkTot(bks,side,PUB);
+if(!pin||!pub)return;
+var sd=pub.o-pin.o,ev2=ev(pin.o,pub.o),sc=sd*0.5+ev2*2;
+if(sc>5||ev2>1)cands.push({game:game,label:side+’ ‘+(pub.pt||’’),type:‘O/U’,pin:pin.o,pub:pub.o,bk:pub.bk,sharp:sd,ev:ev2,score:sc});
+});
 }
 cands.sort(function(a,b){return b.score-a.score;});
-return cands;
+if(!cands.length){document.getElementById(‘model’).innerHTML=’<div class="empty">No high-value model picks found right now.</div>’;return;}
+var bd={},bo=[];
+for(var i=0;i<cands.length;i++){
+var lbl=new Date(cands[i].game.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});
+if(!bd[lbl]){bd[lbl]=[];bo.push(lbl);}
+bd[lbl].push(cands[i]);
 }
-
-function renderModelTab(){
-var picks=buildModelPicks();
-if(!picks.length){document.getElementById(‘modelContent’).innerHTML=’<div class="no-sharp">No high-value model picks found right now.</div>’;return;}
-var byDate={},dateOrder=[];
+var h=’’;
+for(var d=0;d<bo.length;d++){
+h+=’<div class="dl">’+bo[d]+’</div>’;
+var picks=bd[bo[d]];
 for(var i=0;i<picks.length;i++){
-var label=new Date(picks[i].game.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});
-if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}
-byDate[label].push(picks[i]);
-}
-var html=’<div class="games">’;
-for(var d=0;d<dateOrder.length;d++){
-html+=’<div class="section-label">’+dateOrder[d]+’</div>’;
-var dp=byDate[dateOrder[d]];
-for(var i=0;i<dp.length;i++){
-var p=dp[i],g=p.game,rank=i+1,rc=rank===1?‘top’:’’,rnc=rank===1?‘m1’:rank===2?‘m2’:rank===3?‘m3’:’’;
-var evc=p.ev>3?‘ev-high’:‘ev-med’;
-html+=’<div class="model-card '+rc+'"><div class="model-header"><div class="model-rank '+rnc+'">#’+rank+’</div><div class="model-info"><div class="model-game">’+g.away_team.split(’ ‘).slice(-1)[0]+’ @ ‘+g.home_team.split(’ ‘).slice(-1)[0]+’</div><div class="model-time">’+si(g.sport_key)+’ ‘+g.sport_title+’ · ‘+fmtTime(g.commence_time)+’</div></div><span class="ev-badge '+evc+'">+EV ‘+p.ev+’%</span></div><div class="model-bet-box"><div class="model-bet-label">🏆 MODEL PICK · ‘+p.betType+’</div><div class="model-bet-value">’+p.label+’</div><div class="model-bet-sub">’+p.pubBook.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(p.pubOdds)+’ · Pinnacle fair: ‘+fmt(p.pinOdds)+’</div></div><div class="model-scores"><span class="score-pill score-sharp">SHARP: ‘+(p.sharpScore>0?’+’:’’)+Math.round(p.sharpScore)+’</span><span class="score-pill score-value">EV: +’+p.ev+’%</span><span class="score-pill score-total">SCORE: ‘+Math.round(p.score)+’</span></div></div>’;
+var p=picks[i],g=p.game,rk=i+1;
+var tc=rk===1?‘top’:’’;
+var rc=rk===1?‘m1’:rk===2?‘m2’:rk===3?‘m3’:’’;
+var ec=p.ev>3?‘evh’:‘evm’;
+h+=’<div class="mc '+tc+'"><div class="mh"><div class="mr '+rc+'">#’+rk+’</div><div class="mi"><div class="mg">’+g.away_team.split(’ ‘).pop()+’ @ ‘+g.home_team.split(’ ‘).pop()+’</div><div class="mt2">’+em(g.sport_key)+’ ‘+g.sport_title+’ · ‘+fmtT(g.commence_time)+’</div></div><span class="ev '+ec+'">+EV ‘+p.ev+’%</span></div><div class="mbb"><div class="mbl">🏆 MODEL PICK · ‘+p.type+’</div><div class="mbv">’+p.label+’</div><div class="mbs">’+(p.bk?p.bk.split(’ ‘)[0].toUpperCase():‘PUB’)+’ ‘+fmt(p.pub)+’ · PIN fair: ‘+fmt(p.pin)+’</div></div><div class="msc"><span class="sp sp-s">SHARP: ‘+(p.sharp>0?’+’:’’)+Math.round(p.sharp)+’</span><span class="sp sp-v">EV: +’+p.ev+’%</span><span class="sp sp-t">SCORE: ‘+Math.round(p.score)+’</span></div></div>’;
 }
 }
-html+=’</div>’;
-document.getElementById(‘modelContent’).innerHTML=html;
-}
-
-function extractSharpSignals(game){
-var bks=game.bookmakers||[],signals=[];
-var teams=[game.away_team,game.home_team];
-for(var i=0;i<teams.length;i++){var pin=getBookOdds(bks,teams[i],SHARP_BOOKS),pub=getBookOdds(bks,teams[i],PUBLIC_BOOKS);if(pin&&pub){var diff=pub.odds-pin.odds;if(diff>=8)signals.push({score:diff,game:game,team:teams[i],pinOdds:pin.odds,pubOdds:pub.odds,pubBook:pub.book,type:‘ml’,label:teams[i],diff:diff});}}
-var pinOv=getBookTotal(bks,‘Over’,SHARP_BOOKS),pubOv=getBookTotal(bks,‘Over’,PUBLIC_BOOKS);
-var pinUn=getBookTotal(bks,‘Under’,SHARP_BOOKS),pubUn=getBookTotal(bks,‘Under’,PUBLIC_BOOKS);
-if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var ld=Math.abs(pinOv.point-pubOv.point);if(ld>=0.5){var s2=pinOv.point>pubOv.point?‘Over’:‘Under’;signals.push({score:ld*20,game:game,type:‘ou’,label:s2+’ ’+pubOv.point,pinLine:pinOv.point,pubLine:pubOv.point,pinOdds:pinOv.odds,pubOdds:pubOv.odds,pubBook:pubOv.book,diff:ld});}}
-if(pinOv&&pubOv){var od=pubOv.odds-pinOv.odds;if(od>=8)signals.push({score:od,game:game,type:‘ou’,label:‘Over ‘+(pubOv.point||’’),pinOdds:pinOv.odds,pubOdds:pubOv.odds,pubBook:pubOv.book,diff:od});}
-if(pinUn&&pubUn){var ud=pubUn.odds-pinUn.odds;if(ud>=8)signals.push({score:ud,game:game,type:‘ou’,label:‘Under ‘+(pubUn.point||’’),pinOdds:pinUn.odds,pubOdds:pubUn.odds,pubBook:pubUn.book,diff:ud});}
-return signals;
-}
-
-function renderSharpTab(){
-var all=[];for(var i=0;i<allGames.length;i++){var s=extractSharpSignals(allGames[i]);for(var j=0;j<s.length;j++)all.push(s[j]);}
-if(!all.length){document.getElementById(‘sharpContent’).innerHTML=’<div class="no-sharp">No sharp signals detected right now.</div>’;return;}
-var byDate={},dateOrder=[];
-for(var i=0;i<all.length;i++){var label=new Date(all[i].game.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}byDate[label].push(all[i]);}
-for(var d=0;d<dateOrder.length;d++)byDate[dateOrder[d]].sort(function(a,b){return b.score-a.score;});
-var html=’<div class="games">’;
-for(var d=0;d<dateOrder.length;d++){
-html+=’<div class="section-label">’+dateOrder[d]+’</div>’;
-var signals=byDate[dateOrder[d]];
-for(var i=0;i<signals.length;i++){
-var s=signals[i],g=s.game,rank=i+1;
-var rc=rank===1?‘rank-1’:rank===2?‘rank-2’:rank===3?‘rank-3’:’’;
-var rnc=rank===1?‘r1’:rank===2?‘r2’:rank===3?‘r3’:’’;
-var tt=s.type===‘ml’?’<span class="sharp-type type-ml">MONEYLINE</span>’:’<span class="sharp-type type-ou">OVER/UNDER</span>’;
-var dd=s.type===‘ou’&&s.pinLine?‘LINE: ‘+s.pubLine+’ → ‘+s.pinLine:‘DIFF: ‘+fmt(Math.round(s.diff))+’ pts’;
-html+=’<div class="sharp-card '+rc+'"><div class="sharp-header"><div class="sharp-rank '+rnc+'">#’+rank+’</div><div class="sharp-info"><div class="sharp-matchup">’+g.away_team.split(’ ‘).slice(-1)[0]+’ vs ‘+g.home_team.split(’ ‘).slice(-1)[0]+’</div><div class="sharp-meta">’+si(g.sport_key)+’ ‘+g.sport_title+’ · ‘+fmtTime(g.commence_time)+’</div></div>’+tt+’</div><div class="sharp-bet-box"><div class="sharp-bet-label">⚡ SHARP SIDE</div><div class="sharp-bet-value">’+s.label+’</div><div class="sharp-bet-detail">’+g.away_team+’ @ ‘+g.home_team+’</div></div><div class="sharp-diff"><span class="sharp-pill pill-pin">PIN ‘+fmt(s.pinOdds)+’</span><span class="sharp-pill pill-pub">’+(s.pubBook?s.pubBook.split(’ ‘)[0].toUpperCase():‘PUB’)+’ ‘+fmt(s.pubOdds)+’</span><span class="sharp-pill pill-diff">’+dd+’</span></div></div>’;
-}
-}
-html+=’</div>’;
-document.getElementById(‘sharpContent’).innerHTML=html;
+document.getElementById(‘model’).innerHTML=h;
 }
 
 async function loadPicks(){
 try{
-var pc=new AbortController();setTimeout(function(){pc.abort();},8000);
-var resp=await fetch(BASE+’/api/picks’,{signal:pc.signal});var data=await resp.json();var picks=data.picks||[];
-if(data.updated)document.getElementById(‘picksUpdated’).textContent=‘Updated: ‘+new Date(data.updated).toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
-if(!picks.length){document.getElementById(‘picksContent’).innerHTML=’<div class="no-sharp">No high-confidence picks found right now.</div>’;return;}
-picks.sort(function(a,b){if(b.confidence!==a.confidence)return b.confidence-a.confidence;if(a.ev===‘HIGH’&&b.ev!==‘HIGH’)return-1;if(b.ev===‘HIGH’&&a.ev!==‘HIGH’)return 1;return 0;});
-var html=’<div class="games">’;
+var c=new AbortController();
+setTimeout(function(){c.abort();},8000);
+var r=await fetch(B+’/api/picks’,{signal:c.signal});
+var data=await r.json();
+var picks=data.picks||[];
+if(data.updated)document.getElementById(‘picksTs’).textContent=‘Updated: ‘+new Date(data.updated).toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
+if(!picks.length){document.getElementById(‘picks’).innerHTML=’<div class="empty">No high-confidence picks right now.</div>’;return;}
+picks.sort(function(a,b){return b.confidence-a.confidence;});
+var h=’’;
 for(var i=0;i<picks.length;i++){
 var p=picks[i];
-var cc=p.confidence>=5?‘pick-card five-star’:p.confidence>=4?‘pick-card four-star’:‘pick-card’;
-var evBadge=p.ev===‘HIGH’?’<span class="ev-badge ev-high">HIGH EV</span>’:’<span class="ev-badge ev-med">MED EV</span>’;
-html+=’<div class="'+cc+'"><div class="pick-top"><div><div class="pick-expert-name">’+p.expert+’</div><div class="pick-source-tag">’+p.source+’</div></div><div class="pick-right"><div class="pick-stars">’+starsHtml(p.confidence)+’</div>’+(p.sport?’<span class="pick-sport-chip">’+p.sport+’</span>’:’’)+evBadge+’</div></div><div class="pick-bet-box"><div class="pick-bet-type">’+p.betType+’ · THE PICK</div><div class="pick-bet-value">’+p.bet+’</div>’+(p.pick&&p.pick!==p.bet?’<div class="pick-full-title">’+p.pick+’</div>’:’’)+’</div>’+(p.detail&&p.detail.length>10?’<div class="pick-detail">’+p.detail+’</div>’:’’)+’</div>’;
+var cc=p.confidence>=5?‘pc p5’:p.confidence>=4?‘pc p4’:‘pc’;
+var eb=p.ev===‘HIGH’?’<span class="ev evh">HIGH EV</span>’:’<span class="ev evm">MED EV</span>’;
+h+=’<div class="'+cc+'"><div class="pt"><div><div class="pn">’+p.expert+’</div><div class="ps">’+p.source+’</div></div><div class="pr"><div class="pst">’+stars(p.confidence)+’</div>’+(p.sport?’<span class="psc">’+p.sport+’</span>’:’’)+eb+’</div></div><div class="pbb"><div class="pbt">’+p.betType+’ · THE PICK</div><div class="pbv">’+p.bet+’</div>’+(p.pick&&p.pick!==p.bet?’<div class="pft">’+p.pick+’</div>’:’’)+’</div>’+(p.detail&&p.detail.length>10?’<div class="pd2">’+p.detail+’</div>’:’’)+’</div>’;
 }
-html+=’</div>’;
-document.getElementById(‘picksContent’).innerHTML=html;
-}catch(e){document.getElementById(‘picksContent’).innerHTML=’<div class="no-sharp">Failed to load picks: ‘+e.message+’</div>’;}
+document.getElementById(‘picks’).innerHTML=h;
+}catch(e){
+document.getElementById(‘picks’).innerHTML=’<div class="empty">Picks unavailable: ‘+e.message+’</div>’;
+}
 }
 
-function renderSharpMoney(game){
-var bks=game.bookmakers||[];if(!bks.length)return’’;
-var html=’<div class="sharp-bar">’,teams=[game.away_team,game.home_team],mlRows=’’,hasMl=false;
+function initStatsSports(){
+var h=’’;
+for(var i=0;i<SSPORTS.length;i++){
+var s=SSPORTS[i];
+h+=’<button class="sts-sb'+(curStatSport===s.k?' on':'')+'" onclick="selSport(\''+s.k+'\')">’+s.l+’</button>’;
+}
+document.getElementById(‘stsSp’).innerHTML=h;
+}
+function selSport(k){
+curStatSport=k;initStatsSports();
+if(!statsData[k])loadStats(k);
+else renderStats();
+}
+
+var SRT_COLS=[{k:‘ats_pct’,l:‘ATS%’},{k:‘ou_over_pct’,l:‘OVER%’},{k:‘ou_under_pct’,l:‘UNDER%’},{k:‘home_ats_pct’,l:‘H.ATS%’},{k:‘away_ats_pct’,l:‘A.ATS%’},{k:‘games’,l:‘GAMES’}];
+function initSortBar(){
+var h=’<span style="font-family:Space Mono,monospace;font-size:9px;color:#444;padding:4px 0;white-space:nowrap">SORT: </span>’;
+for(var i=0;i<SRT_COLS.length;i++){
+var c=SRT_COLS[i];
+h+=’<button class="srt-btn'+(srtCol===c.k?' on':'')+'" onclick="setSort(\''+c.k+'\')">’+c.l+(srtCol===c.k?(srtDir===-1?’ ↓’:’ ↑’):’’)+’</button>’;
+}
+document.getElementById(‘srtBar’).innerHTML=h;
+}
+function setSort(col){if(srtCol===col)srtDir*=-1;else{srtCol=col;srtDir=-1;}initSortBar();renderStats();}
+
+async function loadStats(sk){
+document.getElementById(‘statsDiv’).innerHTML=’<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING STATS</div></div>’;
+try{
+var r=await fetch(B+’/api/stats?sport=’+sk);
+var data=await r.json();
+if(data.teams){
+statsData[sk]=data;
+if(data.updated)document.getElementById(‘statsTs’).textContent=new Date(data.updated).toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
+}
+renderStats();
+}catch(e){
+document.getElementById(‘statsDiv’).innerHTML=’<div class="empty">Stats error: ‘+e.message+’</div>’;
+}
+}
+
+function renderStats(){
+initSortBar();
+var sd=statsData[curStatSport];
+if(!sd||!sd.teams||!sd.teams.length){document.getElementById(‘statsDiv’).innerHTML=’<div class="empty">No stats yet. Check back after more games are completed.</div>’;return;}
+var teams=sd.teams.map(function(t){
+var at=t.ats.wins+t.ats.losses+t.ats.pushes;
+var ot=t.ou.overs+t.ou.unders+t.ou.pushes;
+var hat=(t.home.ats_wins||0)+(t.home.ats_losses||0);
+var aat=(t.away.ats_wins||0)+(t.away.ats_losses||0);
+return{name:t.team,games:t.games||at,
+aw:t.ats.wins,al:t.ats.losses,ap:t.ats.pushes,
+ats_pct:at>0?Math.round(t.ats.wins/at*100):0,
+oo:t.ou.overs,ou2:t.ou.unders,
+ou_over_pct:ot>0?Math.round(t.ou.overs/ot*100):0,
+ou_under_pct:ot>0?Math.round(t.ou.unders/ot*100):0,
+haw:t.home.ats_wins||0,hal:t.home.ats_losses||0,
+home_ats_pct:hat>0?Math.round((t.home.ats_wins||0)/hat*100):0,
+aaw:t.away.ats_wins||0,aal:t.away.ats_losses||0,
+away_ats_pct:aat>0?Math.round((t.away.ats_wins||0)/aat*100):0
+};
+});
+teams.sort(function(a,b){return(b[srtCol]-a[srtCol])*srtDir;});
+var arr=function(c){return srtCol===c?(srtDir===-1?’ ↓’:’ ↑’):’’;};
+var h=’<div style="overflow-x:auto"><table class="stbl"><thead><tr>’
++’<th onclick="setSort(\'name\')">TEAM’+arr(‘name’)+’</th>’
++’<th onclick="setSort(\'ats_pct\')" class="'+(srtCol==='ats_pct'?'on':'')+'">ATS%’+arr(‘ats_pct’)+’</th>’
++’<th onclick="setSort(\'ou_over_pct\')" class="'+(srtCol==='ou_over_pct'?'on':'')+'">O%’+arr(‘ou_over_pct’)+’</th>’
++’<th onclick="setSort(\'ou_under_pct\')" class="'+(srtCol==='ou_under_pct'?'on':'')+'">U%’+arr(‘ou_under_pct’)+’</th>’
++’<th onclick="setSort(\'home_ats_pct\')" class="'+(srtCol==='home_ats_pct'?'on':'')+'">H.ATS’+arr(‘home_ats_pct’)+’</th>’
++’<th onclick="setSort(\'away_ats_pct\')" class="'+(srtCol==='away_ats_pct'?'on':'')+'">A.ATS’+arr(‘away_ats_pct’)+’</th>’
++’<th onclick="setSort(\'games\')" class="'+(srtCol==='games'?'on':'')+'">G’+arr(‘games’)+’</th>’
++’</tr></thead><tbody>’;
 for(var i=0;i<teams.length;i++){
-var pin=getBookOdds(bks,teams[i],SHARP_BOOKS),pub=getBookOdds(bks,teams[i],PUBLIC_BOOKS);
-if(!pin&&!pub)continue;hasMl=true;
-var diff=pin&&pub?pub.odds-pin.odds:0,sig=diff>=8?‘sharp’:diff<=-8?‘public’:‘none’;
-var sigH=sig===‘sharp’?’<span class="sharp-signal signal-sharp">⚡ SHARP</span>’:sig===‘public’?’<span class="sharp-signal signal-public">👥 PUBLIC</span>’:’<span class="sharp-signal signal-none">–</span>’;
-mlRows+=’<div class="sharp-row"><span class="sharp-team">’+teams[i].split(’ ‘).slice(-1)[0]+’</span><div class="sharp-pills">’+(pin?’<span class="sharp-pill pill-pin">PIN ‘+fmt(pin.odds)+’</span>’:’’)+(pub?’<span class="sharp-pill pill-pub">’+pub.book.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(pub.odds)+’</span>’:’’)+sigH+’</div></div>’;
+var t=teams[i];
+var ab=t.ats_pct>=55?’<span class="bah">ATS+</span>’:t.ats_pct<=45&&(t.aw+t.al)>2?’<span class="bac">ATS-</span>’:’’;
+var ob=t.ou_over_pct>=55?’<span class="bov">OVER</span>’:t.ou_under_pct>=55?’<span class="bun">UNDER</span>’:’’;
+h+=’<tr>’
++’<td><div class="tc">’+t.name.split(’ ‘).pop()+’</div><div style="font-size:9px;color:#444;font-family:Space Mono,monospace">’+t.name.split(’ ‘).slice(0,-1).join(’ ‘)+’</div></td>’
++’<td><div class="pc2 '+pctCl(t.ats_pct)+'">’+t.ats_pct+’%</div><div class="rc" style="color:#444;font-size:10px">’+t.aw+’-’+t.al+’</div>’+ab+’</td>’
++’<td><div class="pc2 '+pctCl(t.ou_over_pct)+'">’+t.ou_over_pct+’%</div><div class="rc" style="color:#444;font-size:10px">’+t.oo+’ O</div></td>’
++’<td><div class="pc2 '+pctCl(t.ou_under_pct)+'">’+t.ou_under_pct+’%</div><div class="rc" style="color:#444;font-size:10px">’+t.ou2+’ U</div></td>’
++’<td><div class="pc2 '+pctCl(t.home_ats_pct)+'">’+t.home_ats_pct+’%</div><div class="rc" style="color:#444;font-size:10px">’+t.haw+’-’+t.hal+’</div></td>’
++’<td><div class="pc2 '+pctCl(t.away_ats_pct)+'">’+t.away_ats_pct+’%</div><div class="rc" style="color:#444;font-size:10px">’+t.aaw+’-’+t.aal+’</div></td>’
++’<td><div class="pc2 neu">’+t.games+’</div></td>’
++’</tr>’;
 }
-if(hasMl)html+=’<div class="sharp-section-title">MONEYLINE SHARP</div>’+mlRows;
-var pinOv=getBookTotal(bks,‘Over’,SHARP_BOOKS),pubOv=getBookTotal(bks,‘Over’,PUBLIC_BOOKS);
-var pinUn=getBookTotal(bks,‘Under’,SHARP_BOOKS),pubUn=getBookTotal(bks,‘Under’,PUBLIC_BOOKS);
-if(pinOv||pubOv){
-if(hasMl)html+=’<div class="sharp-divider"></div>’;
-html+=’<div class="sharp-section-title">O/U SHARP</div>’;
-if(pinOv&&pubOv){var od=pubOv.odds-pinOv.odds,os=od>=8?’<span class="sharp-signal signal-sharp">⚡</span>’:od<=-8?’<span class="sharp-signal signal-public">👥</span>’:’’;html+=’<div class="sharp-row"><span class="sharp-team">Over ‘+(pubOv.point||’’)+’</span><div class="sharp-pills"><span class="sharp-pill pill-pin">PIN ‘+fmt(pinOv.odds)+’</span><span class="sharp-pill pill-pub">’+pubOv.book.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(pubOv.odds)+’</span>’+os+’</div></div>’;}
-if(pinUn&&pubUn){var ud=pubUn.odds-pinUn.odds,us=ud>=8?’<span class="sharp-signal signal-sharp">⚡</span>’:ud<=-8?’<span class="sharp-signal signal-public">👥</span>’:’’;html+=’<div class="sharp-row"><span class="sharp-team">Under ‘+(pubUn.point||’’)+’</span><div class="sharp-pills"><span class="sharp-pill pill-pin">PIN ‘+fmt(pinUn.odds)+’</span><span class="sharp-pill pill-pub">’+pubUn.book.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(pubUn.odds)+’</span>’+us+’</div></div>’;}
-if(pinOv&&pubOv&&pinOv.point!==pubOv.point){var ls=pinOv.point>pubOv.point?‘⚡ SHARP OVER’:‘⚡ SHARP UNDER’;html+=’<div class="sharp-row" style="margin-top:4px"><span class="sharp-team" style="color:#666">LINE</span><div class="sharp-pills"><span class="sharp-pill pill-pub">PUB ‘+pubOv.point+’</span><span class="sharp-pill pill-pin">PIN ‘+pinOv.point+’</span><span class="sharp-signal signal-sharp">’+ls+’</span></div></div>’;}
-}
-html+=’<div class="sharp-legend"><div class="legend-item">📌 PIN = Pinnacle</div><div class="legend-item">⚡ Sharp | 👥 Public</div></div></div>’;
-return html;
+h+=’</tbody></table></div><div style="font-family:Space Mono,monospace;font-size:9px;color:#333;margin-top:10px">’+teams.length+’ teams · ‘+sd.gamesProcessed+’ games · tap headers to sort</div>’;
+document.getElementById(‘statsDiv’).innerHTML=h;
 }
 
-function setFilter(f){currentFilter=f;renderFilters();renderGames();}
-function toggleExpand(id){expanded[id]=!expanded[id];renderGames();}
-
-function renderFilters(){
-var sports=[‘All’],seen={};
-for(var i=0;i<allGames.length;i++){if(!seen[allGames[i].sport_title]){seen[allGames[i].sport_title]=true;sports.push(allGames[i].sport_title);}}
-var html=’’;
-for(var i=0;i<sports.length;i++){
-var s=sports[i],active=currentFilter===s?’ active’:’’,key=’’;
-for(var j=0;j<allGames.length;j++){if(allGames[j].sport_title===s){key=allGames[j].sport_key;break;}}
-html+=’<button class=“filter-btn’+active+’” onclick=“setFilter('’+s.replace(/’/g,”\’”)+’')”>’+(s===‘All’?‘All’:si(key)+’ ‘+s)+’</button>’;
+function renderExpand(game){
+var bks=game.bookmakers||[];
+if(!bks.length)return’’;
+var h=’<div class="xp">’;
+var teams=[game.away_team,game.home_team];
+var mlRows=’’,hasMl=false;
+for(var i=0;i<teams.length;i++){
+var pin=bkOdds(bks,teams[i],SHP),pub=bkOdds(bks,teams[i],PUB);
+if(!pin&&!pub)continue;
+hasMl=true;
+var d=pin&&pub?pub.o-pin.o:0;
+var sig=d>=8?‘sharp’:d<=-8?‘public’:‘none’;
+var sh=sig===‘sharp’?’<span class="sig s-sharp">⚡ SHARP</span>’:sig===‘public’?’<span class="sig s-pub">👥 PUBLIC</span>’:’’;
+mlRows+=’<div class="xp-row"><span class="xp-team">’+teams[i].split(’ ‘).pop()+’</span><div class="xp-pills">’+(pin?’<span class="pp pin">PIN ‘+fmt(pin.o)+’</span>’:’’)+(pub?’<span class="pp pub">’+pub.bk.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(pub.o)+’</span>’:’’)+sh+’</div></div>’;
 }
-document.getElementById(‘filters’).innerHTML=html;
+if(hasMl)h+=’<div class="xp-title">MONEYLINE SHARP</div>’+mlRows;
+var pOv=bkTot(bks,‘Over’,SHP),uOv=bkTot(bks,‘Over’,PUB);
+var pUn=bkTot(bks,‘Under’,SHP),uUn=bkTot(bks,‘Under’,PUB);
+if(pOv||uOv){
+if(hasMl)h+=’<div style="height:1px;background:rgba(255,255,255,.05);margin:6px 0"></div>’;
+h+=’<div class="xp-title">O/U SHARP</div>’;
+if(pOv&&uOv){var od=uOv.o-pOv.o,os=od>=8?’<span class="sig s-sharp">⚡</span>’:od<=-8?’<span class="sig s-pub">👥</span>’:’’;h+=’<div class="xp-row"><span class="xp-team">Over ‘+(uOv.pt||’’)+’</span><div class="xp-pills"><span class="pp pin">PIN ‘+fmt(pOv.o)+’</span><span class="pp pub">’+uOv.bk.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(uOv.o)+’</span>’+os+’</div></div>’;}
+if(pUn&&uUn){var ud=uUn.o-pUn.o,us=ud>=8?’<span class="sig s-sharp">⚡</span>’:ud<=-8?’<span class="sig s-pub">👥</span>’:’’;h+=’<div class="xp-row"><span class="xp-team">Under ‘+(uUn.pt||’’)+’</span><div class="xp-pills"><span class="pp pin">PIN ‘+fmt(pUn.o)+’</span><span class="pp pub">’+uUn.bk.split(’ ‘)[0].toUpperCase()+’ ‘+fmt(uUn.o)+’</span>’+us+’</div></div>’;}
+if(pOv&&uOv&&pOv.pt!==uOv.pt){var ls=pOv.pt>uOv.pt?‘⚡ SHARP OVER’:‘⚡ SHARP UNDER’;h+=’<div class="xp-row"><span class="xp-team" style="color:#555">LINE</span><div class="xp-pills"><span class="pp pub">PUB ‘+uOv.pt+’</span><span class="pp pin">PIN ‘+pOv.pt+’</span><span class="sig s-sharp">’+ls+’</span></div></div>’;}
+}
+// Spreads + totals
+var pubBk=null;
+for(var bi=0;bi<bks.length;bi++){if(PUB.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;}}
+if(!pubBk&&bks.length)pubBk=bks[0];
+var spr=null,tot=null;
+if(pubBk){for(var mi=0;mi<(pubBk.markets||[]).length;mi++){if(pubBk.markets[mi].key===‘spreads’)spr=pubBk.markets[mi];if(pubBk.markets[mi].key===‘totals’)tot=pubBk.markets[mi];}}
+if(spr||tot){
+h+=’<div class="xp-grid">’;
+if(spr){h+=’<div><div class="xp-mkt">SPREAD</div>’;for(var si=0;si<spr.outcomes.length;si++){var o=spr.outcomes[si],pt=o.point>0?’+’+o.point:’’+o.point;h+=’<div class="xp-mrow"><span class="xp-ml">’+o.name.split(’ ‘).pop()+’ ‘+pt+’</span>’+chip(o.price)+’</div>’;}h+=’</div>’;}
+if(tot){var tl=tot.outcomes.length?tot.outcomes[0].point:’’;h+=’<div><div class="xp-mkt">TOTAL (’+tl+’)</div>’;for(var ti=0;ti<tot.outcomes.length;ti++){var o2=tot.outcomes[ti];h+=’<div class="xp-mrow"><span class="xp-ml">’+o2.name+’</span>’+chip(o2.price)+’</div>’;}h+=’</div>’;}
+h+=’</div>’;
+}
+h+=’<div style="font-family:Space Mono,monospace;font-size:9px;color:#333;margin-top:5px">📌 PIN=Pinnacle · ⚡ Sharp | 👥 Public</div>’;
+h+=’</div>’;
+return h;
+}
+
+function toggle(id){expanded[id]=!expanded[id];renderGames();}
+
+function setFilter(f){curFilter=f;renderFltrs();renderGames();}
+
+function renderFltrs(){
+var sp=[‘All’],seen={};
+for(var i=0;i<allGames.length;i++){if(!seen[allGames[i].sport_title]){seen[allGames[i].sport_title]=true;sp.push(allGames[i].sport_title);}}
+var h=’’;
+for(var i=0;i<sp.length;i++){
+var s=sp[i],ac=curFilter===s?’ on’:’’,k=’’;
+for(var j=0;j<allGames.length;j++){if(allGames[j].sport_title===s){k=allGames[j].sport_key;break;}}
+h+=’<button class=“fbtn’+ac+’” onclick=“setFilter('’+s.replace(/’/g,”\’”)+’')”> ‘+(s===‘All’?‘All’:em(k)+’ ‘+s)+’</button>’;
+}
+document.getElementById(‘fltrs’).innerHTML=h;
 }
 
 function renderGames(){
-var filtered=[];
-for(var i=0;i<allGames.length;i++){if(currentFilter===‘All’||allGames[i].sport_title===currentFilter)filtered.push(allGames[i]);}
-document.getElementById(‘count’).textContent=filtered.length+’ GAME’+(filtered.length!==1?‘S’:’’)+’ · NEXT 7 DAYS’;
-var byDate={},dateOrder=[];
-for(var i=0;i<filtered.length;i++){var g=filtered[i],label=new Date(g.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});if(!byDate[label]){byDate[label]=[];dateOrder.push(label);}byDate[label].push(g);}
-var html=’<div class="games">’;
-for(var di=0;di<dateOrder.length;di++){
-html+=’<div class="section-label">’+dateOrder[di]+’</div>’;
-var games=byDate[dateOrder[di]];
-for(var gi=0;gi<games.length;gi++){
-var game=games[gi],bks=game.bookmakers||[];
-var pubBk=null;for(var bi=0;bi<bks.length;bi++){if(PUBLIC_BOOKS.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;}}
+var fl=[];
+for(var i=0;i<allGames.length;i++){if(curFilter===‘All’||allGames[i].sport_title===curFilter)fl.push(allGames[i]);}
+document.getElementById(‘cnt’).textContent=fl.length+’ GAME’+(fl.length!==1?‘S’:’’)+’ · NEXT 7 DAYS’;
+var bd={},bo=[];
+for(var i=0;i<fl.length;i++){
+var g=fl[i],lbl=new Date(g.commence_time).toLocaleDateString(‘en-US’,{weekday:‘long’,month:‘short’,day:‘numeric’});
+if(!bd[lbl]){bd[lbl]=[];bo.push(lbl);}
+bd[lbl].push(g);
+}
+var h=’’;
+for(var di=0;di<bo.length;di++){
+h+=’<div class="dl">’+bo[di]+’</div>’;
+var gs=bd[bo[di]];
+for(var gi=0;gi<gs.length;gi++){
+var game=gs[gi],bks=game.bookmakers||[];
+var pubBk=null;for(var bi=0;bi<bks.length;bi++){if(PUB.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;}}
 if(!pubBk&&bks.length)pubBk=bks[0];
-var h2h=null,spreads=null,totals=null;
-if(pubBk){for(var mi=0;mi<(pubBk.markets||[]).length;mi++){if(pubBk.markets[mi].key===‘h2h’)h2h=pubBk.markets[mi];if(pubBk.markets[mi].key===‘spreads’)spreads=pubBk.markets[mi];if(pubBk.markets[mi].key===‘totals’)totals=pubBk.markets[mi];}}
-var awayO=null,homeO=null;
-if(h2h){for(var oi=0;oi<h2h.outcomes.length;oi++){if(h2h.outcomes[oi].name===game.away_team)awayO=h2h.outcomes[oi];if(h2h.outcomes[oi].name===game.home_team)homeO=h2h.outcomes[oi];}}
-var isExp=!!expanded[game.id],accent=sc(game.sport_key),details=’’;
-if(isExp){
-details+=renderSharpMoney(game);
-if(spreads||totals){
-details+=’<div class="expand-area'+(spreads&&totals?'':' one')+'">’;
-if(spreads){details+=’<div><div class="mkt-title">SPREAD</div>’;for(var si2=0;si2<spreads.outcomes.length;si2++){var o=spreads.outcomes[si2],pt=o.point>0?’+’+o.point:’’+o.point;details+=’<div class="mkt-row"><span class="mkt-label">’+o.name.split(’ ‘).pop()+’ ‘+pt+’</span>’+chip(o.price)+’</div>’;}details+=’</div>’;}
-if(totals){var tl=totals.outcomes.length?totals.outcomes[0].point:’’;details+=’<div><div class="mkt-title">TOTAL (’+tl+’)</div>’;for(var ti=0;ti<totals.outcomes.length;ti++){var o2=totals.outcomes[ti];details+=’<div class="mkt-row"><span class="mkt-label">’+o2.name+’</span>’+chip(o2.price)+’</div>’;}details+=’</div>’;}
-details+=’</div>’;
+var h2h=null;if(pubBk){for(var mi=0;mi<(pubBk.markets||[]).length;mi++){if(pubBk.markets[mi].key===‘h2h’)h2h=pubBk.markets[mi];}}
+var awO=null,hmO=null;if(h2h){for(var oi=0;oi<h2h.outcomes.length;oi++){if(h2h.outcomes[oi].name===game.away_team)awO=h2h.outcomes[oi];if(h2h.outcomes[oi].name===game.home_team)hmO=h2h.outcomes[oi];}}
+var isX=!!expanded[game.id],ac=cl(game.sport_key);
+h+=’<div class="gc" style="border-left:3px solid '+ac+'" onclick="toggle(\''+game.id+'\')"><div class="gt"><div class="gtl"><span>’+em(game.sport_key)+’</span><span class="sl">’+game.sport_title+’</span>’+(live(game.commence_time)?’<span class="live">LIVE</span>’:’’)+’</div><span class="tl">🕐 ‘+fmtT(game.commence_time)+’</span></div><div class="mu"><div><div class="tn">’+game.away_team+’</div><div class="ts">Away</div>’+(awO?chip(awO.price):’’)+’</div><div class="vs">VS</div><div class="tr"><div class="tn">’+game.home_team+’</div><div class="ts">Home</div>’+(hmO?chip(hmO.price):’’)+’</div></div>’+(isX?renderExpand(game):’’)+’<div class="eh">’+(isX?‘▲ collapse’:‘▼ sharp + lines’)+’</div></div>’;
 }
 }
-html+=’<div class="game-card" style="border-left:3px solid '+accent+'" onclick="toggleExpand(\''+game.id+'\')">’
-+’<div class="card-top"><div class="card-top-left"><span>’+si(game.sport_key)+’</span><span class="sport-label">’+game.sport_title+’</span>’+(isLive(game.commence_time)?’<span class="live-dot">LIVE</span>’:’’)+’</div><span class="time-label">🕐 ‘+fmtTime(game.commence_time)+’</span></div>’
-+’<div class="matchup"><div><div class="team-name">’+game.away_team+’</div><div class="team-side">Away</div>’+(awayO?chip(awayO.price):’’)+’</div><div class="vs">VS</div><div class="team-right"><div class="team-name">’+game.home_team+’</div><div class="team-side">Home</div>’+(homeO?chip(homeO.price):’’)+’</div></div>’
-+details+’<div class="expand-hint">’+(isExp?‘▲ collapse’:‘▼ sharp money + lines’)+’</div></div>’;
-}
-}
-html+=’</div>’;
-document.getElementById(‘content’).innerHTML=html;
+document.getElementById(‘games’).innerHTML=h;
 }
 
-async function loadAll(){
-var btn=document.getElementById(‘refreshBtn’);
-btn.classList.add(‘spinning’);
+async function init(){
+var btn=document.getElementById(‘rfBtn’);
+btn.classList.add(‘spin’);
 document.getElementById(‘hSub’).textContent=‘LOADING…’;
 document.getElementById(‘hBadge’).innerHTML=’’;
-document.getElementById(‘errMsg’).style.display=‘none’;
-document.getElementById(‘content’).innerHTML=’<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports…</div></div>’;
-setTimeout(function(){loadPicks();},100);
-initStatsSportSelector();
+document.getElementById(‘errDiv’).style.display=‘none’;
+document.getElementById(‘games’).innerHTML=’<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div><div class="lsub">Getting sports…</div></div>’;
+setTimeout(function(){loadPicks();},200);
+initStatsSports();
 try{
-var sr=await fetch(BASE+’/api/sports’);
+var sr=await fetch(B+’/api/sports’);
 var sports=await sr.json();
-if(!Array.isArray(sports))throw new Error(‘Sports API: ‘+(sports.message||sports.error||JSON.stringify(sports).slice(0,100)));
+if(!Array.isArray(sports))throw new Error(‘Bad response: ‘+JSON.stringify(sports).slice(0,80));
 var now=Date.now(),results=[];
-var sub=document.getElementById(‘loadSub’);
-if(sub)sub.textContent=‘Fetching all sports…’;
-var fetches=sports.map(function(sport){
-return fetch(BASE+’/api/odds?sport=’+sport.key)
+var fetches=sports.map(function(sp){
+return fetch(B+’/api/odds?sport=’+sp.key)
 .then(function(r){return r.json();})
 .then(function(data){
 if(Array.isArray(data)){
@@ -610,30 +584,31 @@ if(t>=now-7200000&&t<=now+WEEK)results.push(data[j]);
 }
 }
 })
-.catch(function(e){console.log(‘Sport fetch error:’,e);});
+.catch(function(){});
 });
 await Promise.all(fetches);
 results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
 allGames=results;
 if(!results.length){
-document.getElementById(‘hSub’).textContent=‘NO GAMES FOUND’;
-document.getElementById(‘content’).innerHTML=’<div style="text-align:center;padding:50px 20px;color:#444"><div style="font-size:36px;margin-bottom:12px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:16px">No upcoming games found</div></div>’;
+document.getElementById(‘hSub’).textContent=‘NO GAMES’;
+document.getElementById(‘games’).innerHTML=’<div style="text-align:center;padding:40px 20px;color:#444"><div style="font-size:32px;margin-bottom:10px">📭</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px">No upcoming games found</div></div>’;
 }else{
-var sCount={};for(var i=0;i<results.length;i++)sCount[results[i].sport_title]=true;
-document.getElementById(‘hBadge’).innerHTML=’<span class="badge-live">LIVE</span>’;
+var sc={};for(var i=0;i<results.length;i++)sc[results[i].sport_title]=true;
+document.getElementById(‘hBadge’).innerHTML=’<span class="badge">LIVE</span>’;
 document.getElementById(‘hSub’).textContent=‘UPDATED ‘+new Date().toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
-document.getElementById(‘sLeft’).textContent=results.length+’ GAMES · ‘+Object.keys(sCount).length+’ SPORTS’;
-document.getElementById(‘sRight’).textContent=‘ODDS + SHARP + MODEL’;
-renderFilters();renderGames();renderSharpTab();renderModelTab();
+document.getElementById(‘sL’).textContent=results.length+’ GAMES · ‘+Object.keys(sc).length+’ SPORTS’;
+document.getElementById(‘sR’).textContent=‘ODDS + SHARP’;
+renderFltrs();renderGames();renderSharp();renderModel();
 }
 }catch(e){
-document.getElementById(‘errMsg’).textContent=‘Error: ‘+e.message;
-document.getElementById(‘errMsg’).style.display=‘block’;
+document.getElementById(‘errDiv’).textContent=‘Error: ‘+e.message;
+document.getElementById(‘errDiv’).style.display=‘block’;
 document.getElementById(‘hSub’).textContent=‘ERROR’;
-document.getElementById(‘content’).innerHTML=’<div style="padding:20px;color:#ff6b6b;font-family:Space Mono,monospace;font-size:11px;line-height:1.6">’+e.message+’</div>’;
-}finally{btn.classList.remove(‘spinning’);}
+document.getElementById(‘games’).innerHTML=’<div style="padding:16px;font-family:Space Mono,monospace;font-size:11px;color:#ff6b6b">’+e.message+’</div>’;
 }
-loadAll();
+btn.classList.remove(‘spin’);
+}
+init();
 </script>
 
 </body>
