@@ -489,7 +489,8 @@ document.getElementById(‘sharpContent’).innerHTML=html;
 
 async function loadPicks(){
 try{
-var resp=await fetch(BASE+’/api/picks’);var data=await resp.json();var picks=data.picks||[];
+var pc=new AbortController();setTimeout(function(){pc.abort();},8000);
+var resp=await fetch(BASE+’/api/picks’,{signal:pc.signal});var data=await resp.json();var picks=data.picks||[];
 if(data.updated)document.getElementById(‘picksUpdated’).textContent=‘Updated: ‘+new Date(data.updated).toLocaleTimeString(‘en-US’,{hour:‘numeric’,minute:‘2-digit’});
 if(!picks.length){document.getElementById(‘picksContent’).innerHTML=’<div class="no-sharp">No high-confidence picks found right now.</div>’;return;}
 picks.sort(function(a,b){if(b.confidence!==a.confidence)return b.confidence-a.confidence;if(a.ev===‘HIGH’&&b.ev!==‘HIGH’)return-1;if(b.ev===‘HIGH’&&a.ev!==‘HIGH’)return 1;return 0;});
@@ -589,7 +590,7 @@ document.getElementById(‘hSub’).textContent=‘LOADING…’;
 document.getElementById(‘hBadge’).innerHTML=’’;
 document.getElementById(‘errMsg’).style.display=‘none’;
 document.getElementById(‘content’).innerHTML=’<div class="loading-state"><div class="spin-icon">⚙️</div><div class="loading-text">FETCHING ODDS</div><div class="loading-sub" id="loadSub">Getting sports…</div></div>’;
-loadPicks();
+setTimeout(function(){loadPicks();},100);
 initStatsSportSelector();
 try{
 var sr=await fetch(BASE+’/api/sports’);var sports=await sr.json();
