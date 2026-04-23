@@ -19,75 +19,53 @@ button{background:#4ecca3;color:#000;border:none;padding:10px 20px;border-radius
 </style>
 </head>
 <body>
-<div class="hdr">🎰 BPR MODEL - Diagnostic</div>
+<div class="hdr">BPR MODEL - Diagnostic</div>
 <button onclick="location.reload()">Reload</button>
 <div id="out"></div>
 <script>
-var out = document.getElementById('out');
-function log(msg, cls) {
-  var d = document.createElement('div');
-  d.className = 'log ' + (cls || 'info');
-  d.textContent = msg;
-  out.appendChild(d);
+var out=document.getElementById("out");
+function log(msg,cls){var d=document.createElement("div");d.className="log "+(cls||"info");d.textContent=msg;out.appendChild(d);}
+async function go(){
+log("Starting...","info");
+log("Origin: "+window.location.origin,"info");
+try{
+log("Fetching /api/sports...","info");
+var r1=await fetch("/api/sports");
+log("Sports status: "+r1.status,r1.ok?"ok":"err");
+var sports=await r1.json();
+log("Got "+sports.length+" sports","ok");
+log("Fetching odds for all sports...","info");
+var allGames=[];
+for(var i=0;i<sports.length;i++){
+try{
+var r=await fetch("/api/odds?sport="+sports[i].key);
+var data=await r.json();
+if(Array.isArray(data)){
+log("  "+sports[i].key+": "+data.length+" games",data.length>0?"ok":"info");
+allGames=allGames.concat(data);
+}else{
+log("  "+sports[i].key+": ERROR","err");
 }
-
-async function go() {
-log(‘Starting…’, ‘info’);
-log(’Origin: ’ + window.location.origin, ‘info’);
-
-try {
-log(‘Fetching /api/sports…’, ‘info’);
-var r1 = await fetch(’/api/sports’);
-log(’Sports status: ’ + r1.status, r1.ok ? ‘ok’ : ‘err’);
-var sports = await r1.json();
-log(‘Got ’ + sports.length + ’ sports’, ‘ok’);
-
-```
-log('Fetching odds for baseball_mlb...', 'info');
-var r2 = await fetch('/api/odds?sport=baseball_mlb');
-log('Odds status: ' + r2.status, r2.ok ? 'ok' : 'err');
-var odds = await r2.json();
-log('Got ' + (odds.length || 0) + ' MLB games', 'ok');
-
-log('Fetching odds for all sports...', 'info');
-var allGames = [];
-for (var i = 0; i < sports.length; i++) {
-  try {
-    var r = await fetch('/api/odds?sport=' + sports[i].key);
-    var data = await r.json();
-    if (Array.isArray(data)) {
-      log('  ' + sports[i].key + ': ' + data.length + ' games', data.length > 0 ? 'ok' : 'info');
-      allGames = allGames.concat(data);
-    } else {
-      log('  ' + sports[i].key + ': ERROR', 'err');
-    }
-  } catch(e) {
-    log('  ' + sports[i].key + ': ' + e.message, 'err');
-  }
-}
-
-log('TOTAL: ' + allGames.length + ' games', 'ok');
-
-if (allGames.length > 0) {
-  log('--- First 5 games ---', 'info');
-  for (var j = 0; j < Math.min(5, allGames.length); j++) {
-    var g = allGames[j];
-    var div = document.createElement('div');
-    div.className = 'game';
-    div.innerHTML = '<div class="teams">' + g.away_team + ' @ ' + g.home_team + '</div><div class="meta">' + g.sport_title + ' · ' + new Date(g.commence_time).toLocaleString() + '</div>';
-    out.appendChild(div);
-  }
-}
-```
-
-} catch(e) {
-log(’FATAL ERROR: ’ + e.message, ‘err’);
-log(’Stack: ’ + e.stack, ‘err’);
+}catch(e){
+log("  "+sports[i].key+": "+e.message,"err");
 }
 }
-
+log("TOTAL: "+allGames.length+" games","ok");
+if(allGames.length>0){
+log("--- First 5 games ---","info");
+for(var j=0;j<Math.min(5,allGames.length);j++){
+var g=allGames[j];
+var div=document.createElement("div");
+div.className="game";
+div.innerHTML="<div class=\"teams\">"+g.away_team+" @ "+g.home_team+"</div><div class=\"meta\">"+g.sport_title+"</div>";
+out.appendChild(div);
+}
+}
+}catch(e){
+log("FATAL ERROR: "+e.message,"err");
+}
+}
 go();
 </script>
-
 </body>
 </html>
