@@ -65,6 +65,15 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .lico{font-size:30px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:12px}
 .ltxt{font-size:14px;letter-spacing:2px}
 .footer{margin-top:32px;text-align:center;font-size:10px;color:#222;padding-bottom:28px;line-height:1.8;font-family:monospace}
+.sec-title{font-size:14px;font-weight:900;color:#fff;margin:18px 0 8px;letter-spacing:1px}
+.sec-desc{font-size:11px;color:#888;margin-bottom:12px;line-height:1.5;padding:10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px}
+.sec-desc strong{color:#4ecca3}
+.sig-steam{background:rgba(255,107,107,.15);color:#ff6b6b;border:1px solid rgba(255,107,107,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
+.sig-rlm{background:rgba(255,200,50,.15);color:#ffc832;border:1px solid rgba(255,200,50,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
+.sig-clv{background:rgba(138,43,226,.15);color:#b99aff;border:1px solid rgba(138,43,226,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
+.movement{font-size:10px;color:#888;margin-top:4px;font-family:monospace}
+.mv-up{color:#4ecca3}
+.mv-down{color:#ff6b6b}
 </style>
 </head>
 <body>
@@ -92,7 +101,7 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <div id="games"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING</div></div></div>
 </div>
 <div id="v1" style="display:none">
-<div class="sb"><span>PINNACLE VS PUBLIC DISCREPANCY</span></div>
+<div class="sb"><span>ADVANCED SHARP ANALYSIS</span></div>
 <div id="sharp"></div>
 </div>
 <div id="v2" style="display:none">
@@ -108,7 +117,43 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 const WEEK = 7 * 24 * 3600 * 1000;
 const PUB = ["draftkings", "fanduel", "betmgm", "bovada", "williamhill_us", "bet365"];
 const SHP = ["pinnacle", "circa", "bookmaker"];
+const FIGHT_SPORTS = ["mma_mixed_martial_arts", "boxing_boxing"];
 let allGames = [], curFilter = "All", curTab = 0, expanded = {};
+let oddsHistory = {};
+
+try {
+  const saved = localStorage.getItem("bpr_odds_history");
+  if (saved) oddsHistory = JSON.parse(saved);
+} catch(e) {}
+
+function saveHistory() {
+  try {
+    const cutoff = Date.now() - WEEK;
+    Object.keys(oddsHistory).forEach(id => {
+      oddsHistory[id] = oddsHistory[id].filter(s => s.ts > cutoff);
+      if (oddsHistory[id].length === 0) delete oddsHistory[id];
+    });
+    localStorage.setItem("bpr_odds_history", JSON.stringify(oddsHistory));
+  } catch(e) {}
+}
+
+function captureSnapshot(game) {
+  const bks = game.bookmakers || [];
+  const snapshot = { ts: Date.now(), books: {} };
+  bks.forEach(b => {
+    const h2h = (b.markets || []).find(m => m.key === "h2h");
+    if (h2h) {
+      snapshot.books[b.key] = {};
+      h2h.outcomes.forEach(o => { snapshot.books[b.key][o.name] = o.price; });
+    }
+  });
+  if (!oddsHistory[game.id]) oddsHistory[game.id] = [];
+  const last = oddsHistory[game.id][oddsHistory[game.id].length - 1];
+  if (!last || JSON.stringify(last.books) !== JSON.stringify(snapshot.books)) {
+    oddsHistory[game.id].push(snapshot);
+    if (oddsHistory[game.id].length > 30) oddsHistory[game.id] = oddsHistory[game.id].slice(-30);
+  }
+}
 
 function goTab(n) {
   curTab = n;
@@ -201,21 +246,173 @@ function renderGames() {
   document.getElementById("games").innerHTML = h;
 }
 
+function detectLineMovement(game) {
+  const history = oddsHistory[game.id] || [];
+  if (history.length < 2) return null;
+  const first = history[0];
+  const last = history[history.length - 1];
+  const movements = {};
+  [game.away_team, game.home_team].forEach(team => {
+    const firstPrices = [], lastPrices = [];
+    Object.keys(last.books).forEach(bk => {
+      if (PUB.includes(bk) && last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
+        firstPrices.push(first.books[bk][team]);
+        lastPrices.push(last.books[bk][team]);
+      }
+    });
+    if (firstPrices.length >= 2) {
+      const firstAvg = firstPrices.reduce((a, b) => a + b, 0) / firstPrices.length;
+      const lastAvg = lastPrices.reduce((a, b) => a + b, 0) / lastPrices.length;
+      movements[team] = { start: firstAvg, end: lastAvg, diff: lastAvg - firstAvg, snapshots: history.length };
+    }
+  });
+  return movements;
+}
+
+function detectSteamMove(game) {
+  const history = oddsHistory[game.id] || [];
+  if (history.length < 2) return null;
+  const recent = history.slice(-3);
+  if (recent.length < 2) return null;
+  const first = recent[0], last = recent[recent.length - 1];
+  const steamTeams = [];
+  [game.away_team, game.home_team].forEach(team => {
+    let booksMovedSame = 0;
+    let totalMovement = 0;
+    Object.keys(last.books).forEach(bk => {
+      if (last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
+        const diff = last.books[bk][team] - first.books[bk][team];
+        if (Math.abs(diff) >= 5) {
+          booksMovedSame++;
+          totalMovement += diff;
+        }
+      }
+    });
+    if (booksMovedSame >= 3) {
+      steamTeams.push({ team, books: booksMovedSame, avgMove: totalMovement / booksMovedSame });
+    }
+  });
+  return steamTeams.length > 0 ? steamTeams : null;
+}
+
+function detectRLM(game) {
+  const bks = game.bookmakers || [];
+  const movement = detectLineMovement(game);
+  if (!movement) return null;
+  const results = [];
+  [game.away_team, game.home_team].forEach(team => {
+    if (!movement[team]) return;
+    const pub = bkOdds(bks, team, PUB);
+    const pin = bkOdds(bks, team, SHP);
+    if (!pub || !pin) return;
+    const lineMovedAgainst = movement[team].diff < -5;
+    const sharpLonger = pin.o > pub.o + 5;
+    if (lineMovedAgainst && sharpLonger) {
+      results.push({ team, pubOdds: pub.o, pinOdds: pin.o, movement: movement[team].diff });
+    }
+  });
+  return results.length > 0 ? results : null;
+}
+
+function calcCLV(game) {
+  const bks = game.bookmakers || [];
+  const results = [];
+  [game.away_team, game.home_team].forEach(team => {
+    const pin = bkOdds(bks, team, SHP);
+    const pub = bkOdds(bks, team, PUB);
+    if (!pin || !pub) return;
+    const pinProb = pin.o > 0 ? 100 / (pin.o + 100) : Math.abs(pin.o) / (Math.abs(pin.o) + 100);
+    const pubProb = pub.o > 0 ? 100 / (pub.o + 100) : Math.abs(pub.o) / (Math.abs(pub.o) + 100);
+    const clvPct = ((pinProb - pubProb) / pubProb) * 100;
+    if (clvPct > 3) {
+      results.push({ team, pubOdds: pub.o, pinOdds: pin.o, clvPct: Math.round(clvPct * 10) / 10 });
+    }
+  });
+  return results.length > 0 ? results : null;
+}
+
 function renderSharp() {
-  const all = [];
-  allGames.forEach(g => {
+  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  
+  const pinSignals = [];
+  eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
     [g.away_team, g.home_team].forEach(t => {
       const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) all.push({ score: d, game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk }); }
+      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) pinSignals.push({ score: d, game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk }); }
     });
   });
-  all.sort((a, b) => b.score - a.score);
-  if (!all.length) { document.getElementById("sharp").innerHTML = '<div class="empty">No sharp signals detected.</div>'; return; }
-  let h = "";
-  all.forEach((s, i) => {
-    h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
+  pinSignals.sort((a, b) => b.score - a.score);
+  
+  const steamSignals = [];
+  eligibleGames.forEach(g => {
+    const steam = detectSteamMove(g);
+    if (steam) steamSignals.push({ game: g, signals: steam });
   });
+  
+  const rlmSignals = [];
+  eligibleGames.forEach(g => {
+    const rlm = detectRLM(g);
+    if (rlm) rlmSignals.push({ game: g, signals: rlm });
+  });
+  
+  const clvSignals = [];
+  eligibleGames.forEach(g => {
+    const clv = calcCLV(g);
+    if (clv) clvSignals.push({ game: g, signals: clv });
+  });
+  clvSignals.sort((a, b) => Math.max(...b.signals.map(s => s.clvPct)) - Math.max(...a.signals.map(s => s.clvPct)));
+  
+  let h = "";
+  
+  h += '<div class="sec-title">⚡ PINNACLE VS PUBLIC DISCREPANCY</div>';
+  h += '<div class="sec-desc"><strong>What it means:</strong> Pinnacle is considered the sharpest book because they accept huge limits from pro bettors. When Pinnacle\'s odds are shorter than public books by 8+ points, it means sharps have moved Pinnacle\'s line toward one side.<br><br><strong>How to read it:</strong> The "SHARP SIDE" is the team sharp money is backing. The DIFF shows how much shorter Pinnacle\'s price is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book while the line is still weak. The bigger the gap, the more value.</div>';
+  if (!pinSignals.length) {
+    h += '<div class="empty">No Pinnacle-vs-public discrepancies ≥8pts right now.</div>';
+  } else {
+    pinSignals.slice(0, 15).forEach((s, i) => {
+      h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
+    });
+  }
+  
+  h += '<div class="sec-title">🔥 STEAM MOVES</div>';
+  h += '<div class="sec-desc"><strong>What it means:</strong> A steam move is when the line suddenly moves the same direction across 3+ public sportsbooks at once. This is the clearest sign of professional syndicate action - they\'re hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> If you see a steam move toward a team, follow it immediately. The window to get the old price is usually minutes. The more books moving together, the stronger the steam.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD. Any book that hasn\'t moved yet still has the old, better price.<br><br><strong>Note:</strong> Requires multiple refreshes of the app over time to build history. Open the app periodically to track movement.</div>';
+  if (!steamSignals.length) {
+    h += '<div class="empty">No steam moves detected. Refresh the app periodically to build movement history.</div>';
+  } else {
+    steamSignals.slice(0, 10).forEach((s, i) => {
+      s.signals.forEach(sig => {
+        const dir = sig.avgMove < 0 ? "SHORTER" : "LONGER";
+        const dirColor = sig.avgMove < 0 ? "#4ecca3" : "#ff6b6b";
+        h += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
+      });
+    });
+  }
+  
+  h += '<div class="sec-title">🎯 REVERSE LINE MOVEMENT (RLM)</div>';
+  h += '<div class="sec-desc"><strong>What it means:</strong> When the public is heavily betting one team but the line moves TOWARD the OTHER team, that\'s RLM. It means sharp money is overwhelming public money - sportsbooks adjusted the line against the public to attract action on the sharp side.<br><br><strong>How to read it:</strong> If a team has a line moving against them despite public support (evidenced by Pinnacle being longer than public books), sharp money is on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side and the line is getting better for you, not worse.</div>';
+  if (!rlmSignals.length) {
+    h += '<div class="empty">No reverse line movement detected yet. Needs multiple refreshes over time.</div>';
+  } else {
+    rlmSignals.slice(0, 10).forEach((s, i) => {
+      s.signals.forEach(sig => {
+        h += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span></div></div>';
+      });
+    });
+  }
+  
+  h += '<div class="sec-title">💎 CLOSING LINE VALUE (CLV)</div>';
+  h += '<div class="sec-desc"><strong>What it means:</strong> CLV measures how much better your price is compared to where Pinnacle (the sharpest book) has the line. Pinnacle\'s closing line is considered the "true" probability. Beating Pinnacle consistently is the mark of a profitable bettor.<br><br><strong>How to read it:</strong> +CLV% shows how much of an edge you have over Pinnacle\'s fair line at the public book listed. 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in the CLV NOW - Pinnacle\'s line will likely move to match public books by game time. You\'re betting at a discount compared to the closing price.</div>';
+  if (!clvSignals.length) {
+    h += '<div class="empty">No CLV opportunities ≥3% right now.</div>';
+  } else {
+    clvSignals.slice(0, 15).forEach((s, i) => {
+      s.signals.forEach(sig => {
+        h += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span></div></div>';
+      });
+    });
+  }
+  
   document.getElementById("sharp").innerHTML = h;
 }
 
@@ -280,6 +477,10 @@ async function init() {
     await Promise.all(promises);
     results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
     allGames = results;
+    
+    allGames.forEach(captureSnapshot);
+    saveHistory();
+    
     document.getElementById("hBadge").innerHTML = '<span class="badge">LIVE</span>';
     document.getElementById("hSub").textContent = "UPDATED " + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     const sc = {}; results.forEach(g => sc[g.sport_title] = true);
