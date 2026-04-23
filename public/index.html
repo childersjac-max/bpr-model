@@ -71,9 +71,13 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .sig-steam{background:rgba(255,107,107,.15);color:#ff6b6b;border:1px solid rgba(255,107,107,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
 .sig-rlm{background:rgba(255,200,50,.15);color:#ffc832;border:1px solid rgba(255,200,50,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
 .sig-clv{background:rgba(138,43,226,.15);color:#b99aff;border:1px solid rgba(138,43,226,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
-.movement{font-size:10px;color:#888;margin-top:4px;font-family:monospace}
-.mv-up{color:#4ecca3}
-.mv-down{color:#ff6b6b}
+.src-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.src-card:active{background:rgba(255,255,255,.06)}
+.src-name{font-size:16px;font-weight:900;color:#fff;margin-bottom:4px}
+.src-meta{font-size:11px;color:#888;font-family:monospace}
+.src-count{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.3);padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700;font-family:monospace}
+.back-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#aaa;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:12px;display:inline-flex;align-items:center;gap:6px}
+.back-btn:active{background:rgba(255,255,255,.1)}
 </style>
 </head>
 <body>
@@ -119,6 +123,9 @@ const PUB = ["draftkings", "fanduel", "betmgm", "bovada", "williamhill_us", "bet
 const SHP = ["pinnacle", "circa", "bookmaker"];
 const FIGHT_SPORTS = ["mma_mixed_martial_arts", "boxing_boxing"];
 let allGames = [], curFilter = "All", curTab = 0, expanded = {};
+let allPicks = [];
+let picksView = "sources";
+let selectedSource = null;
 let oddsHistory = {};
 
 try {
@@ -439,17 +446,104 @@ function renderModel() {
   document.getElementById("model").innerHTML = h;
 }
 
+function selectSource(src) {
+  selectedSource = src;
+  picksView = "details";
+  renderPicks();
+}
+
+function backToSources() {
+  selectedSource = null;
+  picksView = "sources";
+  renderPicks();
+}
+
+function renderPicks() {
+  if (!allPicks.length) {
+    document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>';
+    return;
+  }
+  
+  if (picksView === "sources") {
+    const bySource = {};
+    allPicks.forEach(p => {
+      const src = p.source || "Unknown";
+      if (!bySource[src]) bySource[src] = { picks: [], expert: p.expert };
+      bySource[src].picks.push(p);
+    });
+    
+    const sources = Object.keys(bySource).sort((a, b) => bySource[b].picks.length - bySource[a].picks.length);
+    
+    let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SOURCE TO VIEW PICKS</div>';
+    sources.forEach(src => {
+      const info = bySource[src];
+      const avgConf = info.picks.reduce((a, p) => a + p.confidence, 0) / info.picks.length;
+      const highEV = info.picks.filter(p => p.ev === "HIGH").length;
+      h += '<div class="src-card" onclick="selectSource(\'' + src.replace(/'/g, "\\'") + '\')">' +
+        '<div><div class="src-name">' + src + '</div><div class="src-meta">' + 
+        info.picks.length + ' picks · avg ' + avgConf.toFixed(1) + '★ · ' + highEV + ' high EV</div></div>' +
+        '<div class="src-count">' + info.picks.length + '</div>' +
+        '</div>';
+    });
+    document.getElementById("picks").innerHTML = h;
+    return;
+  }
+  
+  const sourcePicks = allPicks.filter(p => (p.source || "Unknown") === selectedSource);
+  
+  const byDay = {};
+  const dayOrder = [];
+  sourcePicks.forEach(p => {
+    const dayKey = p.day || "Undated";
+    if (!byDay[dayKey]) {
+      byDay[dayKey] = [];
+      dayOrder.push(dayKey);
+    }
+    byDay[dayKey].push(p);
+  });
+  
+  dayOrder.forEach(day => {
+    byDay[day].sort((a, b) => {
+      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+      const evRank = { HIGH: 2, MEDIUM: 1 };
+      return (evRank[b.ev] || 0) - (evRank[a.ev] || 0);
+    });
+  });
+  
+  let h = '<button class="back-btn" onclick="backToSources()">← All Sources</button>';
+  h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedSource + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sourcePicks.length + ' picks total</div></div>';
+  
+  dayOrder.forEach(day => {
+    h += '<div class="dl">' + day + '</div>';
+    byDay[day].forEach(p => {
+      h += '<div class="sc"><div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+        '<div><div class="sm">' + p.expert + '</div><div class="smeta">' + (p.sport || "Sports") + '</div></div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:13px">' + "⭐".repeat(p.confidence) + '</div>' +
+        (p.ev === "HIGH" ? '<span class="pp" style="background:rgba(78,204,163,.12);color:#4ecca3;font-size:9px">HIGH EV</span>' : p.ev === "MEDIUM" ? '<span class="pp" style="background:rgba(255,200,50,.1);color:#ffc832;font-size:9px">MED EV</span>' : '') +
+        '</div></div>' +
+        '<div class="sbb"><div class="sbl">' + (p.betType || "PICK") + '</div><div class="sbv">' + p.bet + '</div></div>' +
+        (p.detail ? '<div style="font-size:11px;color:#555;margin-top:6px">' + p.detail.slice(0, 200) + '</div>' : "") +
+        '</div>';
+    });
+  });
+  
+  document.getElementById("picks").innerHTML = h;
+}
+
 async function loadPicks() {
   try {
     const r = await fetch("/api/picks");
     const data = await r.json();
     const picks = data.picks || [];
-    if (!picks.length) { document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>'; return; }
-    let h = "";
+    
     picks.forEach(p => {
-      h += '<div class="sc"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div><div class="sm">' + p.expert + '</div><div class="smeta">' + p.source + '</div></div><div style="font-size:13px">' + "⭐".repeat(p.confidence) + '</div></div><div class="sbb"><div class="sbl">' + (p.betType || "PICK") + '</div><div class="sbv">' + p.bet + '</div></div>' + (p.detail ? '<div style="font-size:11px;color:#555;margin-top:6px">' + p.detail.slice(0, 200) + '</div>' : "") + '</div>';
+      p.day = "Recent";
     });
-    document.getElementById("picks").innerHTML = h;
+    
+    allPicks = picks;
+    picksView = "sources";
+    selectedSource = null;
+    renderPicks();
   } catch (e) {
     document.getElementById("picks").innerHTML = '<div class="empty">Picks error: ' + e.message + '</div>';
   }
