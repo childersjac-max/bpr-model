@@ -233,6 +233,13 @@ function renderFltrs() {
   document.getElementById("fltrs").innerHTML = h;
 }
 
+const EMOJI_DEFS = {
+  "⚡": { name: "Pinnacle vs Public", desc: "Pinnacle's odds are 8+ points shorter than public books. Sharp money has moved Pinnacle's line." },
+  "🔥": { name: "Steam Move", desc: "3+ sportsbooks moved their lines the same direction at once. Professional syndicate action." },
+  "🎯": { name: "Reverse Line Movement", desc: "Line moves against the public. Sharp money overwhelming public bets." },
+  "💎": { name: "Closing Line Value", desc: "Your public book price beats Pinnacle's fair line by 3%+. Betting at a discount to true odds." }
+};
+
 function renderExpand(game) {
   const bks = game.bookmakers || [];
   if (!bks.length) return "";
@@ -248,6 +255,24 @@ function renderExpand(game) {
     mlRows += '<div class="xp-row"><span class="xp-team">' + t.split(" ").pop() + '</span><div class="xp-pills">' + (pin ? '<span class="pp pin">PIN ' + fmt(pin.o) + '</span>' : "") + (pub ? '<span class="pp pub">' + pub.bk.split(" ")[0].toUpperCase() + " " + fmt(pub.o) + '</span>' : "") + sh + '</div></div>';
   });
   if (hasMl) h += '<div class="xp-title">MONEYLINE</div>' + mlRows;
+  
+  const badges = sharpSignalMap[game.id] || [];
+  if (badges.length) {
+    h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">';
+    h += '<div class="xp-title">SHARP SIGNALS</div>';
+    badges.forEach(b => {
+      const def = EMOJI_DEFS[b.emoji];
+      if (def) {
+        h += '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">' +
+          '<div style="font-size:18px;min-width:24px">' + b.emoji + '</div>' +
+          '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#fff">' + def.name + '</div>' +
+          '<div style="font-size:10px;color:#888;margin-top:2px;line-height:1.4">' + def.desc + '</div></div>' +
+          '</div>';
+      }
+    });
+    h += '</div>';
+  }
+  
   h += '</div>';
   return h;
 }
