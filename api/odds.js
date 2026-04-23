@@ -1,6 +1,6 @@
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const KEY = '056939ecab105dc266b1ef43eb8b3eba';
+  const KEY = '6450d705736a8a386ee78b4cb0afb8f8';
   const sport = req.query.sport;
   if (!sport) return res.status(400).json({ error: 'sport required' });
   const url = 'https://api.the-odds-api.com/v4/sports/' + sport + '/odds/?apiKey=' + KEY + '&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american';
