@@ -65,9 +65,20 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .lico{font-size:30px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:12px}
 .ltxt{font-size:14px;letter-spacing:2px}
 .footer{margin-top:32px;text-align:center;font-size:10px;color:#222;padding-bottom:28px;line-height:1.8;font-family:monospace}
-.sec-title{font-size:14px;font-weight:900;color:#fff;margin:18px 0 8px;letter-spacing:1px}
-.sec-desc{font-size:11px;color:#888;margin-bottom:12px;line-height:1.5;padding:10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px}
-.sec-desc strong{color:#4ecca3}
+.sec{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.sec-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sec-header:active{background:rgba(255,255,255,.04)}
+.sec-emoji{font-size:22px}
+.sec-info{flex:1}
+.sec-title{font-size:13px;font-weight:900;color:#fff;letter-spacing:1px}
+.sec-count{font-size:10px;color:#888;font-family:monospace;margin-top:2px}
+.sec-arrow{font-size:14px;color:#666;transition:transform 0.2s}
+.sec.open .sec-arrow{transform:rotate(180deg)}
+.sec-body{display:none;padding:0 16px 14px;border-top:1px solid rgba(255,255,255,.06)}
+.sec.open .sec-body{display:block}
+.sec-signals{margin-top:12px}
+.sec-instr{font-size:11px;color:#888;line-height:1.5;padding:12px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:12px}
+.sec-instr strong{color:#4ecca3}
 .sig-steam{background:rgba(255,107,107,.15);color:#ff6b6b;border:1px solid rgba(255,107,107,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
 .sig-rlm{background:rgba(255,200,50,.15);color:#ffc832;border:1px solid rgba(255,200,50,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
 .sig-clv{background:rgba(138,43,226,.15);color:#b99aff;border:1px solid rgba(138,43,226,.3);font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
@@ -78,6 +89,14 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .src-count{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.3);padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700;font-family:monospace}
 .back-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#aaa;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:12px;display:inline-flex;align-items:center;gap:6px}
 .back-btn:active{background:rgba(255,255,255,.1)}
+.legend{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-top:24px}
+.legend-title{font-size:12px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:6px}
+.legend-item{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+.legend-item:last-child{margin-bottom:0}
+.legend-emoji{font-size:20px;min-width:24px}
+.legend-text{flex:1}
+.legend-name{font-size:12px;font-weight:700;color:#fff}
+.legend-desc{font-size:10px;color:#888;margin-top:2px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -118,14 +137,15 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <div class="footer">BPR MODEL - Odds: The Odds API - Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
 <script>
-const WEEK = 7 * 24 * 3600 * 1000;
+const WEEK = 14 * 24 * 3600 * 1000;
 const PUB = ["draftkings", "fanduel", "betmgm", "bovada", "williamhill_us", "bet365"];
 const SHP = ["pinnacle", "circa", "bookmaker"];
 const FIGHT_SPORTS = ["mma_mixed_martial_arts", "boxing_boxing"];
 let allGames = [], curFilter = "All", curTab = 0, expanded = {};
 let allPicks = [];
-let picksView = "sources";
-let selectedSource = null;
+let picksView = "sources", selectedSource = null;
+let modelView = "sports", selectedModelSport = null;
+let sharpOpen = {};
 let oddsHistory = {};
 
 try {
@@ -197,6 +217,7 @@ function bkOdds(bks, name, keys) {
 
 function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
 function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
+function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
 
 function renderFltrs() {
   const sp = ["All"], seen = {};
@@ -231,6 +252,10 @@ function renderExpand(game) {
 function renderGames() {
   const fl = allGames.filter(g => curFilter === "All" || g.sport_title === curFilter);
   document.getElementById("cnt").textContent = fl.length + " GAMES";
+  if (!fl.length) {
+    document.getElementById("games").innerHTML = '<div class="empty">No games found. Try refreshing.</div>';
+    return;
+  }
   const bd = {}, bo = [];
   fl.forEach(g => {
     const lbl = new Date(g.commence_time).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
@@ -338,6 +363,21 @@ function calcCLV(game) {
   return results.length > 0 ? results : null;
 }
 
+function buildSection(key, emoji, title, count, bodyHtml, instrHtml) {
+  const isOpen = sharpOpen[key];
+  return '<div class="sec' + (isOpen ? ' open' : '') + '">' +
+    '<div class="sec-header" onclick="toggleSharp(\'' + key + '\')">' +
+    '<span class="sec-emoji">' + emoji + '</span>' +
+    '<div class="sec-info"><div class="sec-title">' + title + '</div><div class="sec-count">' + count + ' signal' + (count !== 1 ? 's' : '') + '</div></div>' +
+    '<span class="sec-arrow">▼</span>' +
+    '</div>' +
+    '<div class="sec-body">' +
+    '<div class="sec-signals">' + bodyHtml + '</div>' +
+    '<div class="sec-instr">' + instrHtml + '</div>' +
+    '</div>' +
+    '</div>';
+}
+
 function renderSharp() {
   const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
   
@@ -372,53 +412,69 @@ function renderSharp() {
   
   let h = "";
   
-  h += '<div class="sec-title">⚡ PINNACLE VS PUBLIC DISCREPANCY</div>';
-  h += '<div class="sec-desc"><strong>What it means:</strong> Pinnacle is considered the sharpest book because they accept huge limits from pro bettors. When Pinnacle\'s odds are shorter than public books by 8+ points, it means sharps have moved Pinnacle\'s line toward one side.<br><br><strong>How to read it:</strong> The "SHARP SIDE" is the team sharp money is backing. The DIFF shows how much shorter Pinnacle\'s price is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book while the line is still weak. The bigger the gap, the more value.</div>';
+  // Pinnacle vs Public
+  let pinBody = "";
   if (!pinSignals.length) {
-    h += '<div class="empty">No Pinnacle-vs-public discrepancies ≥8pts right now.</div>';
+    pinBody = '<div class="empty">No discrepancies ≥8pts right now.</div>';
   } else {
     pinSignals.slice(0, 15).forEach((s, i) => {
-      h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
+      pinBody += '<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
     });
   }
+  h += buildSection("pin", "⚡", "PINNACLE VS PUBLIC", pinSignals.length, pinBody,
+    '<strong>What it means:</strong> Pinnacle is the sharpest book because they accept huge limits from pros. When Pinnacle\'s odds are shorter than public books by 8+ points, sharps moved the line toward one side.<br><br><strong>How to read it:</strong> The "SHARP SIDE" is where sharp money is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book before their line moves too.');
   
-  h += '<div class="sec-title">🔥 STEAM MOVES</div>';
-  h += '<div class="sec-desc"><strong>What it means:</strong> A steam move is when the line suddenly moves the same direction across 3+ public sportsbooks at once. This is the clearest sign of professional syndicate action - they\'re hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> If you see a steam move toward a team, follow it immediately. The window to get the old price is usually minutes. The more books moving together, the stronger the steam.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD. Any book that hasn\'t moved yet still has the old, better price.<br><br><strong>Note:</strong> Requires multiple refreshes of the app over time to build history. Open the app periodically to track movement.</div>';
+  // Steam
+  let steamBody = "";
   if (!steamSignals.length) {
-    h += '<div class="empty">No steam moves detected. Refresh the app periodically to build movement history.</div>';
+    steamBody = '<div class="empty">No steam moves detected. Refresh periodically to build history.</div>';
   } else {
-    steamSignals.slice(0, 10).forEach((s, i) => {
+    steamSignals.slice(0, 10).forEach(s => {
       s.signals.forEach(sig => {
         const dir = sig.avgMove < 0 ? "SHORTER" : "LONGER";
         const dirColor = sig.avgMove < 0 ? "#4ecca3" : "#ff6b6b";
-        h += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
+        steamBody += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
       });
     });
   }
+  h += buildSection("steam", "🔥", "STEAM MOVES", steamSignals.length, steamBody,
+    '<strong>What it means:</strong> When 3+ public sportsbooks move their lines the same direction at the same time. Clearest sign of professional syndicate action hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> Follow the steam immediately. More books moving = stronger signal. Window to catch old price is minutes.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD at any book that hasn\'t moved yet.<br><br><strong>Note:</strong> Needs multiple app refreshes over time to detect movement.');
   
-  h += '<div class="sec-title">🎯 REVERSE LINE MOVEMENT (RLM)</div>';
-  h += '<div class="sec-desc"><strong>What it means:</strong> When the public is heavily betting one team but the line moves TOWARD the OTHER team, that\'s RLM. It means sharp money is overwhelming public money - sportsbooks adjusted the line against the public to attract action on the sharp side.<br><br><strong>How to read it:</strong> If a team has a line moving against them despite public support (evidenced by Pinnacle being longer than public books), sharp money is on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side and the line is getting better for you, not worse.</div>';
+  // RLM
+  let rlmBody = "";
   if (!rlmSignals.length) {
-    h += '<div class="empty">No reverse line movement detected yet. Needs multiple refreshes over time.</div>';
+    rlmBody = '<div class="empty">No reverse line movement detected yet.</div>';
   } else {
-    rlmSignals.slice(0, 10).forEach((s, i) => {
+    rlmSignals.slice(0, 10).forEach(s => {
       s.signals.forEach(sig => {
-        h += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span></div></div>';
+        rlmBody += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span></div></div>';
       });
     });
   }
+  h += buildSection("rlm", "🎯", "REVERSE LINE MOVEMENT", rlmSignals.length, rlmBody,
+    '<strong>What it means:</strong> When the public heavily bets one team but the line moves TOWARD the OTHER team. Sharp money is overwhelming public money.<br><br><strong>How to read it:</strong> A team has a line moving against them despite public support (Pinnacle longer than public books) = sharp money on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side.');
   
-  h += '<div class="sec-title">💎 CLOSING LINE VALUE (CLV)</div>';
-  h += '<div class="sec-desc"><strong>What it means:</strong> CLV measures how much better your price is compared to where Pinnacle (the sharpest book) has the line. Pinnacle\'s closing line is considered the "true" probability. Beating Pinnacle consistently is the mark of a profitable bettor.<br><br><strong>How to read it:</strong> +CLV% shows how much of an edge you have over Pinnacle\'s fair line at the public book listed. 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in the CLV NOW - Pinnacle\'s line will likely move to match public books by game time. You\'re betting at a discount compared to the closing price.</div>';
+  // CLV
+  let clvBody = "";
   if (!clvSignals.length) {
-    h += '<div class="empty">No CLV opportunities ≥3% right now.</div>';
+    clvBody = '<div class="empty">No CLV opportunities ≥3% right now.</div>';
   } else {
-    clvSignals.slice(0, 15).forEach((s, i) => {
+    clvSignals.slice(0, 15).forEach(s => {
       s.signals.forEach(sig => {
-        h += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span></div></div>';
+        clvBody += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span></div></div>';
       });
     });
   }
+  h += buildSection("clv", "💎", "CLOSING LINE VALUE", clvSignals.length, clvBody,
+    '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle\'s line will likely move to match public books by game time.');
+  
+  h += '<div class="legend">' +
+    '<div class="legend-title">📖 EMOJI INDEX</div>' +
+    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Pinnacle vs Public</div><div class="legend-desc">Pinnacle\'s odds are 8+ points shorter than public books on one team. Sharp money moved Pinnacle\'s line.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ sportsbooks moving their lines the same direction simultaneously. Professional syndicate action.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ — betting at a discount to true odds.</div></div></div>' +
+    '</div>';
   
   document.getElementById("sharp").innerHTML = h;
 }
@@ -426,9 +482,22 @@ function renderSharp() {
 function iProb(o) { return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100); }
 function ev(pin, pub) { if (!pin || !pub) return 0; const fp = Math.min(iProb(pin) * 1.02, 0.99); const dec = pub > 0 ? (pub / 100) + 1 : (100 / Math.abs(pub)) + 1; return Math.round((fp * dec - 1) * 1000) / 10; }
 
+function selectModelSport(sport) {
+  selectedModelSport = sport;
+  modelView = "details";
+  renderModel();
+}
+
+function backToModelSports() {
+  selectedModelSport = null;
+  modelView = "sports";
+  renderModel();
+}
+
 function renderModel() {
+  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
   const cands = [];
-  allGames.forEach(g => {
+  eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
     [g.away_team, g.home_team].forEach(t => {
       const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
@@ -437,33 +506,71 @@ function renderModel() {
       if (sc > 5 || ev2 > 1) cands.push({ game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk, sharp: sd, ev: ev2, score: sc });
     });
   });
-  cands.sort((a, b) => b.score - a.score);
-  if (!cands.length) { document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; return; }
-  let h = "";
-  cands.slice(0, 20).forEach((p, i) => {
-    h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + p.game.sport_title + " - " + fmtT(p.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span></div></div>';
+  
+  if (!cands.length) { 
+    document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; 
+    return; 
+  }
+  
+  if (modelView === "sports") {
+    const bySport = {};
+    cands.forEach(c => {
+      const sp = c.game.sport_title;
+      if (!bySport[sp]) bySport[sp] = [];
+      bySport[sp].push(c);
+    });
+    
+    const sports = Object.keys(bySport).sort((a, b) => bySport[b].length - bySport[a].length);
+    
+    let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SPORT TO VIEW PICKS</div>';
+    sports.forEach(sp => {
+      const picks = bySport[sp];
+      const maxScore = Math.max(...picks.map(p => p.score));
+      const maxEv = Math.max(...picks.map(p => p.ev));
+      h += '<div class="src-card" onclick="selectModelSport(\'' + sp.replace(/'/g, "\\'") + '\')">' +
+        '<div><div class="src-name">' + sp + '</div><div class="src-meta">' +
+        picks.length + ' picks · top score ' + Math.round(maxScore) + ' · max EV +' + maxEv + '%</div></div>' +
+        '<div class="src-count">' + picks.length + '</div>' +
+        '</div>';
+    });
+    document.getElementById("model").innerHTML = h;
+    return;
+  }
+  
+  const sportCands = cands.filter(c => c.game.sport_title === selectedModelSport);
+  const byDay = {};
+  const dayOrder = [];
+  sportCands.forEach(c => {
+    const dayKey = new Date(c.game.commence_time).toLocaleDateString("en-US", {weekday: "long", month: "short", day: "numeric"});
+    if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
+    byDay[dayKey].push(c);
   });
+  dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
+  dayOrder.forEach(day => byDay[day].sort((a, b) => b.score - a.score));
+  
+  let h = '<button class="back-btn" onclick="backToModelSports()">← All Sports</button>';
+  h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedModelSport + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sportCands.length + ' model picks</div></div>';
+  
+  dayOrder.forEach(day => {
+    h += '<div class="dl">' + day + '</div>';
+    byDay[day].forEach((p, i) => {
+      const strength = p.score >= 20 ? "STRONG" : p.score >= 10 ? "MEDIUM" : "WEAK";
+      const strengthColor = p.score >= 20 ? "#4ecca3" : p.score >= 10 ? "#ffc832" : "#888";
+      h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div></div>';
+    });
+  });
+  
   document.getElementById("model").innerHTML = h;
 }
 
-function selectSource(src) {
-  selectedSource = src;
-  picksView = "details";
-  renderPicks();
-}
-
-function backToSources() {
-  selectedSource = null;
-  picksView = "sources";
-  renderPicks();
-}
+function selectSource(src) { selectedSource = src; picksView = "details"; renderPicks(); }
+function backToSources() { selectedSource = null; picksView = "sources"; renderPicks(); }
 
 function renderPicks() {
   if (!allPicks.length) {
     document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>';
     return;
   }
-  
   if (picksView === "sources") {
     const bySource = {};
     allPicks.forEach(p => {
@@ -471,9 +578,7 @@ function renderPicks() {
       if (!bySource[src]) bySource[src] = { picks: [], expert: p.expert };
       bySource[src].picks.push(p);
     });
-    
     const sources = Object.keys(bySource).sort((a, b) => bySource[b].picks.length - bySource[a].picks.length);
-    
     let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SOURCE TO VIEW PICKS</div>';
     sources.forEach(src => {
       const info = bySource[src];
@@ -482,26 +587,19 @@ function renderPicks() {
       h += '<div class="src-card" onclick="selectSource(\'' + src.replace(/'/g, "\\'") + '\')">' +
         '<div><div class="src-name">' + src + '</div><div class="src-meta">' + 
         info.picks.length + ' picks · avg ' + avgConf.toFixed(1) + '★ · ' + highEV + ' high EV</div></div>' +
-        '<div class="src-count">' + info.picks.length + '</div>' +
-        '</div>';
+        '<div class="src-count">' + info.picks.length + '</div></div>';
     });
     document.getElementById("picks").innerHTML = h;
     return;
   }
-  
   const sourcePicks = allPicks.filter(p => (p.source || "Unknown") === selectedSource);
-  
   const byDay = {};
   const dayOrder = [];
   sourcePicks.forEach(p => {
     const dayKey = p.day || "Undated";
-    if (!byDay[dayKey]) {
-      byDay[dayKey] = [];
-      dayOrder.push(dayKey);
-    }
+    if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
     byDay[dayKey].push(p);
   });
-  
   dayOrder.forEach(day => {
     byDay[day].sort((a, b) => {
       if (b.confidence !== a.confidence) return b.confidence - a.confidence;
@@ -509,10 +607,8 @@ function renderPicks() {
       return (evRank[b.ev] || 0) - (evRank[a.ev] || 0);
     });
   });
-  
   let h = '<button class="back-btn" onclick="backToSources()">← All Sources</button>';
   h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedSource + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sourcePicks.length + ' picks total</div></div>';
-  
   dayOrder.forEach(day => {
     h += '<div class="dl">' + day + '</div>';
     byDay[day].forEach(p => {
@@ -526,7 +622,6 @@ function renderPicks() {
         '</div>';
     });
   });
-  
   document.getElementById("picks").innerHTML = h;
 }
 
@@ -535,11 +630,7 @@ async function loadPicks() {
     const r = await fetch("/api/picks");
     const data = await r.json();
     const picks = data.picks || [];
-    
-    picks.forEach(p => {
-      p.day = "Recent";
-    });
-    
+    picks.forEach(p => { p.day = "Recent"; });
     allPicks = picks;
     picksView = "sources";
     selectedSource = null;
@@ -564,17 +655,18 @@ async function init() {
       if (Array.isArray(data)) {
         data.forEach(g => {
           const t = new Date(g.commence_time).getTime();
-          if (t >= now - 7200000 && t <= now + WEEK) results.push(g);
+          if (t >= now - 86400000 && t <= now + WEEK) results.push(g);
         });
       }
     }).catch(() => { }));
     await Promise.all(promises);
     results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
     allGames = results;
-    
     allGames.forEach(captureSnapshot);
     saveHistory();
-    
+    modelView = "sports";
+    selectedModelSport = null;
+    sharpOpen = {};
     document.getElementById("hBadge").innerHTML = '<span class="badge">LIVE</span>';
     document.getElementById("hSub").textContent = "UPDATED " + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     const sc = {}; results.forEach(g => sc[g.sport_title] = true);
