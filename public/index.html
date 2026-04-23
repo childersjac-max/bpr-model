@@ -7,295 +7,80 @@
 <title>BPR Model</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,sans-serif;min-height:100vh}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes spin{to{transform:rotate(360deg)}}
-.hdr{background:linear-gradient(135deg,#0d0d1a,#111122);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.hdr-l{display:flex;align-items:center;gap:10px}
-.hdr-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#c8102e,#041e42);display:flex;align-items:center;justify-content:center;font-size:16px}
-.hdr-title{font-size:18px;font-weight:900;letter-spacing:1px;color:#fff}
-.hdr-sub{font-size:10px;color:#555;letter-spacing:1px}
-.rfsh{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#aaa;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}
-.rfsh.spin{animation:spin 1s linear infinite}
-.badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(78,204,163,.1);border:1px solid rgba(78,204,163,.3);color:#4ecca3}
-.main{max-width:680px;margin:0 auto;padding:14px}
-.tabs{display:flex;margin-bottom:14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden}
-.tab{flex:1;background:transparent;border:none;color:#555;padding:9px 2px;font-weight:700;font-size:10px;cursor:pointer}
-.tab.on{background:rgba(255,255,255,.08);color:#fff}
-.tab+.tab{border-left:1px solid rgba(255,255,255,.08)}
-.sb{font-size:10px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between;font-family:monospace}
-.fltrs{display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:3px}
-.fbtn{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:20px;color:#555;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
-.fbtn.on{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}
-.cnt{font-size:10px;color:#444;margin-bottom:10px;font-family:monospace}
-.dl{font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:14px 0 7px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.04)}
-.gc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;cursor:pointer;margin-bottom:7px}
-.gt{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
-.gtl{display:flex;align-items:center;gap:6px}
-.sl{font-size:10px;color:#666;letter-spacing:1px;font-family:monospace}
-.live{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;animation:pulse 1.5s infinite}
-.tl{font-size:10px;color:#444;font-family:monospace}
-.mu{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:7px;margin-bottom:9px}
-.tn{font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
-.ts{font-size:10px;color:#555;margin-top:1px;margin-bottom:4px}
-.tr{text-align:right}
-.vs{font-size:15px;font-weight:900;color:#222;letter-spacing:2px;text-align:center}
-.oc{display:inline-block;padding:3px 8px;border-radius:5px;font-size:12px;font-weight:700;font-family:monospace}
-.pos{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
-.neg{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
-.eh{text-align:center;color:#333;font-size:10px;margin-top:6px;font-family:monospace}
-.xp{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)}
-.xp-title{font-size:9px;color:#444;letter-spacing:1px;margin-bottom:6px;font-family:monospace}
-.xp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
-.xp-team{font-size:12px;color:#888;font-weight:600}
-.xp-pills{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-.pp{font-size:10px;padding:2px 6px;border-radius:4px;font-family:monospace}
-.pin{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.25)}
-.pub{background:rgba(255,255,255,.05);color:#666;border:1px solid rgba(255,255,255,.08)}
-.sig{font-size:9px;padding:2px 7px;border-radius:4px;font-family:monospace}
-.s-sharp{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
-.sc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;margin-bottom:7px}
-.sh{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-.sr{font-size:26px;font-weight:900;color:#333;min-width:30px}
-.sm{font-size:14px;font-weight:700;color:#f0f0f0}
-.smeta{font-size:10px;color:#555;margin-top:2px;font-family:monospace}
-.sbb{background:rgba(78,204,163,.08);border:1px solid rgba(78,204,163,.2);border-radius:8px;padding:9px 11px;margin-bottom:7px}
-.sbl{font-size:9px;color:#4ecca3;letter-spacing:1px;margin-bottom:3px;font-family:monospace}
-.sbv{font-size:15px;font-weight:700;color:#fff}
-.empty{font-size:15px;color:#444;text-align:center;padding:28px 20px;line-height:1.6}
-.lstate{text-align:center;padding:40px 20px;color:#555}
-.lico{font-size:30px;display:inline-block;animation:spin 1.2s linear infinite;margin-bottom:12px}
-.ltxt{font-size:14px;letter-spacing:2px}
-.footer{margin-top:32px;text-align:center;font-size:10px;color:#222;padding-bottom:28px;line-height:1.8;font-family:monospace}
+body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,sans-serif;min-height:100vh;padding:16px}
+.hdr{font-size:20px;font-weight:900;margin-bottom:16px}
+.log{background:#111;border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:6px;font-family:monospace;font-size:11px;line-height:1.5;word-break:break-word}
+.ok{color:#4ecca3}
+.err{color:#ff6b6b;background:#2a0505}
+.info{color:#888}
+.game{background:#111;border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:6px;font-size:12px}
+button{background:#4ecca3;color:#000;border:none;padding:10px 20px;border-radius:6px;font-weight:700;margin-bottom:16px;cursor:pointer;margin-right:8px}
 </style>
 </head>
 <body>
-<div class="hdr">
-<div class="hdr-l">
-<div class="hdr-icon">🎰</div>
-<div><div class="hdr-title">BPR MODEL</div><div class="hdr-sub" id="hSub">LOADING...</div></div>
-</div>
-<div style="display:flex;align-items:center;gap:8px">
-<div id="hBadge"></div>
-<button class="rfsh" id="rfBtn" onclick="init()">&#8635;</button>
-</div>
-</div>
-<div class="main">
-<div class="tabs">
-<button class="tab on" id="t0" onclick="goTab(0)">GAMES</button>
-<button class="tab" id="t1" onclick="goTab(1)">SHARP</button>
-<button class="tab" id="t2" onclick="goTab(2)">MODEL</button>
-<button class="tab" id="t3" onclick="goTab(3)">PICKS</button>
-</div>
-<div id="v0">
-<div class="sb"><span id="sL">--</span><span id="sR"></span></div>
-<div class="fltrs" id="fltrs"></div>
-<div class="cnt" id="cnt"></div>
-<div id="games"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING</div></div></div>
-</div>
-<div id="v1" style="display:none">
-<div class="sb"><span>PINNACLE VS PUBLIC DISCREPANCY</span></div>
-<div id="sharp"></div>
-</div>
-<div id="v2" style="display:none">
-<div class="sb"><span>BPR MODEL · SHARP + EV</span></div>
-<div id="model"></div>
-</div>
-<div id="v3" style="display:none">
-<div id="picks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING PICKS</div></div></div>
-</div>
-<div class="footer">BPR MODEL · Odds: The Odds API · Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
-</div>
+<div class="hdr">BPR MODEL</div>
+<button onclick="location.reload()">Reload</button>
+<button onclick="go()">Test Again</button>
+<div id="out"></div>
 <script>
-var WEEK=7*24*3600*1000;
-var PUB=["draftkings","fanduel","betmgm","bovada","williamhill_us","bet365"];
-var SHP=["pinnacle","circa","bookmaker"];
-var allGames=[],curFilter="All",curTab=0,expanded={};
+var out=document.getElementById("out");
+function log(msg,cls){var d=document.createElement("div");d.className="log "+(cls||"info");d.textContent=msg;out.appendChild(d);window.scrollTo(0,document.body.scrollHeight);}
 
-function goTab(n){
-curTab=n;
-for(var i=0;i<4;i++){
-document.getElementById(“t”+i).className=“tab”+(i===n?” on”:””);
-document.getElementById(“v”+i).style.display=i===n?“block”:“none”;
-}
-}
+async function go(){
+out.innerHTML=””;
+log(“Start: “+new Date().toLocaleTimeString(),“info”);
 
-function fmt(p){return p>0?”+”+p:””+p;}
-function chip(p){return “<span class="oc “+(p>=0?“pos”:“neg”)+”">”+fmt(p)+”</span>”;}
-function live(t){return new Date(t)<new Date();}
-function fmtT(t){
-var d=new Date(t),now=new Date(),df=d-now;
-if(df<0)return “In Progress”;
-if(df<10800000){var m=Math.floor(df/60000),h=Math.floor(m/60);return h>0?h+“h “+(m%60)+“m”:m+“m”;}
-return d.toLocaleDateString(“en-US”,{weekday:“short”,month:“short”,day:“numeric”,hour:“numeric”,minute:“2-digit”});
-}
-
-function bkOdds(bks,name,keys){
-for(var i=0;i<bks.length;i++){
-if(keys.indexOf(bks[i].key)>=0){
-for(var j=0;j<(bks[i].markets||[]).length;j++){
-if(bks[i].markets[j].key===“h2h”){
-for(var k=0;k<bks[i].markets[j].outcomes.length;k++){
-if(bks[i].markets[j].outcomes[k].name===name)return{bk:bks[i].title,o:bks[i].markets[j].outcomes[k].price};
-}}}}}
-return null;
-}
-
-function toggle(id){expanded[id]=!expanded[id];renderGames();}
-function setFilter(f){curFilter=f;renderFltrs();renderGames();}
-
-function renderFltrs(){
-var sp=[“All”],seen={};
-for(var i=0;i<allGames.length;i++){if(!seen[allGames[i].sport_title]){seen[allGames[i].sport_title]=true;sp.push(allGames[i].sport_title);}}
-var h=””;
-for(var i=0;i<sp.length;i++){
-var s=sp[i],ac=curFilter===s?” on”:””;
-h+=”<button class="fbtn”+ac+”" onclick="setFilter(’”+s.replace(/’/g,”\’”)+”’)">”+s+”</button>”;
-}
-document.getElementById(“fltrs”).innerHTML=h;
-}
-
-function renderExpand(game){
-var bks=game.bookmakers||[];
-if(!bks.length)return “”;
-var h=”<div class="xp">”;
-var teams=[game.away_team,game.home_team];
-var mlRows=””,hasMl=false;
-for(var i=0;i<teams.length;i++){
-var pin=bkOdds(bks,teams[i],SHP),pub=bkOdds(bks,teams[i],PUB);
-if(!pin&&!pub)continue;
-hasMl=true;
-var d=pin&&pub?pub.o-pin.o:0;
-var sh=d>=8?”<span class="sig s-sharp">SHARP</span>”:””;
-mlRows+=”<div class="xp-row"><span class="xp-team">”+teams[i].split(” “).pop()+”</span><div class="xp-pills">”+(pin?”<span class="pp pin">PIN “+fmt(pin.o)+”</span>”:””)+(pub?”<span class="pp pub">”+pub.bk.split(” “)[0].toUpperCase()+” “+fmt(pub.o)+”</span>”:””)+sh+”</div></div>”;
-}
-if(hasMl)h+=”<div class="xp-title">MONEYLINE</div>”+mlRows;
-h+=”</div>”;
-return h;
-}
-
-function renderGames(){
-var fl=[];
-for(var i=0;i<allGames.length;i++){if(curFilter===“All”||allGames[i].sport_title===curFilter)fl.push(allGames[i]);}
-document.getElementById(“cnt”).textContent=fl.length+” GAMES”;
-var bd={},bo=[];
-for(var i=0;i<fl.length;i++){
-var g=fl[i],lbl=new Date(g.commence_time).toLocaleDateString(“en-US”,{weekday:“long”,month:“short”,day:“numeric”});
-if(!bd[lbl]){bd[lbl]=[];bo.push(lbl);}
-bd[lbl].push(g);
-}
-var h=””;
-for(var di=0;di<bo.length;di++){
-h+=”<div class="dl">”+bo[di]+”</div>”;
-var gs=bd[bo[di]];
-for(var gi=0;gi<gs.length;gi++){
-var game=gs[gi],bks=game.bookmakers||[];
-var pubBk=null;for(var bi=0;bi<bks.length;bi++){if(PUB.indexOf(bks[bi].key)>=0){pubBk=bks[bi];break;}}
-if(!pubBk&&bks.length)pubBk=bks[0];
-var h2h=null;if(pubBk){for(var mi=0;mi<(pubBk.markets||[]).length;mi++){if(pubBk.markets[mi].key===“h2h”)h2h=pubBk.markets[mi];}}
-var awO=null,hmO=null;if(h2h){for(var oi=0;oi<h2h.outcomes.length;oi++){if(h2h.outcomes[oi].name===game.away_team)awO=h2h.outcomes[oi];if(h2h.outcomes[oi].name===game.home_team)hmO=h2h.outcomes[oi];}}
-var isX=!!expanded[game.id];
-h+=”<div class="gc" onclick="toggle(’”+game.id+”’)"><div class="gt"><div class="gtl"><span class="sl">”+game.sport_title+”</span>”+(live(game.commence_time)?”<span class="live">LIVE</span>”:””)+”</div><span class="tl">”+fmtT(game.commence_time)+”</span></div><div class="mu"><div><div class="tn">”+game.away_team+”</div><div class="ts">Away</div>”+(awO?chip(awO.price):””)+”</div><div class="vs">VS</div><div class="tr"><div class="tn">”+game.home_team+”</div><div class="ts">Home</div>”+(hmO?chip(hmO.price):””)+”</div></div>”+(isX?renderExpand(game):””)+”<div class="eh">”+(isX?“collapse”:“tap for sharp”)+”</div></div>”;
-}}
-document.getElementById(“games”).innerHTML=h;
-}
-
-function renderSharp(){
-var all=[];
-for(var i=0;i<allGames.length;i++){
-var g=allGames[i],bks=g.bookmakers||[];
-[g.away_team,g.home_team].forEach(function(t){
-var pin=bkOdds(bks,t,SHP),pub=bkOdds(bks,t,PUB);
-if(pin&&pub){var d=pub.o-pin.o;if(d>=8)all.push({score:d,game:g,label:t,pin:pin.o,pub:pub.o,bk:pub.bk});}
-});
-}
-all.sort(function(a,b){return b.score-a.score;});
-if(!all.length){document.getElementById(“sharp”).innerHTML=”<div class="empty">No sharp signals detected.</div>”;return;}
-var h=””;
-for(var i=0;i<all.length;i++){
-var s=all[i],g=s.game,rk=i+1;
-h+=”<div class="sc"><div class="sh"><div class="sr">#”+rk+”</div><div style="flex:1"><div class="sm">”+g.away_team.split(” “).pop()+” vs “+g.home_team.split(” “).pop()+”</div><div class="smeta">”+g.sport_title+” · “+fmtT(g.commence_time)+”</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">”+s.label+”</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN “+fmt(s.pin)+”</span><span class="pp pub">”+s.bk.split(” “)[0].toUpperCase()+” “+fmt(s.pub)+”</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: “+Math.round(s.score)+”</span></div></div>”;
-}
-document.getElementById(“sharp”).innerHTML=h;
-}
-
-function iProb(o){return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);}
-function ev(pin,pub){if(!pin||!pub)return 0;var fp=Math.min(iProb(pin)*1.02,0.99);var dec=pub>0?(pub/100)+1:(100/Math.abs(pub))+1;return Math.round((fp*dec-1)*1000)/10;}
-
-function renderModel(){
-var cands=[];
-for(var i=0;i<allGames.length;i++){
-var g=allGames[i],bks=g.bookmakers||[];
-[g.away_team,g.home_team].forEach(function(t){
-var pin=bkOdds(bks,t,SHP),pub=bkOdds(bks,t,PUB);
-if(!pin||!pub)return;
-var sd=pub.o-pin.o,ev2=ev(pin.o,pub.o),sc=sd*0.5+ev2*2;
-if(sc>5||ev2>1)cands.push({game:g,label:t,pin:pin.o,pub:pub.o,bk:pub.bk,sharp:sd,ev:ev2,score:sc});
-});
-}
-cands.sort(function(a,b){return b.score-a.score;});
-if(!cands.length){document.getElementById(“model”).innerHTML=”<div class="empty">No high-value model picks.</div>”;return;}
-var h=””;
-for(var i=0;i<Math.min(cands.length,20);i++){
-var p=cands[i],g=p.game,rk=i+1;
-h+=”<div class="sc"><div class="sh"><div class="sr">#”+rk+”</div><div style="flex:1"><div class="sm">”+g.away_team.split(” “).pop()+” @ “+g.home_team.split(” “).pop()+”</div><div class="smeta">”+g.sport_title+” · “+fmtT(g.commence_time)+”</div></div></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">”+p.label+”</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +”+p.ev+”%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE “+Math.round(p.score)+”</span></div></div>”;
-}
-document.getElementById(“model”).innerHTML=h;
-}
-
-async function loadPicks(){
 try{
-var r=await fetch(”/api/picks”);
-var data=await r.json();
-var picks=data.picks||[];
-if(!picks.length){document.getElementById(“picks”).innerHTML=”<div class="empty">No picks available right now.</div>”;return;}
-var h=””;
-for(var i=0;i<picks.length;i++){
-var p=picks[i];
-h+=”<div class="sc"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div><div class="sm">”+p.expert+”</div><div class="smeta">”+p.source+”</div></div><div style="font-size:13px">”+Array(p.confidence+1).join(“⭐”)+”</div></div><div class="sbb"><div class="sbl">”+(p.betType||“PICK”)+”</div><div class="sbv">”+p.bet+”</div></div>”+(p.detail?”<div style="font-size:11px;color:#555;margin-top:6px">”+p.detail.slice(0,200)+”</div>”:””)+”</div>”;
-}
-document.getElementById(“picks”).innerHTML=h;
-}catch(e){
-document.getElementById(“picks”).innerHTML=”<div class="empty">Picks error: “+e.message+”</div>”;
-}
-}
+log(“Step 1: fetch /api/sports”,“info”);
+var t1=Date.now();
+var r1=await fetch(”/api/sports”);
+log(”  got response in “+(Date.now()-t1)+“ms status=”+r1.status,“ok”);
+var sports=await r1.json();
+log(”  parsed “+sports.length+” sports”,“ok”);
 
-async function init(){
-var btn=document.getElementById(“rfBtn”);
-btn.classList.add(“spin”);
-document.getElementById(“hSub”).textContent=“LOADING…”;
-document.getElementById(“games”).innerHTML=”<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div></div>”;
-setTimeout(loadPicks,500);
-try{
-var sr=await fetch(”/api/sports”);
-var sports=await sr.json();
-var now=Date.now(),results=[];
-var fetches=sports.map(function(sp){
-return fetch(”/api/odds?sport=”+sp.key).then(function(r){return r.json();}).then(function(data){
+log(“Step 2: parallel fetch all odds”,“info”);
+var t2=Date.now();
+var results=[];
+var promises=[];
+for(var i=0;i<sports.length;i++){
+(function(sp){
+var p=fetch(”/api/odds?sport=”+sp.key).then(function(r){
+log(”  “+sp.key+” status=”+r.status+” in “+(Date.now()-t2)+“ms”,“ok”);
+return r.json();
+}).then(function(data){
 if(Array.isArray(data)){
-for(var j=0;j<data.length;j++){
-var t=new Date(data[j].commence_time).getTime();
-if(t>=now-7200000&&t<=now+WEEK)results.push(data[j]);
+log(”  “+sp.key+”: “+data.length+” games”,“ok”);
+for(var j=0;j<data.length;j++)results.push(data[j]);
+}else{
+log(”  “+sp.key+”: not array: “+JSON.stringify(data).slice(0,100),“err”);
 }
-}
-}).catch(function(){});
+}).catch(function(e){
+log(”  “+sp.key+” ERROR: “+e.message,“err”);
 });
-await Promise.all(fetches);
-results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
-allGames=results;
-document.getElementById(“hBadge”).innerHTML=”<span class="badge">LIVE</span>”;
-document.getElementById(“hSub”).textContent=“UPDATED “+new Date().toLocaleTimeString(“en-US”,{hour:“numeric”,minute:“2-digit”});
-var sc={};for(var i=0;i<results.length;i++)sc[results[i].sport_title]=true;
-document.getElementById(“sL”).textContent=results.length+” GAMES · “+Object.keys(sc).length+” SPORTS”;
-document.getElementById(“sR”).textContent=“ODDS + SHARP”;
-renderFltrs();renderGames();renderSharp();renderModel();
+promises.push(p);
+})(sports[i]);
+}
+
+log(”  waiting for all “+promises.length+” requests…”,“info”);
+await Promise.all(promises);
+log(“Step 2 done in “+(Date.now()-t2)+“ms, total “+results.length+” games”,“ok”);
+
+log(“Step 3: render “+results.length+” games”,“info”);
+for(var j=0;j<Math.min(10,results.length);j++){
+var g=results[j];
+var div=document.createElement(“div”);
+div.className=“game”;
+div.textContent=g.sport_title+”: “+g.away_team+” @ “+g.home_team;
+out.appendChild(div);
+}
+log(“DONE. All working!”,“ok”);
+
 }catch(e){
-document.getElementById(“games”).innerHTML=”<div class="empty">Error: “+e.message+”</div>”;
-document.getElementById(“hSub”).textContent=“ERROR”;
+log(“FATAL: “+e.message,“err”);
+log(“Stack: “+(e.stack||“no stack”),“err”);
 }
-btn.classList.remove(“spin”);
 }
-init();
+go();
 </script>
 
 </body>
