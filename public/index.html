@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang=en>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset=UTF-8>
+<meta name=viewport content=width=device-width,initial-scale=1>
 <title>BPR Model</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -18,66 +18,43 @@ button{background:#4ecca3;color:#000;border:none;padding:10px 20px;border-radius
 </style>
 </head>
 <body>
-<div class="hdr">BPR MODEL</div>
-<button onclick="location.reload()">Reload</button>
-<button onclick="go()">Test Again</button>
-<div id="out"></div>
+<div class=hdr>BPR MODEL</div>
+<button onclick=location.reload()>Reload</button>
+<div id=out></div>
 <script>
-var out=document.getElementById("out");
-function log(msg,cls){var d=document.createElement("div");d.className="log "+(cls||"info");d.textContent=msg;out.appendChild(d);window.scrollTo(0,document.body.scrollHeight);}
+const out=document.getElementById(`out`);
+function log(m,c){const d=document.createElement(`div`);d.className=`log `+(c||`info`);d.textContent=m;out.appendChild(d);}
 
 async function go(){
-out.innerHTML=””;
-log(“Start: “+new Date().toLocaleTimeString(),“info”);
-
+log(`Start: `+new Date().toLocaleTimeString(),`info`);
 try{
-log(“Step 1: fetch /api/sports”,“info”);
-var t1=Date.now();
-var r1=await fetch(”/api/sports”);
-log(”  got response in “+(Date.now()-t1)+“ms status=”+r1.status,“ok”);
-var sports=await r1.json();
-log(”  parsed “+sports.length+” sports”,“ok”);
+log(`Fetch /api/sports`,`info`);
+const r1=await fetch(`/api/sports`);
+log(`  status=`+r1.status,`ok`);
+const sports=await r1.json();
+log(` got`+sports.length+` sports`,`ok`);
 
-log(“Step 2: parallel fetch all odds”,“info”);
-var t2=Date.now();
-var results=[];
-var promises=[];
-for(var i=0;i<sports.length;i++){
-(function(sp){
-var p=fetch(”/api/odds?sport=”+sp.key).then(function(r){
-log(”  “+sp.key+” status=”+r.status+” in “+(Date.now()-t2)+“ms”,“ok”);
-return r.json();
-}).then(function(data){
+log(`Parallel fetch odds`,`info`);
+const results=[];
+const promises=sports.map(sp=>fetch(`/api/odds?sport=`+sp.key).then(r=>r.json()).then(data=>{
 if(Array.isArray(data)){
-log(”  “+sp.key+”: “+data.length+” games”,“ok”);
-for(var j=0;j<data.length;j++)results.push(data[j]);
-}else{
-log(”  “+sp.key+”: not array: “+JSON.stringify(data).slice(0,100),“err”);
+log(`  `+sp.key+`: `+data.length+` games`,`ok`);
+data.forEach(g=>results.push(g));
 }
-}).catch(function(e){
-log(”  “+sp.key+” ERROR: “+e.message,“err”);
-});
-promises.push(p);
-})(sports[i]);
-}
-
-log(”  waiting for all “+promises.length+” requests…”,“info”);
+}).catch(e=>log(`  `+sp.key+`ERROR:`+e.message,`err`)));
 await Promise.all(promises);
-log(“Step 2 done in “+(Date.now()-t2)+“ms, total “+results.length+” games”,“ok”);
+log(`Total: `+results.length+` games`,`ok`);
 
-log(“Step 3: render “+results.length+” games”,“info”);
-for(var j=0;j<Math.min(10,results.length);j++){
-var g=results[j];
-var div=document.createElement(“div”);
-div.className=“game”;
-div.textContent=g.sport_title+”: “+g.away_team+” @ “+g.home_team;
+for(let j=0;j<Math.min(10,results.length);j++){
+const g=results[j];
+const div=document.createElement(`div`);
+div.className=`game`;
+div.textContent=g.sport_title+`: `+g.away_team+`@`+g.home_team;
 out.appendChild(div);
 }
-log(“DONE. All working!”,“ok”);
-
+log(`DONE`,`ok`);
 }catch(e){
-log(“FATAL: “+e.message,“err”);
-log(“Stack: “+(e.stack||“no stack”),“err”);
+log(`FATAL: `+e.message,`err`);
 }
 }
 go();
