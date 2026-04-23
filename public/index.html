@@ -30,9 +30,11 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .dl{font-size:11px;font-weight:700;color:#333;letter-spacing:2px;text-transform:uppercase;margin:14px 0 7px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.04)}
 .gc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 15px;cursor:pointer;margin-bottom:7px}
 .gt{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
-.gtl{display:flex;align-items:center;gap:6px}
+.gtl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .sl{font-size:10px;color:#666;letter-spacing:1px;font-family:monospace}
 .live{background:#ff4444;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;animation:pulse 1.5s infinite}
+.sharp-badges{display:inline-flex;gap:3px;margin-left:4px}
+.sharp-badge{font-size:13px;line-height:1}
 .tl{font-size:10px;color:#444;font-family:monospace}
 .mu{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:7px;margin-bottom:9px}
 .tn{font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.2}
@@ -147,6 +149,7 @@ let picksView = "sources", selectedSource = null;
 let modelView = "sports", selectedModelSport = null;
 let sharpOpen = {};
 let oddsHistory = {};
+let sharpSignalMap = {};
 
 try {
   const saved = localStorage.getItem("bpr_odds_history");
@@ -272,7 +275,12 @@ function renderGames() {
       const awO = h2h ? h2h.outcomes.find(o => o.name === game.away_team) : null;
       const hmO = h2h ? h2h.outcomes.find(o => o.name === game.home_team) : null;
       const isX = !!expanded[game.id];
-      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')"><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
+      const badges = sharpSignalMap[game.id] || [];
+      let badgeHtml = "";
+      if (badges.length) {
+        badgeHtml = '<span class="sharp-badges">' + badges.map(b => '<span class="sharp-badge" title="' + b.name + '">' + b.emoji + '</span>').join("") + '</span>';
+      }
+      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')"><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
     });
   });
   document.getElementById("games").innerHTML = h;
@@ -363,6 +371,29 @@ function calcCLV(game) {
   return results.length > 0 ? results : null;
 }
 
+function computeSharpSignals() {
+  sharpSignalMap = {};
+  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  
+  function addBadge(gameId, emoji, name) {
+    if (!sharpSignalMap[gameId]) sharpSignalMap[gameId] = [];
+    if (!sharpSignalMap[gameId].find(b => b.emoji === emoji)) {
+      sharpSignalMap[gameId].push({ emoji, name });
+    }
+  }
+  
+  eligibleGames.forEach(g => {
+    const bks = g.bookmakers || [];
+    [g.away_team, g.home_team].forEach(t => {
+      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) addBadge(g.id, "⚡", "Pinnacle vs Public"); }
+    });
+    if (detectSteamMove(g)) addBadge(g.id, "🔥", "Steam Move");
+    if (detectRLM(g)) addBadge(g.id, "🎯", "Reverse Line Movement");
+    if (calcCLV(g)) addBadge(g.id, "💎", "Closing Line Value");
+  });
+}
+
 function buildSection(key, emoji, title, count, bodyHtml, instrHtml) {
   const isOpen = sharpOpen[key];
   return '<div class="sec' + (isOpen ? ' open' : '') + '">' +
@@ -412,19 +443,17 @@ function renderSharp() {
   
   let h = "";
   
-  // Pinnacle vs Public
   let pinBody = "";
   if (!pinSignals.length) {
     pinBody = '<div class="empty">No discrepancies ≥8pts right now.</div>';
   } else {
-    pinSignals.slice(0, 15).forEach((s, i) => {
+    pinSignals.slice(0, 15).forEach(s => {
       pinBody += '<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
     });
   }
   h += buildSection("pin", "⚡", "PINNACLE VS PUBLIC", pinSignals.length, pinBody,
     '<strong>What it means:</strong> Pinnacle is the sharpest book because they accept huge limits from pros. When Pinnacle\'s odds are shorter than public books by 8+ points, sharps moved the line toward one side.<br><br><strong>How to read it:</strong> The "SHARP SIDE" is where sharp money is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book before their line moves too.');
   
-  // Steam
   let steamBody = "";
   if (!steamSignals.length) {
     steamBody = '<div class="empty">No steam moves detected. Refresh periodically to build history.</div>';
@@ -440,7 +469,6 @@ function renderSharp() {
   h += buildSection("steam", "🔥", "STEAM MOVES", steamSignals.length, steamBody,
     '<strong>What it means:</strong> When 3+ public sportsbooks move their lines the same direction at the same time. Clearest sign of professional syndicate action hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> Follow the steam immediately. More books moving = stronger signal. Window to catch old price is minutes.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD at any book that hasn\'t moved yet.<br><br><strong>Note:</strong> Needs multiple app refreshes over time to detect movement.');
   
-  // RLM
   let rlmBody = "";
   if (!rlmSignals.length) {
     rlmBody = '<div class="empty">No reverse line movement detected yet.</div>';
@@ -454,7 +482,6 @@ function renderSharp() {
   h += buildSection("rlm", "🎯", "REVERSE LINE MOVEMENT", rlmSignals.length, rlmBody,
     '<strong>What it means:</strong> When the public heavily bets one team but the line moves TOWARD the OTHER team. Sharp money is overwhelming public money.<br><br><strong>How to read it:</strong> A team has a line moving against them despite public support (Pinnacle longer than public books) = sharp money on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side.');
   
-  // CLV
   let clvBody = "";
   if (!clvSignals.length) {
     clvBody = '<div class="empty">No CLV opportunities ≥3% right now.</div>';
@@ -482,17 +509,8 @@ function renderSharp() {
 function iProb(o) { return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100); }
 function ev(pin, pub) { if (!pin || !pub) return 0; const fp = Math.min(iProb(pin) * 1.02, 0.99); const dec = pub > 0 ? (pub / 100) + 1 : (100 / Math.abs(pub)) + 1; return Math.round((fp * dec - 1) * 1000) / 10; }
 
-function selectModelSport(sport) {
-  selectedModelSport = sport;
-  modelView = "details";
-  renderModel();
-}
-
-function backToModelSports() {
-  selectedModelSport = null;
-  modelView = "sports";
-  renderModel();
-}
+function selectModelSport(sport) { selectedModelSport = sport; modelView = "details"; renderModel(); }
+function backToModelSports() { selectedModelSport = null; modelView = "sports"; renderModel(); }
 
 function renderModel() {
   const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
@@ -506,12 +524,7 @@ function renderModel() {
       if (sc > 5 || ev2 > 1) cands.push({ game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk, sharp: sd, ev: ev2, score: sc });
     });
   });
-  
-  if (!cands.length) { 
-    document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; 
-    return; 
-  }
-  
+  if (!cands.length) { document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; return; }
   if (modelView === "sports") {
     const bySport = {};
     cands.forEach(c => {
@@ -519,9 +532,7 @@ function renderModel() {
       if (!bySport[sp]) bySport[sp] = [];
       bySport[sp].push(c);
     });
-    
     const sports = Object.keys(bySport).sort((a, b) => bySport[b].length - bySport[a].length);
-    
     let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SPORT TO VIEW PICKS</div>';
     sports.forEach(sp => {
       const picks = bySport[sp];
@@ -530,13 +541,11 @@ function renderModel() {
       h += '<div class="src-card" onclick="selectModelSport(\'' + sp.replace(/'/g, "\\'") + '\')">' +
         '<div><div class="src-name">' + sp + '</div><div class="src-meta">' +
         picks.length + ' picks · top score ' + Math.round(maxScore) + ' · max EV +' + maxEv + '%</div></div>' +
-        '<div class="src-count">' + picks.length + '</div>' +
-        '</div>';
+        '<div class="src-count">' + picks.length + '</div></div>';
     });
     document.getElementById("model").innerHTML = h;
     return;
   }
-  
   const sportCands = cands.filter(c => c.game.sport_title === selectedModelSport);
   const byDay = {};
   const dayOrder = [];
@@ -547,10 +556,8 @@ function renderModel() {
   });
   dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
   dayOrder.forEach(day => byDay[day].sort((a, b) => b.score - a.score));
-  
   let h = '<button class="back-btn" onclick="backToModelSports()">← All Sports</button>';
   h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedModelSport + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sportCands.length + ' model picks</div></div>';
-  
   dayOrder.forEach(day => {
     h += '<div class="dl">' + day + '</div>';
     byDay[day].forEach((p, i) => {
@@ -559,7 +566,6 @@ function renderModel() {
       h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div></div>';
     });
   });
-  
   document.getElementById("model").innerHTML = h;
 }
 
@@ -567,10 +573,7 @@ function selectSource(src) { selectedSource = src; picksView = "details"; render
 function backToSources() { selectedSource = null; picksView = "sources"; renderPicks(); }
 
 function renderPicks() {
-  if (!allPicks.length) {
-    document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>';
-    return;
-  }
+  if (!allPicks.length) { document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>'; return; }
   if (picksView === "sources") {
     const bySource = {};
     allPicks.forEach(p => {
@@ -664,6 +667,7 @@ async function init() {
     allGames = results;
     allGames.forEach(captureSnapshot);
     saveHistory();
+    computeSharpSignals();
     modelView = "sports";
     selectedModelSport = null;
     sharpOpen = {};
