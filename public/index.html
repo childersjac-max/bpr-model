@@ -270,17 +270,17 @@ try{
 var sr=await fetch(”/api/sports”);
 var sports=await sr.json();
 var now=Date.now(),results=[];
-for(var i=0;i<sports.length;i++){
-try{
-var r=await fetch(”/api/odds?sport=”+sports[i].key);
-var data=await r.json();
+var fetches=sports.map(function(sp){
+return fetch(”/api/odds?sport=”+sp.key).then(function(r){return r.json();}).then(function(data){
 if(Array.isArray(data)){
 for(var j=0;j<data.length;j++){
 var t=new Date(data[j].commence_time).getTime();
 if(t>=now-7200000&&t<=now+WEEK)results.push(data[j]);
-}}
-}catch(e){}
 }
+}
+}).catch(function(){});
+});
+await Promise.all(fetches);
 results.sort(function(a,b){return new Date(a.commence_time)-new Date(b.commence_time);});
 allGames=results;
 document.getElementById(“hBadge”).innerHTML=”<span class="badge">LIVE</span>”;
