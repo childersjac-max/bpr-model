@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BPR Model</title>
+<title>J LAB</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh}
@@ -11,7 +11,8 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 @keyframes spin{to{transform:rotate(360deg)}}
 .hdr{background:linear-gradient(135deg,#0d0d1a,#111122);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr-l{display:flex;align-items:center;gap:10px}
-.hdr-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#c8102e,#041e42);display:flex;align-items:center;justify-content:center;font-size:16px}
+.hdr-icon{width:44px;height:32px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.hdr-icon img{width:100%;height:100%;object-fit:cover;border-radius:8px}
 .hdr-title{font-size:18px;font-weight:900;letter-spacing:1px;color:#fff}
 .hdr-sub{font-size:10px;color:#555;letter-spacing:1px}
 .rfsh{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#aaa;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}
@@ -104,8 +105,8 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <body>
 <div class="hdr">
 <div class="hdr-l">
-<div class="hdr-icon">🎰</div>
-<div><div class="hdr-title">BPR MODEL</div><div class="hdr-sub" id="hSub">LOADING...</div></div>
+<div class="hdr-icon"><img src="data:image/png;base64,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" alt="J LAB"></div>
+<div><div class="hdr-title">J LAB</div><div class="hdr-sub" id="hSub">LOADING...</div></div>
 </div>
 <div style="display:flex;align-items:center;gap:8px">
 <div id="hBadge"></div>
@@ -130,13 +131,13 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <div id="sharp"></div>
 </div>
 <div id="v2" style="display:none">
-<div class="sb"><span>BPR MODEL - SHARP + EV</span></div>
+<div class="sb"><span>J LAB - SHARP + EV</span></div>
 <div id="model"></div>
 </div>
 <div id="v3" style="display:none">
 <div id="picks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING PICKS</div></div></div>
 </div>
-<div class="footer">BPR MODEL - Odds: The Odds API - Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
+<div class="footer">J LAB - Odds: The Odds API - Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
 <script>
 const WEEK = 14 * 24 * 3600 * 1000;
@@ -152,7 +153,7 @@ let oddsHistory = {};
 let sharpSignalMap = {};
 
 try {
-  const saved = localStorage.getItem("bpr_odds_history");
+  const saved = localStorage.getItem("jlab_odds_history");
   if (saved) oddsHistory = JSON.parse(saved);
 } catch(e) {}
 
@@ -163,7 +164,7 @@ function saveHistory() {
       oddsHistory[id] = oddsHistory[id].filter(s => s.ts > cutoff);
       if (oddsHistory[id].length === 0) delete oddsHistory[id];
     });
-    localStorage.setItem("bpr_odds_history", JSON.stringify(oddsHistory));
+    localStorage.setItem("jlab_odds_history", JSON.stringify(oddsHistory));
   } catch(e) {}
 }
 
@@ -305,7 +306,7 @@ function renderGames() {
       if (badges.length) {
         badgeHtml = '<span class="sharp-badges">' + badges.map(b => '<span class="sharp-badge" title="' + b.name + '">' + b.emoji + '</span>').join("") + '</span>';
       }
-      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')"><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
+      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')""><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
     });
   });
   document.getElementById("games").innerHTML = h;
