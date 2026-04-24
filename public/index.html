@@ -879,14 +879,14 @@ function renderExpand(game) {
     const evTxt = evInfo ? evInfo.lbl : '+'+rec.ev+'%';
     h += '<div class="bet-box">' +
       '<div class="bet-box-lbl">🎯 BET RECOMMENDATION</div>' +
-      '<div class="bet-team-name">' + rec.team + '</div>' +
+      '<div class="bet-team-name">Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + '</div>' +
       '<div class="bet-pills">' +
       '<span class="' + evCls + '">' + evTxt + '</span>' +
       '<span class="pp pin">PIN ' + fmt(rec.pin) + '</span>' +
       '<span class="pp pub">' + rec.bk.split(' ')[0].toUpperCase() + ' ' + fmt(rec.pub) + '</span>' +
       (rec.sharpDiff>=8?'<span class="sig">SHARP ⚡</span>':'') +
       '</div>' +
-      '<div class="bet-cta">▶ BET ' + rec.team.split(' ').pop().toUpperCase() + ' @ ' + rec.bk.split(' ')[0].toUpperCase() + ' · ' + fmt(rec.pub) + '</div>' +
+      '<div class="bet-cta">▶ Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + ' @ ' + rec.bk.split(' ')[0].toUpperCase() + '</div>' +
       '</div>';
 
     // Reasoning for why this is the recommended bet
@@ -1345,7 +1345,7 @@ function renderSharp() {
   } else {
     pinSignals.slice(0, 15).forEach(s => {
       const pEv=calcEV(s.pin,s.pub);const pEvInfo=evLabel(pEv);
-      pinBody += '<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span>' + (pEvInfo?'<span class="'+pEvInfo.cls+'">'+pEvInfo.lbl+'</span>':'') + '</div>' +
+      pinBody += '<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">Take Moneyline · ' + s.label + ' · ' + fmt(s.pub) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span>' + (pEvInfo?'<span class="'+pEvInfo.cls+'">'+pEvInfo.lbl+'</span>':'') + '</div>' +
       '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + s.label + '</div><div class="sharp-cta-ev">' + s.bk.split(" ")[0].toUpperCase() + ' · ' + fmt(s.pub) + (pEv&&pEv>0?' · +'+pEv+'% EV':'') + '</div></div><div class="sharp-cta-arrow">→</div></div>' +
       (function(){
         const k = "sharp_"+s.game.id+"_"+s.label;
@@ -1368,7 +1368,7 @@ function renderSharp() {
       s.signals.forEach(sig => {
         const dir = sig.avgMove < 0 ? "SHORTER" : "LONGER";
         const dirColor = sig.avgMove < 0 ? "#4ecca3" : "#ff6b6b";
-        steamBody += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
+        steamBody += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">Take Moneyline · ' + sig.team + (function(){const o = bkOdds(s.game.bookmakers||[], sig.team, PUB); return o ? ' · ' + fmt(o.o) : '';})() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
       });
     });
   }
@@ -1382,7 +1382,7 @@ function renderSharp() {
     rlmSignals.slice(0, 10).forEach(s => {
       s.signals.forEach(sig => {
         const rEv=calcEV(sig.pinOdds,sig.pubOdds);const rEvInfo=evLabel(rEv);
-        rlmBody += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span>' + (rEvInfo?'<span class="'+rEvInfo.cls+'">'+rEvInfo.lbl+'</span>':'') + '</div>' +
+        rlmBody += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">Take Moneyline · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span>' + (rEvInfo?'<span class="'+rEvInfo.cls+'">'+rEvInfo.lbl+'</span>':'') + '</div>' +
         '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">PUBLIC BOOK · ' + fmt(sig.pubOdds) + (rEv&&rEv>0?' · +'+rEv+'% EV':'') + '</div></div><div class="sharp-cta-arrow">→</div></div>' +
         '</div>';
       });
@@ -1398,7 +1398,7 @@ function renderSharp() {
     clvSignals.slice(0, 15).forEach(s => {
       s.signals.forEach(sig => {
         const cEv=calcEV(sig.pinOdds,sig.pubOdds);const cBk=bkOdds(s.game.bookmakers||[],sig.team,PUB);
-        clvBody += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span>' + (cEv&&cEv>0?'<span class="bet-ev-high">+'+cEv+'% EV</span>':'') + '</div>' +
+        clvBody += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">Take Moneyline · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span>' + (cEv&&cEv>0?'<span class="bet-ev-high">+'+cEv+'% EV</span>':'') + '</div>' +
         '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">' + (cBk?cBk.bk.split(" ")[0].toUpperCase()+' · '+fmt(sig.pubOdds):'PUBLIC BOOK') + ' · +' + sig.clvPct + '% CLV</div></div><div class="sharp-cta-arrow">→</div></div>' +
         '</div>';
       });
@@ -1534,7 +1534,7 @@ function renderModel() {
           const obj = {key:k,team:p.label,matchup:p.game.away_team.split(' ').pop()+' @ '+p.game.home_team.split(' ').pop(),sport:p.game.sport_title,commence_time:p.game.commence_time,pub:p.pub,pin:p.pin,bk:p.bk,ev:p.ev,units:1,source:"MODEL",reasons:["Model score of "+Math.round(p.score)+" ("+strength+") combining sharp divergence and EV.", "Pinnacle at "+fmt(p.pin)+" vs "+p.bk.split(' ')[0]+" at "+fmt(p.pub)+" - "+Math.round(p.sharp)+" pt gap.", "Positive EV of +"+p.ev+"% at current public book price."],gameId:p.game.id};
           bcBtn = '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
         }
-        h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div>'+bcBtn+'</div>';
+        h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">Take Moneyline · ' + p.label + ' · ' + fmt(p.pub) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div>'+bcBtn+'</div>';
       }
     });
   });
@@ -1911,7 +1911,7 @@ function renderLocks() {
         '<div class="composite-item"><div class="composite-num">' + l.picksScore + '</div><div class="composite-lbl">PICKS (25%)</div></div>' +
       '</div>' +
       '<div class="lock-pick-row">' +
-        '<div><div class="lock-pick-lbl">🎯 THE PICK</div><div class="lock-pick-team">' + l.team + ' ' + fmt(l.pub) + '</div></div>' +
+        '<div><div class="lock-pick-lbl">🎯 THE PICK</div><div class="lock-pick-team">Take Moneyline · ' + l.team + ' · ' + fmt(l.pub) + '</div></div>' +
         '<div style="text-align:right"><div class="lock-pick-lbl">EV</div><div class="lock-pick-ev">+' + l.ev + '%</div></div>' +
       '</div>' +
       '<div class="lock-signals">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
