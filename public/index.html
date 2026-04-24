@@ -957,6 +957,13 @@ h += ‘<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02
 document.getElementById(“locks”).innerHTML = h;
 }
 
+function fetchWithTimeout(url, ms) {
+return Promise.race([
+fetch(url),
+new Promise((_, rej) => setTimeout(() => rej(new Error(“timeout”)), ms))
+]);
+}
+
 async function init() {
 const btn = document.getElementById(“rfBtn”);
 btn.classList.add(“spin”);
@@ -964,19 +971,28 @@ document.getElementById(“hSub”).textContent = “LOADING…”;
 document.getElementById(“games”).innerHTML = ‘<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div></div>’;
 setTimeout(loadPicks, 500);
 try {
-const sr = await fetch(”/api/sports”);
+const sr = await fetchWithTimeout(”/api/sports”, 10000);
+if (!sr.ok) throw new Error(“Sports API error: “ + sr.status);
 const sports = await sr.json();
+if (!Array.isArray(sports) || !sports.length) throw new Error(“No sports returned”);
 const now = Date.now();
 const results = [];
-const promises = sports.map(sp => fetch(”/api/odds?sport=” + sp.key).then(r => r.json()).then(data => {
+for (let i = 0; i < sports.length; i += 3) {
+const batch = sports.slice(i, i + 3);
+await Promise.all(batch.map(sp =>
+fetchWithTimeout(”/api/odds?sport=” + sp.key, 10000)
+.then(r => r.json())
+.then(data => {
 if (Array.isArray(data)) {
 data.forEach(g => {
 const t = new Date(g.commence_time).getTime();
 if (t >= now - 86400000 && t <= now + WEEK) results.push(g);
 });
 }
-}).catch(() => { }));
-await Promise.all(promises);
+})
+.catch(() => {})
+));
+}
 results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
 allGames = results;
 allGames.forEach(captureSnapshot);
@@ -992,8 +1008,8 @@ document.getElementById(“sL”).textContent = results.length + “ GAMES - “
 document.getElementById(“sR”).textContent = “ODDS + SHARP”;
 renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks();
 } catch (e) {
-document.getElementById(“games”).innerHTML = ’<div class="empty">Error: ’ + e.message + ‘</div>’;
-document.getElementById(“hSub”).textContent = “ERROR”;
+document.getElementById(“games”).innerHTML = ’<div class="empty">Failed to load: ’ + e.message + ‘<br><br><span style="font-size:11px;color:#333">Tap ↻ to retry</span></div>’;
+document.getElementById(“hSub”).textContent = “ERROR — TAP ↻”;
 }
 btn.classList.remove(“spin”);
 }
