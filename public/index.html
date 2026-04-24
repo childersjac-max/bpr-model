@@ -187,6 +187,25 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .leans-section.open .leans-toggle-arrow{transform:rotate(180deg)}
 .leans-body{display:none;margin-top:10px}
 .leans-section.open .leans-body{display:block}
+.settings-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#aaa;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.settings-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+.settings-modal.open{display:flex}
+.settings-content{background:#111;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:22px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto}
+.settings-title{font-size:16px;font-weight:900;color:#fff;letter-spacing:1px;margin-bottom:4px}
+.settings-sub{font-size:11px;color:#666;margin-bottom:18px;font-family:monospace}
+.settings-field{margin-bottom:16px}
+.settings-label{font-size:11px;color:#aaa;letter-spacing:1px;font-family:monospace;margin-bottom:6px;display:block;font-weight:700}
+.settings-input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:15px;font-family:monospace}
+.settings-input:focus{outline:none;border-color:#4ecca3}
+.settings-hint{font-size:10px;color:#555;margin-top:5px;font-family:monospace;line-height:1.5}
+.settings-actions{display:flex;gap:8px;margin-top:20px}
+.settings-btn-save{flex:1;background:#4ecca3;color:#0a0a0f;border:none;border-radius:8px;padding:11px;font-weight:900;font-size:12px;letter-spacing:1px;cursor:pointer}
+.settings-btn-cancel{flex:1;background:rgba(255,255,255,.06);color:#aaa;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:11px;font-weight:700;font-size:12px;letter-spacing:1px;cursor:pointer}
+.unit-value{font-size:9px;color:#666;font-family:monospace;letter-spacing:1px;margin-top:1px}
+.composite-breakdown{margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:6px;display:flex;gap:10px;justify-content:space-around;flex-wrap:wrap}
+.composite-item{text-align:center}
+.composite-num{font-size:12px;font-weight:900;color:#fff;font-family:monospace}
+.composite-lbl{font-size:8px;color:#666;font-family:monospace;letter-spacing:1px;margin-top:1px}
 </style>
 </head>
 <body>
@@ -197,7 +216,7 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 </div>
 <div style="display:flex;align-items:center;gap:8px">
 <div id="hBadge"></div>
-<button class="rfsh" id="rfBtn" onclick="init()">&#8635;</button>
+<button class="settings-btn" id="setBtn" onclick="openSettings()">⚙</button><button class="rfsh" id="rfBtn" onclick="init()">&#8635;</button>
 </div>
 </div>
 <div class="main">
@@ -228,6 +247,26 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <div id="v4" style="display:none">
 <div id="locks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING LOCKS</div></div></div>
 </div>
+<div class="settings-modal" id="settingsModal">
+  <div class="settings-content">
+    <div class="settings-title">⚙ SETTINGS</div>
+    <div class="settings-sub">Configure your bankroll and unit sizing</div>
+    <div class="settings-field">
+      <label class="settings-label">1 UNIT = $</label>
+      <input class="settings-input" type="number" id="unitSizeInput" placeholder="e.g. 50" step="1" min="1">
+      <div class="settings-hint">Define the dollar amount of one unit. All recommendations will show $ equivalents.</div>
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">BANKROLL $ (optional)</label>
+      <input class="settings-input" type="number" id="bankrollInput" placeholder="e.g. 2500" step="10" min="0">
+      <div class="settings-hint">Your total bankroll. Used to show what % of roll each bet represents.</div>
+    </div>
+    <div class="settings-actions">
+      <button class="settings-btn-cancel" onclick="closeSettings()">CANCEL</button>
+      <button class="settings-btn-save" onclick="saveSettings()">SAVE</button>
+    </div>
+  </div>
+</div>
 <div class="footer">J LAB - Odds: The Odds API - Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
 <script>
@@ -241,6 +280,11 @@ let picksView = "sources", selectedSource = null;
 let modelView = "sports", selectedModelSport = null;
 let sharpOpen = {};
 let leansOpen = false;
+let userSettings = { unitSize: 0, bankroll: 0 };
+try {
+  const saved = localStorage.getItem("jlab_settings");
+  if (saved) userSettings = JSON.parse(saved);
+} catch(e) {}
 let oddsHistory = {};
 let sharpSignalMap = {};
 
@@ -363,6 +407,27 @@ function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
 function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
 function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
 function toggleLeans() { leansOpen = !leansOpen; renderLocks(); }
+function openSettings() {
+  document.getElementById("unitSizeInput").value = userSettings.unitSize || "";
+  document.getElementById("bankrollInput").value = userSettings.bankroll || "";
+  document.getElementById("settingsModal").classList.add("open");
+}
+function closeSettings() {
+  document.getElementById("settingsModal").classList.remove("open");
+}
+function saveSettings() {
+  const u = parseFloat(document.getElementById("unitSizeInput").value) || 0;
+  const b = parseFloat(document.getElementById("bankrollInput").value) || 0;
+  userSettings = { unitSize: u, bankroll: b };
+  try { localStorage.setItem("jlab_settings", JSON.stringify(userSettings)); } catch(e) {}
+  closeSettings();
+  renderLocks();
+}
+function formatUnitDollars(units) {
+  if (!userSettings.unitSize || userSettings.unitSize <= 0) return "";
+  const dollars = units * userSettings.unitSize;
+  return "$" + (dollars >= 100 ? Math.round(dollars) : dollars.toFixed(2));
+}
 function formatUnits(u) { return Number.isInteger(u) ? u : (Math.round(u * 100) / 100); }
 
 function renderFltrs() {
@@ -927,7 +992,10 @@ async function loadPicks() {
 
 
 function computeLocks() {
-  // For each game+team, score alignment across all signals
+  // COMPOSITE LOCK SCORING:
+  //   50% weight: Quarter-Kelly bet sizing (EV / Pinnacle fair line)
+  //   25% weight: Model score (sharp diff + EV combined)
+  //   25% weight: Signal alignment across all indicators (EV, Sharp, Steam, RLM, CLV)
   const lockCands = [];
   const eligibleGames = allGames;
 
@@ -977,49 +1045,76 @@ function computeLocks() {
       const hasEV = signals.find(s => s.key === 'ev');
       if (!hasEV || signals.length < 2) return;
 
-      // Unit sizing: Kelly-inspired, capped at 5u
+      // ---- QUARTER-KELLY SIZING (50% of composite) ----
       // Full Kelly = (p * b - q) / b where b = decimal odds - 1
       const p = Math.min(iProb(pin.o) * 1.02, 0.99);
       const q = 1 - p;
       const dec = pub.o > 0 ? (pub.o / 100) + 1 : (100 / Math.abs(pub.o)) + 1;
       const b = dec - 1;
       const kelly = (p * b - q) / b;
-      const halfKelly = Math.max(0, kelly / 2);
-      // Determine tier first - lean tier gets fractional units
-      const tier = alignScore >= 8 ? 1 : alignScore >= 5 ? 2 : 3;
+      const quarterKelly = Math.max(0, kelly / 4);
 
-      // Scale to units - tier 3 (leans) get decimal units 0-1, tiers 1-2 get whole units 1-5
+      // Normalize Quarter-Kelly to 0-100 scale (8% Q-Kelly is extreme = 100)
+      const kellyScore = Math.min(100, (quarterKelly / 0.04) * 100);
+
+      // ---- MODEL SCORE (25% of composite) ----
+      // Mirrors renderModel() scoring: sharpDiff * 0.5 + ev * 2
+      const modelRaw = sharpDiff * 0.5 + evVal * 2;
+      // Normalize: 30 = exceptional model score
+      const modelScore = Math.min(100, (modelRaw / 30) * 100);
+
+      // ---- ALIGNMENT SCORE (25% of composite) ----
+      // Max alignScore practical ceiling = ~13 (all 5 signals at max)
+      const alignmentScore = Math.min(100, (alignScore / 13) * 100);
+
+      // ---- COMPOSITE SCORE ----
+      const compositeScore = (kellyScore * 0.5) + (modelScore * 0.25) + (alignmentScore * 0.25);
+
+      // Determine tier based on composite score
+      let tier;
+      if (compositeScore >= 60) tier = 1;      // Premium
+      else if (compositeScore >= 35) tier = 2; // Solid
+      else tier = 3;                           // Lean
+
+      // ---- UNIT SIZING based on Quarter-Kelly (more conservative than half-Kelly) ----
       let units;
       if (tier === 3) {
-        // Leans: decimal units based on half-Kelly, capped at 1u
-        if (halfKelly >= 0.015) units = 1;
-        else if (halfKelly >= 0.01) units = 0.5;
-        else if (halfKelly >= 0.005) units = 0.25;
+        // Leans: decimal units based on Quarter-Kelly, capped at 1u
+        if (quarterKelly >= 0.01) units = 1;
+        else if (quarterKelly >= 0.006) units = 0.5;
+        else if (quarterKelly >= 0.003) units = 0.25;
         else units = 0.1;
       } else {
-        if (halfKelly >= 0.08) units = 5;
-        else if (halfKelly >= 0.05) units = 4;
-        else if (halfKelly >= 0.03) units = 3;
-        else if (halfKelly >= 0.015) units = 2;
+        if (quarterKelly >= 0.04) units = 5;
+        else if (quarterKelly >= 0.025) units = 4;
+        else if (quarterKelly >= 0.015) units = 3;
+        else if (quarterKelly >= 0.008) units = 2;
         else units = 1;
-        // Also scale by alignment score
-        if (alignScore >= 10 && units < 5) units = Math.min(units + 1, 5);
+        // Bump up if composite score is exceptional
+        if (compositeScore >= 75 && units < 5) units = Math.min(units + 1, 5);
       }
 
       // Calculate line movement direction for THIS team
       const movement = detectLineMovement(g);
       const teamMovement = movement && movement[team] ? movement[team] : null;
       const opponent = team === g.away_team ? g.home_team : g.away_team;
-
-      // Also check opponent's movement for RLM context
       const oppMovement = movement && movement[opponent] ? movement[opponent] : null;
 
-      lockCands.push({ game: g, team, opponent, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, signals, alignScore, units, tier, teamMovement, oppMovement });
+      lockCands.push({
+        game: g, team, opponent, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal,
+        signals, alignScore, units, tier, teamMovement, oppMovement,
+        // Composite scoring breakdown
+        kellyScore: Math.round(kellyScore),
+        modelScore: Math.round(modelScore),
+        alignmentScore: Math.round(alignmentScore),
+        compositeScore: Math.round(compositeScore),
+        quarterKelly: Math.round(quarterKelly * 10000) / 100 // as percentage
+      });
     });
   });
 
-  // Sort: tier first, then alignment score, then ev
-  lockCands.sort((a, b) => a.tier - b.tier || b.alignScore - a.alignScore || b.ev - a.ev);
+  // Sort: by composite score (desc), then tier, then ev
+  lockCands.sort((a, b) => b.compositeScore - a.compositeScore || a.tier - b.tier || b.ev - a.ev);
   return lockCands;
 }
 
@@ -1118,9 +1213,10 @@ function renderLocks() {
   // Summary bar
   const coreLocks = locks.filter(l => l.tier !== 3);
   const coreUnits = coreLocks.reduce((a, l) => a + l.units, 0);
+  const coreDollars = formatUnitDollars(coreUnits);
   h += '<div class="locks-summary">' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + coreLocks.length + '</div><div class="locks-summary-lbl">LOCKS</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(coreUnits) + 'u</div><div class="locks-summary-lbl">CORE UNITS</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(coreUnits) + 'u</div><div class="locks-summary-lbl">' + (coreDollars ? coreDollars : 'CORE UNITS') + '</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">+' + avgEV + '%</div><div class="locks-summary-lbl">AVG EV</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + tier1.length + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
     '</div>';
@@ -1141,6 +1237,7 @@ function renderLocks() {
 
     // Format units - whole or decimal
     const unitsDisplay = Number.isInteger(l.units) ? l.units + 'u' : l.units + 'u';
+    const dollarDisplay = formatUnitDollars(l.units);
 
     // Reasoning
     const reasons = buildLockReasoning(l);
@@ -1160,9 +1257,16 @@ function renderLocks() {
         '<div class="lock-unit-box">' +
           '<div class="lock-unit-num">' + unitsDisplay + '</div>' +
           '<div class="lock-unit-lbl">UNITS</div>' +
+          (dollarDisplay ? '<div class="unit-value">' + dollarDisplay + '</div>' : '') +
         '</div>' +
       '</div>' +
       '<div class="alignment-bar">' + dots + '<span class="align-label">' + l.signals.length + '/5 SIGNALS ALIGNED</span></div>' +
+      '<div class="composite-breakdown">' +
+        '<div class="composite-item"><div class="composite-num">' + l.compositeScore + '</div><div class="composite-lbl">COMPOSITE</div></div>' +
+        '<div class="composite-item"><div class="composite-num">' + l.kellyScore + '</div><div class="composite-lbl">¼-KELLY (50%)</div></div>' +
+        '<div class="composite-item"><div class="composite-num">' + l.modelScore + '</div><div class="composite-lbl">MODEL (25%)</div></div>' +
+        '<div class="composite-item"><div class="composite-num">' + l.alignmentScore + '</div><div class="composite-lbl">ALIGN (25%)</div></div>' +
+      '</div>' +
       '<div class="lock-pick-row">' +
         '<div><div class="lock-pick-lbl">🎯 THE PICK</div><div class="lock-pick-team">' + l.team + ' ' + fmt(l.pub) + '</div></div>' +
         '<div style="text-align:right"><div class="lock-pick-lbl">EV</div><div class="lock-pick-ev">+' + l.ev + '%</div></div>' +
@@ -1236,9 +1340,10 @@ function renderLocks() {
   }
 
   h += '<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:10px;font-size:10px;color:#444;line-height:1.7;font-family:monospace">' +
-    '📐 UNIT SIZING: Half-Kelly criterion based on EV vs Pinnacle fair line.<br>' +
-    '🟢 GREEN DOTS = EV/Sharp alignment · 🟡 YELLOW = Steam/RLM<br>' +
-    '🔒 PREMIUM: 3+ signals, high EV · ✅ SOLID: 2 signals · 📊 LEAN: EV only<br>' +
+    '📐 COMPOSITE SCORING: 50% Quarter-Kelly · 25% Model · 25% Signal Alignment<br>' +
+    '💰 UNIT SIZING: Quarter-Kelly criterion (conservative) based on Pinnacle fair line<br>' +
+    '🔒 PREMIUM (60+) · ✅ SOLID (35-59) · 📊 LEAN (<35)<br>' +
+    (userSettings.unitSize > 0 ? '1 unit = $' + userSettings.unitSize + ' · ' : 'Tap ⚙ to set unit $ value · ') +
     'Never bet more than you can afford to lose.' +
     '</div>';
 
