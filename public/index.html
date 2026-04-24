@@ -891,7 +891,7 @@ function renderLocks() {
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + tier1.length + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
     '</div>';
 
-  h += '<div class="locks-hdr"><span>SORTED BY SIGNAL ALIGNMENT</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
+  h += '<div class="locks-hdr"><span>GROUPED BY DAY · SORTED BY UNITS</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
 
   function renderLockCard(l) {
     const tierClass = 'tier' + l.tier;
@@ -928,18 +928,27 @@ function renderLocks() {
     '</div>';
   }
 
-  if (tier1.length) {
-    h += '<div class="dl">🔒 PREMIUM LOCKS</div>';
-    tier1.forEach(l => { h += renderLockCard(l); });
-  }
-  if (tier2.length) {
-    h += '<div class="dl">✅ SOLID PLAYS</div>';
-    tier2.forEach(l => { h += renderLockCard(l); });
-  }
-  if (tier3.length) {
-    h += '<div class="dl">📊 LEANS</div>';
-    tier3.forEach(l => { h += renderLockCard(l); });
-  }
+  // Group locks by day
+  const byDay = {};
+  const dayOrder = [];
+  locks.forEach(l => {
+    const dayKey = new Date(l.game.commence_time).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
+    byDay[dayKey].push(l);
+  });
+  // Sort days chronologically
+  dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
+  // Within each day, sort locks by units (desc), then by alignment score (desc), then by EV (desc)
+  dayOrder.forEach(day => {
+    byDay[day].sort((a, b) => b.units - a.units || b.alignScore - a.alignScore || b.ev - a.ev);
+  });
+
+  dayOrder.forEach(day => {
+    const dayLocks = byDay[day];
+    const dayUnits = dayLocks.reduce((a, l) => a + l.units, 0);
+    h += '<div class="dl">' + day + ' · ' + dayLocks.length + ' lock' + (dayLocks.length !== 1 ? 's' : '') + ' · ' + dayUnits + 'u</div>';
+    dayLocks.forEach(l => { h += renderLockCard(l); });
+  });
 
   h += '<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:10px;font-size:10px;color:#444;line-height:1.7;font-family:monospace">' +
     '📐 UNIT SIZING: Half-Kelly criterion based on EV vs Pinnacle fair line.<br>' +
