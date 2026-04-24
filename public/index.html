@@ -160,6 +160,25 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .align-dot.on{background:#4ecca3}
 .align-dot.warn{background:#ffc832}
 .align-label{font-size:9px;color:#555;font-family:monospace;margin-left:4px}
+.lock-reasoning{margin-top:10px;padding:10px 12px;background:rgba(78,204,163,.04);border-left:2px solid rgba(78,204,163,.4);border-radius:4px;font-size:11px;color:#aaa;line-height:1.6}
+.lock-reasoning-title{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace;margin-bottom:5px;font-weight:700}
+.lock-reasoning-item{margin-bottom:4px;padding-left:10px;position:relative}
+.lock-reasoning-item:before{content:'▸';position:absolute;left:0;color:#4ecca3}
+.lock-pick-row{background:rgba(78,204,163,.08);border:1px solid rgba(78,204,163,.25);border-radius:8px;padding:9px 11px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lock-pick-lbl{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace}
+.lock-pick-team{font-size:14px;font-weight:900;color:#fff;margin-top:2px}
+.lock-pick-ev{font-size:13px;font-weight:900;color:#4ecca3;font-family:monospace}
+.leans-section{margin-top:20px}
+.leans-toggle{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:transparent}
+.leans-toggle:active{background:rgba(255,255,255,.06)}
+.leans-toggle-left{display:flex;align-items:center;gap:10px}
+.leans-toggle-icon{font-size:18px}
+.leans-toggle-title{font-size:12px;font-weight:900;color:#888;letter-spacing:1px}
+.leans-toggle-meta{font-size:10px;color:#555;font-family:monospace;margin-top:2px}
+.leans-toggle-arrow{font-size:14px;color:#666;transition:transform 0.2s}
+.leans-section.open .leans-toggle-arrow{transform:rotate(180deg)}
+.leans-body{display:none;margin-top:10px}
+.leans-section.open .leans-body{display:block}
 </style>
 </head>
 <body>
@@ -213,6 +232,7 @@ let allPicks = [];
 let picksView = "sources", selectedSource = null;
 let modelView = "sports", selectedModelSport = null;
 let sharpOpen = {};
+let leansOpen = false;
 let oddsHistory = {};
 let sharpSignalMap = {};
 
@@ -286,6 +306,8 @@ function bkOdds(bks, name, keys) {
 function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
 function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
 function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
+function toggleLeans() { leansOpen = !leansOpen; renderLocks(); }
+function formatUnits(u) { return Number.isInteger(u) ? u : (Math.round(u * 100) / 100); }
 
 function renderFltrs() {
   const sp = ["All"], seen = {};
@@ -843,19 +865,26 @@ function computeLocks() {
       const b = dec - 1;
       const kelly = (p * b - q) / b;
       const halfKelly = Math.max(0, kelly / 2);
-      // Scale to 1-5 units
-      let units;
-      if (halfKelly >= 0.08) units = 5;
-      else if (halfKelly >= 0.05) units = 4;
-      else if (halfKelly >= 0.03) units = 3;
-      else if (halfKelly >= 0.015) units = 2;
-      else units = 1;
-
-      // Also scale by alignment score
-      if (alignScore >= 10 && units < 5) units = Math.min(units + 1, 5);
-      if (alignScore <= 3 && units > 1) units = Math.max(units - 1, 1);
-
+      // Determine tier first - lean tier gets fractional units
       const tier = alignScore >= 8 ? 1 : alignScore >= 5 ? 2 : 3;
+
+      // Scale to units - tier 3 (leans) get decimal units 0-1, tiers 1-2 get whole units 1-5
+      let units;
+      if (tier === 3) {
+        // Leans: decimal units based on half-Kelly, capped at 1u
+        if (halfKelly >= 0.015) units = 1;
+        else if (halfKelly >= 0.01) units = 0.5;
+        else if (halfKelly >= 0.005) units = 0.25;
+        else units = 0.1;
+      } else {
+        if (halfKelly >= 0.08) units = 5;
+        else if (halfKelly >= 0.05) units = 4;
+        else if (halfKelly >= 0.03) units = 3;
+        else if (halfKelly >= 0.015) units = 2;
+        else units = 1;
+        // Also scale by alignment score
+        if (alignScore >= 10 && units < 5) units = Math.min(units + 1, 5);
+      }
 
       lockCands.push({ game: g, team, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, signals, alignScore, units, tier });
     });
@@ -864,6 +893,46 @@ function computeLocks() {
   // Sort: tier first, then alignment score, then ev
   lockCands.sort((a, b) => a.tier - b.tier || b.alignScore - a.alignScore || b.ev - a.ev);
   return lockCands;
+}
+
+
+function buildLockReasoning(l) {
+  const reasons = [];
+  const pin = l.pin, pub = l.pub;
+  const sharpDiff = pub - pin;
+
+  // Reason based on signals
+  l.signals.forEach(sig => {
+    if (sig.key === 'ev') {
+      const strength = l.ev >= 5 ? 'strong' : l.ev >= 2 ? 'solid' : 'slight';
+      reasons.push('Pinnacle\'s fair probability implies <b>' + strength + ' +' + l.ev + '% EV</b> at ' + l.bk.split(' ')[0] + '\'s current price.');
+    }
+    if (sig.key === 'sharp') {
+      reasons.push('Pinnacle\'s line (' + fmt(pin) + ') is <b>' + Math.round(sharpDiff) + ' points shorter</b> than public books — sharp money has moved the sharpest book toward this side.');
+    }
+    if (sig.key === 'steam') {
+      reasons.push('<b>Steam move detected</b>: 3+ public sportsbooks shifted this line the same direction simultaneously — classic syndicate action.');
+    }
+    if (sig.key === 'rlm') {
+      reasons.push('<b>Reverse line movement</b>: Line moved toward this team despite public betting the other side — sharps overwhelming the public.');
+    }
+    if (sig.key === 'clv') {
+      const c = sig.lbl.match(/\+([\d.]+)%/);
+      const pct = c ? c[1] : '?';
+      reasons.push('Your price beats Pinnacle\'s fair line by <b>' + pct + '%</b> — you\'re betting at a discount to true odds.');
+    }
+  });
+
+  // Tier summary
+  if (l.tier === 1) {
+    reasons.push('<b>Verdict:</b> Multiple strong signals aligned — highest-confidence play of the slate.');
+  } else if (l.tier === 2) {
+    reasons.push('<b>Verdict:</b> Two+ signals confirm the edge — solid core play.');
+  } else {
+    reasons.push('<b>Verdict:</b> Thin edge — small stake recommended as a lean rather than a core play.');
+  }
+
+  return reasons;
 }
 
 function renderLocks() {
@@ -884,9 +953,11 @@ function renderLocks() {
   let h = '';
 
   // Summary bar
+  const coreLocks = locks.filter(l => l.tier !== 3);
+  const coreUnits = coreLocks.reduce((a, l) => a + l.units, 0);
   h += '<div class="locks-summary">' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + locks.length + '</div><div class="locks-summary-lbl">LOCKS</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + totalUnits + 'u</div><div class="locks-summary-lbl">TOTAL UNITS</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + coreLocks.length + '</div><div class="locks-summary-lbl">LOCKS</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(coreUnits) + 'u</div><div class="locks-summary-lbl">CORE UNITS</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">+' + avgEV + '%</div><div class="locks-summary-lbl">AVG EV</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + tier1.length + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
     '</div>';
@@ -898,13 +969,22 @@ function renderLocks() {
     const tierLabel = l.tier === 1 ? 'PREMIUM LOCK' : l.tier === 2 ? 'SOLID PLAY' : 'LEAN';
     const awayShort = l.game.away_team.split(' ').pop();
     const homeShort = l.game.home_team.split(' ').pop();
-    const isAway = l.team === l.game.away_team;
     const matchupStr = awayShort + ' @ ' + homeShort;
 
     // Alignment dots (5 possible signals)
     const sigKeys = ['ev','sharp','steam','rlm','clv'];
     const foundKeys = l.signals.map(s => s.key);
     const dots = sigKeys.map(k => '<div class="align-dot ' + (foundKeys.includes(k) ? (k==='steam'||k==='rlm'?'warn':'on') : '') + '"></div>').join('');
+
+    // Format units - whole or decimal
+    const unitsDisplay = Number.isInteger(l.units) ? l.units + 'u' : l.units + 'u';
+
+    // Reasoning
+    const reasons = buildLockReasoning(l);
+    const reasoningHtml = '<div class="lock-reasoning">' +
+      '<div class="lock-reasoning-title">📖 ANALYSIS</div>' +
+      reasons.map(r => '<div class="lock-reasoning-item">' + r + '</div>').join('') +
+      '</div>';
 
     return '<div class="lock-card ' + tierClass + '">' +
       '<div class="lock-tier-bar"></div>' +
@@ -915,15 +995,20 @@ function renderLocks() {
           '<div class="lock-sport">' + tierLabel + ' · ' + fmtT(l.game.commence_time) + '</div>' +
         '</div>' +
         '<div class="lock-unit-box">' +
-          '<div class="lock-unit-num">' + l.units + 'u</div>' +
+          '<div class="lock-unit-num">' + unitsDisplay + '</div>' +
           '<div class="lock-unit-lbl">UNITS</div>' +
         '</div>' +
       '</div>' +
       '<div class="alignment-bar">' + dots + '<span class="align-label">' + l.signals.length + '/5 SIGNALS ALIGNED</span></div>' +
+      '<div class="lock-pick-row">' +
+        '<div><div class="lock-pick-lbl">🎯 THE PICK</div><div class="lock-pick-team">' + l.team + ' ' + fmt(l.pub) + '</div></div>' +
+        '<div style="text-align:right"><div class="lock-pick-lbl">EV</div><div class="lock-pick-ev">+' + l.ev + '%</div></div>' +
+      '</div>' +
       '<div class="lock-signals">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
+      reasoningHtml +
       '<div class="lock-bottom">' +
         '<div><div class="lock-odds">' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</div><div class="lock-book">PIN ' + fmt(l.pin) + ' · DIFF ' + (l.pub - l.pin > 0 ? '+' : '') + Math.round(l.pub - l.pin) + '</div></div>' +
-        '<div class="lock-ev-row"><span class="lock-sig lock-sig-ev">+' + l.ev + '% EV</span><span class="lock-time">' + fmtT(l.game.commence_time) + '</span></div>' +
+        '<div class="lock-ev-row"><span class="lock-time">' + fmtT(l.game.commence_time) + '</span></div>' +
       '</div>' +
     '</div>';
   }
@@ -943,12 +1028,49 @@ function renderLocks() {
     byDay[day].sort((a, b) => b.units - a.units || b.alignScore - a.alignScore || b.ev - a.ev);
   });
 
+  // Split out leans from core locks per day
+  const allLeans = [];
   dayOrder.forEach(day => {
-    const dayLocks = byDay[day];
+    const dayLocks = byDay[day].filter(l => l.tier !== 3);
+    const dayLeans = byDay[day].filter(l => l.tier === 3);
     const dayUnits = dayLocks.reduce((a, l) => a + l.units, 0);
-    h += '<div class="dl">' + day + ' · ' + dayLocks.length + ' lock' + (dayLocks.length !== 1 ? 's' : '') + ' · ' + dayUnits + 'u</div>';
-    dayLocks.forEach(l => { h += renderLockCard(l); });
+
+    if (dayLocks.length) {
+      h += '<div class="dl">' + day + ' · ' + dayLocks.length + ' lock' + (dayLocks.length !== 1 ? 's' : '') + ' · ' + formatUnits(dayUnits) + 'u</div>';
+      dayLocks.forEach(l => { h += renderLockCard(l); });
+    }
+    dayLeans.forEach(l => allLeans.push({ ...l, day }));
   });
+
+  // Collapsible leans section at the bottom
+  if (allLeans.length) {
+    const leansUnits = allLeans.reduce((a, l) => a + l.units, 0);
+    h += '<div class="leans-section' + (leansOpen ? ' open' : '') + '" id="leansSec">' +
+      '<div class="leans-toggle" onclick="toggleLeans()">' +
+        '<div class="leans-toggle-left">' +
+          '<span class="leans-toggle-icon">📊</span>' +
+          '<div><div class="leans-toggle-title">LEANS (' + allLeans.length + ')</div>' +
+          '<div class="leans-toggle-meta">' + formatUnits(leansUnits) + 'u total · tap to expand</div></div>' +
+        '</div>' +
+        '<span class="leans-toggle-arrow">▼</span>' +
+      '</div>' +
+      '<div class="leans-body">';
+
+    // Group leans by day internally
+    const leanDays = {};
+    const leanDayOrder = [];
+    allLeans.forEach(l => {
+      if (!leanDays[l.day]) { leanDays[l.day] = []; leanDayOrder.push(l.day); }
+      leanDays[l.day].push(l);
+    });
+    leanDayOrder.forEach(day => {
+      const dl = leanDays[day];
+      h += '<div class="dl">' + day + ' · ' + dl.length + ' lean' + (dl.length !== 1 ? 's' : '') + '</div>';
+      dl.forEach(l => { h += renderLockCard(l); });
+    });
+
+    h += '</div></div>';
+  }
 
   h += '<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:10px;font-size:10px;color:#444;line-height:1.7;font-family:monospace">' +
     '📐 UNIT SIZING: Half-Kelly criterion based on EV vs Pinnacle fair line.<br>' +
