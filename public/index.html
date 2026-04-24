@@ -596,7 +596,7 @@ function calcCLV(game) {
 
 function computeSharpSignals() {
   sharpSignalMap = {};
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  const eligibleGames = allGames;
   
   function addBadge(gameId, emoji, name) {
     if (!sharpSignalMap[gameId]) sharpSignalMap[gameId] = [];
@@ -633,7 +633,8 @@ function buildSection(key, emoji, title, count, bodyHtml, instrHtml) {
 }
 
 function renderSharp() {
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  // allGames is already filtered - no need to re-filter fight sports
+  const eligibleGames = allGames;
   
   const pinSignals = [];
   eligibleGames.forEach(g => {
@@ -726,6 +727,54 @@ function renderSharp() {
   }
   h += buildSection("clv", "💎", "CLOSING LINE VALUE", clvSignals.length, clvBody,
     '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle\'s line will likely move to match public books by game time.');
+
+  // LOW JUICE section
+  const lowJuiceGames = [];
+  const highJuiceGames = [];
+  eligibleGames.forEach(g => {
+    const j = calcJuice(g);
+    if (!j) return;
+    if (j.tier === 'low') lowJuiceGames.push({ game: g, juice: j });
+    else if (j.tier === 'high') highJuiceGames.push({ game: g, juice: j });
+  });
+  lowJuiceGames.sort((a, b) => a.juice.vigPct - b.juice.vigPct);
+  highJuiceGames.sort((a, b) => b.juice.vigPct - a.juice.vigPct);
+
+  function renderJuiceRow(g, j) {
+    const bks = g.bookmakers || [];
+    const pubBk = bks.find(b => PUB.includes(b.key)) || bks[0];
+    const h2h = pubBk ? (pubBk.markets || []).find(m => m.key === "h2h") : null;
+    const awO = h2h ? h2h.outcomes.find(o => o.name === g.away_team) : null;
+    const hmO = h2h ? h2h.outcomes.find(o => o.name === g.home_team) : null;
+    const pillCls = j.tier === 'low' ? 'juice-low' : 'juice-high';
+    return '<div class="sc">' +
+      '<div class="sh"><div class="sr">' + (j.tier === 'low' ? '🟢' : '🔴') + '</div>' +
+      '<div style="flex:1"><div class="sm">' + g.away_team.split(" ").pop() + ' vs ' + g.home_team.split(" ").pop() + '</div>' +
+      '<div class="smeta">' + g.sport_title + ' - ' + fmtT(g.commence_time) + '</div></div></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px">' +
+        '<span class="juice-pill ' + pillCls + '">' + j.label + ' ' + j.vigPct + '%</span>' +
+        '<span class="pp pub">' + (pubBk ? pubBk.title.split(" ")[0].toUpperCase() : 'PUB') + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        (awO ? '<span class="pp pub">' + g.away_team.split(" ").pop() + ' ' + fmt(awO.price) + '</span>' : '') +
+        (hmO ? '<span class="pp pub">' + g.home_team.split(" ").pop() + ' ' + fmt(hmO.price) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  let lowBody = "";
+  if (!lowJuiceGames.length) lowBody = '<div class="empty">No low-juice games right now.</div>';
+  else lowJuiceGames.slice(0, 15).forEach(x => { lowBody += renderJuiceRow(x.game, x.juice); });
+
+  h += buildSection("lowjuice", "🟢", "LOW JUICE GAMES", lowJuiceGames.length, lowBody,
+    '<strong>What it means:</strong> Total implied probability across both sides is below 4% — meaning the book is taking less vig (margin) than the standard -110/-110 (4.76%) market. You\'re paying less to place the bet.<br><br><strong>How to read it:</strong> Lower vig = better prices on both sides. Great for grinding out EV or for bets where you don\'t have a strong lean.<br><br><strong>When to bet:</strong> Ideal markets for any bet — especially close to a coinflip. The lower the vig, the less edge you need to turn a profit.');
+
+  let highBody = "";
+  if (!highJuiceGames.length) highBody = '<div class="empty">No high-juice games right now.</div>';
+  else highJuiceGames.slice(0, 15).forEach(x => { highBody += renderJuiceRow(x.game, x.juice); });
+
+  h += buildSection("highjuice", "🔴", "HIGH JUICE GAMES", highJuiceGames.length, highBody,
+    '<strong>What it means:</strong> Total implied probability is above 5.5% — meaning the book is charging extra vig on both sides. You pay more to place the bet.<br><br><strong>How to read it:</strong> High juice erodes long-term profitability. Common on heavy favorites, props, and less liquid markets.<br><br><strong>When to bet:</strong> Avoid unless you have a very strong edge. Consider shopping another book first — high juice often varies significantly across sportsbooks.');
   
   h += '<div class="legend">' +
     '<div class="legend-title">📖 EMOJI INDEX</div>' +
@@ -733,6 +782,8 @@ function renderSharp() {
     '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ sportsbooks moving their lines the same direction simultaneously. Professional syndicate action.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ - betting at a discount to true odds.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% - better pricing than standard -110/-110 markets. You pay less to bet.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% - book charging extra margin. Avoid unless you have a strong edge.</div></div></div>' +
     '</div>';
   
   document.getElementById("sharp").innerHTML = h;
@@ -744,7 +795,7 @@ function selectModelSport(sport) { selectedModelSport = sport; modelView = "deta
 function backToModelSports() { selectedModelSport = null; modelView = "sports"; renderModel(); }
 
 function renderModel() {
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  const eligibleGames = allGames;
   const cands = [];
   eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
@@ -878,7 +929,7 @@ async function loadPicks() {
 function computeLocks() {
   // For each game+team, score alignment across all signals
   const lockCands = [];
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+  const eligibleGames = allGames;
 
   eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
@@ -1235,7 +1286,8 @@ async function init() {
     }
     document.getElementById("hSub").textContent = "STEP 3: " + results.length + " GAMES FOUND";
     results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
-    allGames = results;
+    // Remove fighting sports globally
+    allGames = results.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
     allGames.forEach(captureSnapshot);
     saveHistory();
     computeSharpSignals();
