@@ -159,6 +159,14 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .align-dot{width:8px;height:8px;border-radius:50%;background:#222}
 .align-dot.on{background:#4ecca3}
 .align-dot.warn{background:#ffc832}
+
+.juice-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;font-family:monospace;display:inline-flex;align-items:center;gap:4px}
+.juice-low{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
+.juice-neutral{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.25)}
+.juice-high{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
+.juice-row{display:flex;align-items:center;gap:7px;margin-top:8px;padding:7px 10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:6px}
+.juice-row-lbl{font-size:9px;color:#555;font-family:monospace;letter-spacing:1px}
+.juice-row-val{font-size:12px;color:#aaa;font-family:monospace;font-weight:700;margin-left:auto}
 .align-label{font-size:9px;color:#555;font-family:monospace;margin-left:4px}
 .lock-reasoning{margin-top:10px;padding:10px 12px;background:rgba(78,204,163,.04);border-left:2px solid rgba(78,204,163,.4);border-radius:4px;font-size:11px;color:#aaa;line-height:1.6}
 .lock-reasoning-title{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace;margin-bottom:5px;font-weight:700}
@@ -194,7 +202,7 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 </div>
 <div class="main">
 <div class="tabs">
-<button class="tab on" id="t0" onclick="goTab(0)">GAMES</button>
+<button class="tab on" id="t0" onclick="goTab(0)">LINES</button>
 <button class="tab" id="t1" onclick="goTab(1)">SHARP</button>
 <button class="tab" id="t2" onclick="goTab(2)">MODEL</button>
 <button class="tab" id="t3" onclick="goTab(3)">PICKS</button>
@@ -303,6 +311,54 @@ function bkOdds(bks, name, keys) {
   return null;
 }
 
+
+function calcJuice(game) {
+  // Calculate the total implied probability (vig) across all public books for this game
+  // Juice = sum of implied probs - 100%. Lower = better for bettor.
+  const bks = game.bookmakers || [];
+  const pubBk = bks.find(b => PUB.includes(b.key)) || bks[0];
+  if (!pubBk) return null;
+  const h2h = (pubBk.markets || []).find(m => m.key === "h2h");
+  if (!h2h || !h2h.outcomes || h2h.outcomes.length < 2) return null;
+
+  let totalProb = 0;
+  h2h.outcomes.forEach(o => {
+    totalProb += iProb(o.price);
+  });
+  const vigPct = (totalProb - 1) * 100;
+  if (!isFinite(vigPct)) return null;
+
+  // Also compute average juice across all public books for robustness
+  let bookVigs = [];
+  bks.forEach(b => {
+    if (!PUB.includes(b.key)) return;
+    const m = (b.markets || []).find(m => m.key === "h2h");
+    if (!m || !m.outcomes || m.outcomes.length < 2) return;
+    let tp = 0;
+    m.outcomes.forEach(o => { tp += iProb(o.price); });
+    const v = (tp - 1) * 100;
+    if (isFinite(v) && v > 0 && v < 20) bookVigs.push(v);
+  });
+  const avgVig = bookVigs.length ? bookVigs.reduce((a,b)=>a+b,0)/bookVigs.length : vigPct;
+
+  // Classify: typical ML juice on a 2-way market is 4-5% (i.e. -110/-110 = 4.76%)
+  // LOW  = < 4.0% (better than -110/-110)
+  // NEUTRAL = 4.0-5.5%
+  // HIGH = > 5.5%
+  let tier, label;
+  if (avgVig < 4.0) { tier = 'low'; label = 'LOW JUICE'; }
+  else if (avgVig <= 5.5) { tier = 'neutral'; label = 'NEUTRAL JUICE'; }
+  else { tier = 'high'; label = 'HIGH JUICE'; }
+
+  return {
+    vigPct: Math.round(avgVig * 100) / 100,
+    tier,
+    label,
+    bookName: pubBk.title,
+    bookCount: bookVigs.length
+  };
+}
+
 function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
 function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
 function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
@@ -363,7 +419,20 @@ function renderExpand(game) {
     mlRows += '<div class="xp-row"><span class="xp-team">' + t.split(" ").pop() + '</span><div class="xp-pills">' + (pin ? '<span class="pp pin">PIN ' + fmt(pin.o) + '</span>' : "") + (pub ? '<span class="pp pub">' + pub.bk.split(" ")[0].toUpperCase() + " " + fmt(pub.o) + '</span>' : "") + sh + '</div></div>';
   });
   if (hasMl) h += '<div class="xp-title">MONEYLINE</div>' + mlRows;
-  
+
+  // Juice detail
+  const juiceDetail = calcJuice(game);
+  if (juiceDetail) {
+    const juiceDesc = juiceDetail.tier === 'low' ? 'Better than -110/-110 standard — favorable pricing.'
+                    : juiceDetail.tier === 'neutral' ? 'Standard -110-ish market pricing.'
+                    : 'Higher than standard vig — book is taking extra margin.';
+    h += '<div class="juice-row">' +
+      '<span class="juice-pill juice-' + juiceDetail.tier + '">' + juiceDetail.label + '</span>' +
+      '<span class="juice-row-lbl">' + juiceDesc + '</span>' +
+      '<span class="juice-row-val">' + juiceDetail.vigPct + '%</span>' +
+      '</div>';
+  }
+
   const badges = sharpSignalMap[game.id] || [];
   if (badges.length) {
     h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">';
