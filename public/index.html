@@ -114,6 +114,12 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .sharp-cta-lbl{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace;margin-bottom:2px}
 .sharp-cta-team{font-size:13px;font-weight:900;color:#fff}
 .sharp-cta-ev{font-size:10px;color:#888;font-family:monospace;margin-top:2px}
+
+.bet-reasoning{margin-top:10px;padding:10px 12px;background:rgba(78,204,163,.04);border-left:2px solid rgba(78,204,163,.4);border-radius:4px;font-size:11px;color:#aaa;line-height:1.6}
+.bet-reasoning-title{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace;margin-bottom:6px;font-weight:700}
+.bet-reasoning-item{margin-bottom:5px;padding-left:10px;position:relative}
+.bet-reasoning-item:before{content:'▸';position:absolute;left:0;color:#4ecca3}
+.bet-reasoning-item:last-child{margin-bottom:0}
 .sharp-cta-arrow{font-size:18px;color:#4ecca3}
 
 .lock-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden}
@@ -565,12 +571,93 @@ function renderExpand(game) {
       '</div>' +
       '<div class="bet-cta">▶ BET ' + rec.team.split(' ').pop().toUpperCase() + ' @ ' + rec.bk.split(' ')[0].toUpperCase() + ' · ' + fmt(rec.pub) + '</div>' +
       '</div>';
+
+    // Reasoning for why this is the recommended bet
+    const recReasons = buildBetRecReasoning(game, rec);
+    h += '<div class="bet-reasoning">' +
+      '<div class="bet-reasoning-title">📖 WHY THIS BET</div>' +
+      recReasons.map(r => '<div class="bet-reasoning-item">' + r + '</div>').join('') +
+      '</div>';
   } else {
     h += '<div class="no-bet-box">NO CLEAR EDGE - NO BET</div>';
   }
 
   h += '</div>';
   return h;
+}
+
+
+function buildBetRecReasoning(game, rec) {
+  const reasons = [];
+  const teamName = rec.team;
+  const teamShort = teamName.split(' ').pop();
+  const oppName = rec.team === game.away_team ? game.home_team : game.away_team;
+  const oppShort = oppName.split(' ').pop();
+  const sharpDiff = rec.sharpDiff;
+  const bks = game.bookmakers || [];
+
+  // EV context
+  if (rec.ev >= 5) {
+    reasons.push('Pinnacle\'s fair probability implies <b>strong +' + rec.ev + '% EV</b> on ' + teamShort + ' at ' + rec.bk.split(' ')[0] + '\'s price of ' + fmt(rec.pub) + '.');
+  } else if (rec.ev >= 2) {
+    reasons.push('Pinnacle\'s fair line suggests <b>solid +' + rec.ev + '% EV</b> on ' + teamShort + ' at ' + rec.bk.split(' ')[0] + '.');
+  } else {
+    reasons.push('Pinnacle\'s fair line shows a <b>slight +' + rec.ev + '% edge</b> on ' + teamShort + '.');
+  }
+
+  // Sharp money discrepancy
+  if (sharpDiff >= 8) {
+    reasons.push('Pinnacle has ' + teamShort + ' at ' + fmt(rec.pin) + ' vs ' + fmt(rec.pub) + ' at ' + rec.bk.split(' ')[0] + ' — a <b>' + Math.round(sharpDiff) + '-point gap</b> means sharp money has already moved the sharpest book toward ' + teamShort + '.');
+  } else if (sharpDiff >= 4) {
+    reasons.push('Pinnacle has ' + teamShort + ' ' + Math.round(sharpDiff) + ' points shorter than the public book — <b>sharp money is leaning ' + teamShort + '</b>, though not heavily.');
+  }
+
+  // Check for other signals on this specific team
+  const steam = detectSteamMove(game);
+  if (steam && steam.find(s => s.team === teamName)) {
+    reasons.push('<b>Steam detected on ' + teamShort + '</b>: 3+ public books shifted this line simultaneously — syndicate action.');
+  }
+
+  const rlm = detectRLM(game);
+  if (rlm && rlm.find(r => r.team === teamName)) {
+    reasons.push('<b>Reverse line movement</b>: Public is betting ' + oppShort + ', but ' + teamShort + '\'s price is tightening — sharp money overwhelming the public.');
+  }
+
+  const clv = calcCLV(game);
+  if (clv && clv.find(c => c.team === teamName)) {
+    const c = clv.find(c => c.team === teamName);
+    reasons.push('<b>+' + c.clvPct + '% CLV</b>: You\'re getting ' + teamShort + ' at a discount to Pinnacle\'s true odds — lock it in before the public book moves.');
+  }
+
+  // Line movement context (from history)
+  const movement = detectLineMovement(game);
+  if (movement && movement[teamName] && movement[teamName].snapshots >= 2) {
+    const m = movement[teamName];
+    if (m.diff <= -3) {
+      reasons.push('<b>' + teamShort + '\'s price has shortened</b> by ' + Math.abs(Math.round(m.diff)) + ' pts since open — money flowing toward ' + teamShort + '.');
+    }
+  }
+
+  // Juice context
+  const j = calcJuice(game);
+  if (j) {
+    if (j.tier === 'low') {
+      reasons.push('<b>Low juice market</b> (' + j.vigPct + '% vig) — favorable pricing makes the edge cheaper to capture.');
+    } else if (j.tier === 'high') {
+      reasons.push('Note: <b>High juice market</b> (' + j.vigPct + '% vig) — consider shopping for a better price at another book.');
+    }
+  }
+
+  // Summary action
+  if (rec.ev >= 5 && sharpDiff >= 8) {
+    reasons.push('<b>Bottom line:</b> Multiple strong signals align on ' + teamShort + ' — take this now before the public price catches up.');
+  } else if (rec.ev >= 2) {
+    reasons.push('<b>Bottom line:</b> Real edge on ' + teamShort + ' backed by at least one sharp signal — a sensible play.');
+  } else {
+    reasons.push('<b>Bottom line:</b> Thin edge — bet smaller than usual, or wait for confirmation from additional signals.');
+  }
+
+  return reasons;
 }
 
 function renderGames() {
