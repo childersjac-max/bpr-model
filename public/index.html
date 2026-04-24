@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -100,6 +101,21 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .legend-text{flex:1}
 .legend-name{font-size:12px;font-weight:700;color:#fff}
 .legend-desc{font-size:10px;color:#888;margin-top:2px;line-height:1.4}
+.bet-box{background:linear-gradient(135deg,rgba(78,204,163,.1),rgba(78,204,163,.03));border:1px solid rgba(78,204,163,.35);border-radius:10px;padding:12px 14px;margin-top:10px}
+.bet-box-lbl{font-size:9px;color:#4ecca3;letter-spacing:2px;font-family:monospace;font-weight:700;margin-bottom:6px}
+.bet-team-name{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px}
+.bet-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.bet-ev-high{background:rgba(78,204,163,.2);color:#4ecca3;border:1px solid rgba(78,204,163,.4);font-size:10px;padding:2px 8px;border-radius:5px;font-family:monospace;font-weight:700}
+.bet-ev-med{background:rgba(255,200,50,.15);color:#ffc832;border:1px solid rgba(255,200,50,.3);font-size:10px;padding:2px 8px;border-radius:5px;font-family:monospace;font-weight:700}
+.bet-ev-low{background:rgba(255,255,255,.06);color:#888;border:1px solid rgba(255,255,255,.1);font-size:10px;padding:2px 8px;border-radius:5px;font-family:monospace;font-weight:700}
+.bet-cta{font-size:11px;color:#4ecca3;font-weight:700;display:flex;align-items:center;gap:5px;padding-top:7px;border-top:1px solid rgba(78,204,163,.15)}
+.no-bet-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:10px;color:#333;font-family:monospace;text-align:center}
+.sharp-cta{display:flex;align-items:center;gap:8px;margin-top:8px;padding:9px 11px;background:rgba(78,204,163,.07);border:1px solid rgba(78,204,163,.2);border-radius:8px}
+.sharp-cta-inner{flex:1}
+.sharp-cta-lbl{font-size:9px;color:#4ecca3;letter-spacing:1px;font-family:monospace;margin-bottom:2px}
+.sharp-cta-team{font-size:13px;font-weight:900;color:#fff}
+.sharp-cta-ev{font-size:10px;color:#888;font-family:monospace;margin-top:2px}
+.sharp-cta-arrow{font-size:18px;color:#4ecca3}
 </style>
 </head>
 <body>
@@ -153,70 +169,70 @@ let oddsHistory = {};
 let sharpSignalMap = {};
 
 try {
-  const saved = localStorage.getItem("jlab_odds_history");
-  if (saved) oddsHistory = JSON.parse(saved);
+const saved = localStorage.getItem(“jlab_odds_history”);
+if (saved) oddsHistory = JSON.parse(saved);
 } catch(e) {}
 
 function saveHistory() {
-  try {
-    const cutoff = Date.now() - WEEK;
-    Object.keys(oddsHistory).forEach(id => {
-      oddsHistory[id] = oddsHistory[id].filter(s => s.ts > cutoff);
-      if (oddsHistory[id].length === 0) delete oddsHistory[id];
-    });
-    localStorage.setItem("jlab_odds_history", JSON.stringify(oddsHistory));
-  } catch(e) {}
+try {
+const cutoff = Date.now() - WEEK;
+Object.keys(oddsHistory).forEach(id => {
+oddsHistory[id] = oddsHistory[id].filter(s => s.ts > cutoff);
+if (oddsHistory[id].length === 0) delete oddsHistory[id];
+});
+localStorage.setItem(“jlab_odds_history”, JSON.stringify(oddsHistory));
+} catch(e) {}
 }
 
 function captureSnapshot(game) {
-  const bks = game.bookmakers || [];
-  const snapshot = { ts: Date.now(), books: {} };
-  bks.forEach(b => {
-    const h2h = (b.markets || []).find(m => m.key === "h2h");
-    if (h2h) {
-      snapshot.books[b.key] = {};
-      h2h.outcomes.forEach(o => { snapshot.books[b.key][o.name] = o.price; });
-    }
-  });
-  if (!oddsHistory[game.id]) oddsHistory[game.id] = [];
-  const last = oddsHistory[game.id][oddsHistory[game.id].length - 1];
-  if (!last || JSON.stringify(last.books) !== JSON.stringify(snapshot.books)) {
-    oddsHistory[game.id].push(snapshot);
-    if (oddsHistory[game.id].length > 30) oddsHistory[game.id] = oddsHistory[game.id].slice(-30);
-  }
+const bks = game.bookmakers || [];
+const snapshot = { ts: Date.now(), books: {} };
+bks.forEach(b => {
+const h2h = (b.markets || []).find(m => m.key === “h2h”);
+if (h2h) {
+snapshot.books[b.key] = {};
+h2h.outcomes.forEach(o => { snapshot.books[b.key][o.name] = o.price; });
+}
+});
+if (!oddsHistory[game.id]) oddsHistory[game.id] = [];
+const last = oddsHistory[game.id][oddsHistory[game.id].length - 1];
+if (!last || JSON.stringify(last.books) !== JSON.stringify(snapshot.books)) {
+oddsHistory[game.id].push(snapshot);
+if (oddsHistory[game.id].length > 30) oddsHistory[game.id] = oddsHistory[game.id].slice(-30);
+}
 }
 
 function goTab(n) {
-  curTab = n;
-  for (let i = 0; i < 4; i++) {
-    document.getElementById("t" + i).className = "tab" + (i === n ? " on" : "");
-    document.getElementById("v" + i).style.display = i === n ? "block" : "none";
-  }
+curTab = n;
+for (let i = 0; i < 4; i++) {
+document.getElementById(“t” + i).className = “tab” + (i === n ? “ on” : “”);
+document.getElementById(“v” + i).style.display = i === n ? “block” : “none”;
+}
 }
 
-function fmt(p) { return p > 0 ? "+" + p : "" + p; }
-function chip(p) { return '<span class="oc ' + (p >= 0 ? "pos" : "neg") + '">' + fmt(p) + '</span>'; }
+function fmt(p) { return p > 0 ? “+” + p : “” + p; }
+function chip(p) { return ’<span class=“oc ’ + (p >= 0 ? “pos” : “neg”) + ‘”>’ + fmt(p) + ‘</span>’; }
 function isLive(t) { return new Date(t) < new Date(); }
 function fmtT(t) {
-  const d = new Date(t), now = new Date(), df = d - now;
-  if (df < 0) return "In Progress";
-  if (df < 10800000) { const m = Math.floor(df / 60000), h = Math.floor(m / 60); return h > 0 ? h + "h " + (m % 60) + "m" : m + "m"; }
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const d = new Date(t), now = new Date(), df = d - now;
+if (df < 0) return “In Progress”;
+if (df < 10800000) { const m = Math.floor(df / 60000), h = Math.floor(m / 60); return h > 0 ? h + “h “ + (m % 60) + “m” : m + “m”; }
+return d.toLocaleDateString(“en-US”, { weekday: “short”, month: “short”, day: “numeric”, hour: “numeric”, minute: “2-digit” });
 }
 
 function bkOdds(bks, name, keys) {
-  for (const b of bks) {
-    if (keys.includes(b.key)) {
-      for (const m of (b.markets || [])) {
-        if (m.key === "h2h") {
-          for (const o of m.outcomes) {
-            if (o.name === name) return { bk: b.title, o: o.price };
-          }
-        }
-      }
-    }
-  }
-  return null;
+for (const b of bks) {
+if (keys.includes(b.key)) {
+for (const m of (b.markets || [])) {
+if (m.key === “h2h”) {
+for (const o of m.outcomes) {
+if (o.name === name) return { bk: b.title, o: o.price };
+}
+}
+}
+}
+}
+return null;
 }
 
 function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
@@ -224,492 +240,542 @@ function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
 function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
 
 function renderFltrs() {
-  const sp = ["All"], seen = {};
-  allGames.forEach(g => { if (!seen[g.sport_title]) { seen[g.sport_title] = true; sp.push(g.sport_title); } });
-  let h = "";
-  sp.forEach(s => {
-    const ac = curFilter === s ? " on" : "";
-    h += '<button class="fbtn' + ac + '" onclick="setFilter(\'' + s + '\')">' + s + '</button>';
-  });
-  document.getElementById("fltrs").innerHTML = h;
+const sp = [“All”], seen = {};
+allGames.forEach(g => { if (!seen[g.sport_title]) { seen[g.sport_title] = true; sp.push(g.sport_title); } });
+let h = “”;
+sp.forEach(s => {
+const ac = curFilter === s ? “ on” : “”;
+h += ‘<button class="fbtn' + ac + '" onclick="setFilter(\'' + s + '\')">’ + s + ‘</button>’;
+});
+document.getElementById(“fltrs”).innerHTML = h;
 }
 
 const EMOJI_DEFS = {
-  "⚡": { name: "Pinnacle vs Public", desc: "Pinnacle's odds are 8+ points shorter than public books. Sharp money has moved Pinnacle's line." },
-  "🔥": { name: "Steam Move", desc: "3+ sportsbooks moved their lines the same direction at once. Professional syndicate action." },
-  "🎯": { name: "Reverse Line Movement", desc: "Line moves against the public. Sharp money overwhelming public bets." },
-  "💎": { name: "Closing Line Value", desc: "Your public book price beats Pinnacle's fair line by 3%+. Betting at a discount to true odds." }
+“⚡”: { name: “Pinnacle vs Public”, desc: “Pinnacle’s odds are 8+ points shorter than public books. Sharp money has moved Pinnacle’s line.” },
+“🔥”: { name: “Steam Move”, desc: “3+ sportsbooks moved their lines the same direction at once. Professional syndicate action.” },
+“🎯”: { name: “Reverse Line Movement”, desc: “Line moves against the public. Sharp money overwhelming public bets.” },
+“💎”: { name: “Closing Line Value”, desc: “Your public book price beats Pinnacle’s fair line by 3%+. Betting at a discount to true odds.” }
 };
 
+function iProb(o){return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);}
+function calcEV(pinO,pubO){if(!pinO||!pubO)return null;const fp=Math.min(iProb(pinO)*1.02,0.99);const dec=pubO>0?(pubO/100)+1:(100/Math.abs(pubO))+1;return Math.round((fp*dec-1)*1000)/10;}
+function evLabel(ev){if(ev===null)return null;if(ev>=5)return{lbl:“STRONG VALUE +”+ev+”%”,cls:“bet-ev-high”};if(ev>=2)return{lbl:“GOOD VALUE +”+ev+”%”,cls:“bet-ev-med”};if(ev>0)return{lbl:“SLIGHT EDGE +”+ev+”%”,cls:“bet-ev-low”};return null;}
+
+function getBetRec(game){
+if(FIGHT_SPORTS.includes(game.sport_key))return null;
+const bks=game.bookmakers||[];
+let best=null;
+[game.away_team,game.home_team].forEach(team=>{
+const pin=bkOdds(bks,team,SHP),pub=bkOdds(bks,team,PUB);
+if(!pin||!pub)return;
+const evVal=calcEV(pin.o,pub.o);
+const sharpDiff=pub.o-pin.o;
+if(evVal===null||evVal<=0)return;
+const score=evVal*2+sharpDiff*0.5;
+if(!best||score>best.score)best={team,pin:pin.o,pub:pub.o,bk:pub.bk,ev:evVal,sharpDiff,score};
+});
+return best;
+}
+
 function renderExpand(game) {
-  const bks = game.bookmakers || [];
-  if (!bks.length) return "";
-  let h = '<div class="xp">';
-  const teams = [game.away_team, game.home_team];
-  let mlRows = "", hasMl = false;
-  teams.forEach(t => {
-    const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-    if (!pin && !pub) return;
-    hasMl = true;
-    const d = pin && pub ? pub.o - pin.o : 0;
-    const sh = d >= 8 ? '<span class="sig">SHARP</span>' : "";
-    mlRows += '<div class="xp-row"><span class="xp-team">' + t.split(" ").pop() + '</span><div class="xp-pills">' + (pin ? '<span class="pp pin">PIN ' + fmt(pin.o) + '</span>' : "") + (pub ? '<span class="pp pub">' + pub.bk.split(" ")[0].toUpperCase() + " " + fmt(pub.o) + '</span>' : "") + sh + '</div></div>';
-  });
-  if (hasMl) h += '<div class="xp-title">MONEYLINE</div>' + mlRows;
-  
-  const badges = sharpSignalMap[game.id] || [];
-  if (badges.length) {
-    h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">';
-    h += '<div class="xp-title">SHARP SIGNALS</div>';
-    badges.forEach(b => {
-      const def = EMOJI_DEFS[b.emoji];
-      if (def) {
-        h += '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">' +
-          '<div style="font-size:18px;min-width:24px">' + b.emoji + '</div>' +
-          '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#fff">' + def.name + '</div>' +
-          '<div style="font-size:10px;color:#888;margin-top:2px;line-height:1.4">' + def.desc + '</div></div>' +
-          '</div>';
-      }
-    });
-    h += '</div>';
-  }
-  
-  h += '</div>';
-  return h;
+const bks = game.bookmakers || [];
+if (!bks.length) return “”;
+let h = ‘<div class="xp">’;
+const teams = [game.away_team, game.home_team];
+let mlRows = “”, hasMl = false;
+teams.forEach(t => {
+const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+if (!pin && !pub) return;
+hasMl = true;
+const d = pin && pub ? pub.o - pin.o : 0;
+const sh = d >= 8 ? ‘<span class="sig">SHARP</span>’ : “”;
+mlRows += ‘<div class="xp-row"><span class="xp-team">’ + t.split(” “).pop() + ‘</span><div class="xp-pills">’ + (pin ? ’<span class="pp pin">PIN ’ + fmt(pin.o) + ‘</span>’ : “”) + (pub ? ‘<span class="pp pub">’ + pub.bk.split(” “)[0].toUpperCase() + “ “ + fmt(pub.o) + ‘</span>’ : “”) + sh + ‘</div></div>’;
+});
+if (hasMl) h += ‘<div class="xp-title">MONEYLINE</div>’ + mlRows;
+
+const badges = sharpSignalMap[game.id] || [];
+if (badges.length) {
+h += ‘<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">’;
+h += ‘<div class="xp-title">SHARP SIGNALS</div>’;
+badges.forEach(b => {
+const def = EMOJI_DEFS[b.emoji];
+if (def) {
+h += ‘<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">’ +
+‘<div style="font-size:18px;min-width:24px">’ + b.emoji + ‘</div>’ +
+‘<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#fff">’ + def.name + ‘</div>’ +
+‘<div style="font-size:10px;color:#888;margin-top:2px;line-height:1.4">’ + def.desc + ‘</div></div>’ +
+‘</div>’;
+}
+});
+h += ‘</div>’;
+}
+
+// BET RECOMMENDATION BOX
+const rec = getBetRec(game);
+if(rec){
+const evInfo = evLabel(rec.ev);
+const evCls = evInfo ? evInfo.cls : ‘bet-ev-low’;
+const evTxt = evInfo ? evInfo.lbl : ‘+’+rec.ev+’%’;
+h += ‘<div class="bet-box">’ +
+‘<div class="bet-box-lbl">🎯 BET RECOMMENDATION</div>’ +
+‘<div class="bet-team-name">’ + rec.team + ‘</div>’ +
+‘<div class="bet-pills">’ +
+‘<span class="' + evCls + '">’ + evTxt + ‘</span>’ +
+‘<span class="pp pin">PIN ’ + fmt(rec.pin) + ‘</span>’ +
+‘<span class="pp pub">’ + rec.bk.split(’ ‘)[0].toUpperCase() + ’ ’ + fmt(rec.pub) + ‘</span>’ +
+(rec.sharpDiff>=8?’<span class="sig">SHARP ⚡</span>’:’’) +
+‘</div>’ +
+‘<div class="bet-cta">▶ BET ’ + rec.team.split(’ ‘).pop().toUpperCase() + ’ @ ’ + rec.bk.split(’ ’)[0].toUpperCase() + ’ · ’ + fmt(rec.pub) + ‘</div>’ +
+‘</div>’;
+} else {
+h += ‘<div class="no-bet-box">NO CLEAR EDGE — NO BET</div>’;
+}
+
+h += ‘</div>’;
+return h;
 }
 
 function renderGames() {
-  const fl = allGames.filter(g => curFilter === "All" || g.sport_title === curFilter);
-  document.getElementById("cnt").textContent = fl.length + " GAMES";
-  if (!fl.length) {
-    document.getElementById("games").innerHTML = '<div class="empty">No games found. Try refreshing.</div>';
-    return;
-  }
-  const bd = {}, bo = [];
-  fl.forEach(g => {
-    const lbl = new Date(g.commence_time).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-    if (!bd[lbl]) { bd[lbl] = []; bo.push(lbl); }
-    bd[lbl].push(g);
-  });
-  let h = "";
-  bo.forEach(day => {
-    h += '<div class="dl">' + day + '</div>';
-    bd[day].forEach(game => {
-      const bks = game.bookmakers || [];
-      let pubBk = bks.find(b => PUB.includes(b.key)) || bks[0];
-      const h2h = pubBk ? (pubBk.markets || []).find(m => m.key === "h2h") : null;
-      const awO = h2h ? h2h.outcomes.find(o => o.name === game.away_team) : null;
-      const hmO = h2h ? h2h.outcomes.find(o => o.name === game.home_team) : null;
-      const isX = !!expanded[game.id];
-      const badges = sharpSignalMap[game.id] || [];
-      let badgeHtml = "";
-      if (badges.length) {
-        badgeHtml = '<span class="sharp-badges">' + badges.map(b => '<span class="sharp-badge" title="' + b.name + '">' + b.emoji + '</span>').join("") + '</span>';
-      }
-      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')""><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
-    });
-  });
-  document.getElementById("games").innerHTML = h;
+const fl = allGames.filter(g => curFilter === “All” || g.sport_title === curFilter);
+document.getElementById(“cnt”).textContent = fl.length + “ GAMES”;
+if (!fl.length) {
+document.getElementById(“games”).innerHTML = ‘<div class="empty">No games found. Try refreshing.</div>’;
+return;
+}
+const bd = {}, bo = [];
+fl.forEach(g => {
+const lbl = new Date(g.commence_time).toLocaleDateString(“en-US”, { weekday: “long”, month: “short”, day: “numeric” });
+if (!bd[lbl]) { bd[lbl] = []; bo.push(lbl); }
+bd[lbl].push(g);
+});
+let h = “”;
+bo.forEach(day => {
+h += ‘<div class="dl">’ + day + ‘</div>’;
+bd[day].forEach(game => {
+const bks = game.bookmakers || [];
+let pubBk = bks.find(b => PUB.includes(b.key)) || bks[0];
+const h2h = pubBk ? (pubBk.markets || []).find(m => m.key === “h2h”) : null;
+const awO = h2h ? h2h.outcomes.find(o => o.name === game.away_team) : null;
+const hmO = h2h ? h2h.outcomes.find(o => o.name === game.home_team) : null;
+const isX = !!expanded[game.id];
+const badges = sharpSignalMap[game.id] || [];
+let badgeHtml = “”;
+if (badges.length) {
+badgeHtml = ‘<span class="sharp-badges">’ + badges.map(b => ‘<span class="sharp-badge" title="' + b.name + '">’ + b.emoji + ‘</span>’).join(””) + ‘</span>’;
+}
+h += ‘<div class=“gc” onclick=“toggle('’ + game.id + ‘')””><div class="gt"><div class="gtl"><span class="sl">’ + game.sport_title + ‘</span>’ + (isLive(game.commence_time) ? ‘<span class="live">LIVE</span>’ : “”) + badgeHtml + ‘</div><span class="tl">’ + fmtT(game.commence_time) + ‘</span></div><div class="mu"><div><div class="tn">’ + game.away_team + ‘</div><div class="ts">Away</div>’ + (awO ? chip(awO.price) : “”) + ‘</div><div class="vs">VS</div><div class="tr"><div class="tn">’ + game.home_team + ‘</div><div class="ts">Home</div>’ + (hmO ? chip(hmO.price) : “”) + ‘</div></div>’ + (isX ? renderExpand(game) : “”) + ‘<div class="eh">’ + (isX ? “collapse” : “tap for sharp”) + ‘</div></div>’;
+});
+});
+document.getElementById(“games”).innerHTML = h;
 }
 
 function detectLineMovement(game) {
-  const history = oddsHistory[game.id] || [];
-  if (history.length < 2) return null;
-  const first = history[0];
-  const last = history[history.length - 1];
-  const movements = {};
-  [game.away_team, game.home_team].forEach(team => {
-    const firstPrices = [], lastPrices = [];
-    Object.keys(last.books).forEach(bk => {
-      if (PUB.includes(bk) && last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
-        firstPrices.push(first.books[bk][team]);
-        lastPrices.push(last.books[bk][team]);
-      }
-    });
-    if (firstPrices.length >= 2) {
-      const firstAvg = firstPrices.reduce((a, b) => a + b, 0) / firstPrices.length;
-      const lastAvg = lastPrices.reduce((a, b) => a + b, 0) / lastPrices.length;
-      movements[team] = { start: firstAvg, end: lastAvg, diff: lastAvg - firstAvg, snapshots: history.length };
-    }
-  });
-  return movements;
+const history = oddsHistory[game.id] || [];
+if (history.length < 2) return null;
+const first = history[0];
+const last = history[history.length - 1];
+const movements = {};
+[game.away_team, game.home_team].forEach(team => {
+const firstPrices = [], lastPrices = [];
+Object.keys(last.books).forEach(bk => {
+if (PUB.includes(bk) && last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
+firstPrices.push(first.books[bk][team]);
+lastPrices.push(last.books[bk][team]);
+}
+});
+if (firstPrices.length >= 2) {
+const firstAvg = firstPrices.reduce((a, b) => a + b, 0) / firstPrices.length;
+const lastAvg = lastPrices.reduce((a, b) => a + b, 0) / lastPrices.length;
+movements[team] = { start: firstAvg, end: lastAvg, diff: lastAvg - firstAvg, snapshots: history.length };
+}
+});
+return movements;
 }
 
 function detectSteamMove(game) {
-  const history = oddsHistory[game.id] || [];
-  if (history.length < 2) return null;
-  const recent = history.slice(-3);
-  if (recent.length < 2) return null;
-  const first = recent[0], last = recent[recent.length - 1];
-  const steamTeams = [];
-  [game.away_team, game.home_team].forEach(team => {
-    let booksMovedSame = 0;
-    let totalMovement = 0;
-    Object.keys(last.books).forEach(bk => {
-      if (last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
-        const diff = last.books[bk][team] - first.books[bk][team];
-        if (Math.abs(diff) >= 5) {
-          booksMovedSame++;
-          totalMovement += diff;
-        }
-      }
-    });
-    if (booksMovedSame >= 3) {
-      steamTeams.push({ team, books: booksMovedSame, avgMove: totalMovement / booksMovedSame });
-    }
-  });
-  return steamTeams.length > 0 ? steamTeams : null;
+const history = oddsHistory[game.id] || [];
+if (history.length < 2) return null;
+const recent = history.slice(-3);
+if (recent.length < 2) return null;
+const first = recent[0], last = recent[recent.length - 1];
+const steamTeams = [];
+[game.away_team, game.home_team].forEach(team => {
+let booksMovedSame = 0;
+let totalMovement = 0;
+Object.keys(last.books).forEach(bk => {
+if (last.books[bk][team] != null && first.books[bk] && first.books[bk][team] != null) {
+const diff = last.books[bk][team] - first.books[bk][team];
+if (Math.abs(diff) >= 5) {
+booksMovedSame++;
+totalMovement += diff;
+}
+}
+});
+if (booksMovedSame >= 3) {
+steamTeams.push({ team, books: booksMovedSame, avgMove: totalMovement / booksMovedSame });
+}
+});
+return steamTeams.length > 0 ? steamTeams : null;
 }
 
 function detectRLM(game) {
-  const bks = game.bookmakers || [];
-  const movement = detectLineMovement(game);
-  if (!movement) return null;
-  const results = [];
-  [game.away_team, game.home_team].forEach(team => {
-    if (!movement[team]) return;
-    const pub = bkOdds(bks, team, PUB);
-    const pin = bkOdds(bks, team, SHP);
-    if (!pub || !pin) return;
-    const lineMovedAgainst = movement[team].diff < -5;
-    const sharpLonger = pin.o > pub.o + 5;
-    if (lineMovedAgainst && sharpLonger) {
-      results.push({ team, pubOdds: pub.o, pinOdds: pin.o, movement: movement[team].diff });
-    }
-  });
-  return results.length > 0 ? results : null;
+const bks = game.bookmakers || [];
+const movement = detectLineMovement(game);
+if (!movement) return null;
+const results = [];
+[game.away_team, game.home_team].forEach(team => {
+if (!movement[team]) return;
+const pub = bkOdds(bks, team, PUB);
+const pin = bkOdds(bks, team, SHP);
+if (!pub || !pin) return;
+const lineMovedAgainst = movement[team].diff < -5;
+const sharpLonger = pin.o > pub.o + 5;
+if (lineMovedAgainst && sharpLonger) {
+results.push({ team, pubOdds: pub.o, pinOdds: pin.o, movement: movement[team].diff });
+}
+});
+return results.length > 0 ? results : null;
 }
 
 function calcCLV(game) {
-  const bks = game.bookmakers || [];
-  const results = [];
-  [game.away_team, game.home_team].forEach(team => {
-    const pin = bkOdds(bks, team, SHP);
-    const pub = bkOdds(bks, team, PUB);
-    if (!pin || !pub) return;
-    const pinProb = pin.o > 0 ? 100 / (pin.o + 100) : Math.abs(pin.o) / (Math.abs(pin.o) + 100);
-    const pubProb = pub.o > 0 ? 100 / (pub.o + 100) : Math.abs(pub.o) / (Math.abs(pub.o) + 100);
-    const clvPct = ((pinProb - pubProb) / pubProb) * 100;
-    if (clvPct > 3) {
-      results.push({ team, pubOdds: pub.o, pinOdds: pin.o, clvPct: Math.round(clvPct * 10) / 10 });
-    }
-  });
-  return results.length > 0 ? results : null;
+const bks = game.bookmakers || [];
+const results = [];
+[game.away_team, game.home_team].forEach(team => {
+const pin = bkOdds(bks, team, SHP);
+const pub = bkOdds(bks, team, PUB);
+if (!pin || !pub) return;
+const pinProb = pin.o > 0 ? 100 / (pin.o + 100) : Math.abs(pin.o) / (Math.abs(pin.o) + 100);
+const pubProb = pub.o > 0 ? 100 / (pub.o + 100) : Math.abs(pub.o) / (Math.abs(pub.o) + 100);
+const clvPct = ((pinProb - pubProb) / pubProb) * 100;
+if (clvPct > 3) {
+results.push({ team, pubOdds: pub.o, pinOdds: pin.o, clvPct: Math.round(clvPct * 10) / 10 });
+}
+});
+return results.length > 0 ? results : null;
 }
 
 function computeSharpSignals() {
-  sharpSignalMap = {};
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
-  
-  function addBadge(gameId, emoji, name) {
-    if (!sharpSignalMap[gameId]) sharpSignalMap[gameId] = [];
-    if (!sharpSignalMap[gameId].find(b => b.emoji === emoji)) {
-      sharpSignalMap[gameId].push({ emoji, name });
-    }
-  }
-  
-  eligibleGames.forEach(g => {
-    const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(t => {
-      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) addBadge(g.id, "⚡", "Pinnacle vs Public"); }
-    });
-    if (detectSteamMove(g)) addBadge(g.id, "🔥", "Steam Move");
-    if (detectRLM(g)) addBadge(g.id, "🎯", "Reverse Line Movement");
-    if (calcCLV(g)) addBadge(g.id, "💎", "Closing Line Value");
-  });
+sharpSignalMap = {};
+const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+
+function addBadge(gameId, emoji, name) {
+if (!sharpSignalMap[gameId]) sharpSignalMap[gameId] = [];
+if (!sharpSignalMap[gameId].find(b => b.emoji === emoji)) {
+sharpSignalMap[gameId].push({ emoji, name });
+}
+}
+
+eligibleGames.forEach(g => {
+const bks = g.bookmakers || [];
+[g.away_team, g.home_team].forEach(t => {
+const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) addBadge(g.id, “⚡”, “Pinnacle vs Public”); }
+});
+if (detectSteamMove(g)) addBadge(g.id, “🔥”, “Steam Move”);
+if (detectRLM(g)) addBadge(g.id, “🎯”, “Reverse Line Movement”);
+if (calcCLV(g)) addBadge(g.id, “💎”, “Closing Line Value”);
+});
 }
 
 function buildSection(key, emoji, title, count, bodyHtml, instrHtml) {
-  const isOpen = sharpOpen[key];
-  return '<div class="sec' + (isOpen ? ' open' : '') + '">' +
-    '<div class="sec-header" onclick="toggleSharp(\'' + key + '\')">' +
-    '<span class="sec-emoji">' + emoji + '</span>' +
-    '<div class="sec-info"><div class="sec-title">' + title + '</div><div class="sec-count">' + count + ' signal' + (count !== 1 ? 's' : '') + '</div></div>' +
-    '<span class="sec-arrow">▼</span>' +
-    '</div>' +
-    '<div class="sec-body">' +
-    '<div class="sec-signals">' + bodyHtml + '</div>' +
-    '<div class="sec-instr">' + instrHtml + '</div>' +
-    '</div>' +
-    '</div>';
+const isOpen = sharpOpen[key];
+return ‘<div class="sec' + (isOpen ? ' open' : '') + '">’ +
+‘<div class="sec-header" onclick="toggleSharp(\'' + key + '\')">’ +
+‘<span class="sec-emoji">’ + emoji + ‘</span>’ +
+‘<div class="sec-info"><div class="sec-title">’ + title + ‘</div><div class="sec-count">’ + count + ’ signal’ + (count !== 1 ? ‘s’ : ‘’) + ‘</div></div>’ +
+‘<span class="sec-arrow">▼</span>’ +
+‘</div>’ +
+‘<div class="sec-body">’ +
+‘<div class="sec-signals">’ + bodyHtml + ‘</div>’ +
+‘<div class="sec-instr">’ + instrHtml + ‘</div>’ +
+‘</div>’ +
+‘</div>’;
 }
 
 function renderSharp() {
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
-  
-  const pinSignals = [];
-  eligibleGames.forEach(g => {
-    const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(t => {
-      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) pinSignals.push({ score: d, game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk }); }
-    });
-  });
-  pinSignals.sort((a, b) => b.score - a.score);
-  
-  const steamSignals = [];
-  eligibleGames.forEach(g => {
-    const steam = detectSteamMove(g);
-    if (steam) steamSignals.push({ game: g, signals: steam });
-  });
-  
-  const rlmSignals = [];
-  eligibleGames.forEach(g => {
-    const rlm = detectRLM(g);
-    if (rlm) rlmSignals.push({ game: g, signals: rlm });
-  });
-  
-  const clvSignals = [];
-  eligibleGames.forEach(g => {
-    const clv = calcCLV(g);
-    if (clv) clvSignals.push({ game: g, signals: clv });
-  });
-  clvSignals.sort((a, b) => Math.max(...b.signals.map(s => s.clvPct)) - Math.max(...a.signals.map(s => s.clvPct)));
-  
-  let h = "";
-  
-  let pinBody = "";
-  if (!pinSignals.length) {
-    pinBody = '<div class="empty">No discrepancies ≥8pts right now.</div>';
-  } else {
-    pinSignals.slice(0, 15).forEach(s => {
-      pinBody += '<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">' + s.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ' + fmt(s.pin) + '</span><span class="pp pub">' + s.bk.split(" ")[0].toUpperCase() + " " + fmt(s.pub) + '</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ' + Math.round(s.score) + '</span></div></div>';
-    });
-  }
-  h += buildSection("pin", "⚡", "PINNACLE VS PUBLIC", pinSignals.length, pinBody,
-    '<strong>What it means:</strong> Pinnacle is the sharpest book because they accept huge limits from pros. When Pinnacle\'s odds are shorter than public books by 8+ points, sharps moved the line toward one side.<br><br><strong>How to read it:</strong> The "SHARP SIDE" is where sharp money is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book before their line moves too.');
-  
-  let steamBody = "";
-  if (!steamSignals.length) {
-    steamBody = '<div class="empty">No steam moves detected. Refresh periodically to build history.</div>';
-  } else {
-    steamSignals.slice(0, 10).forEach(s => {
-      s.signals.forEach(sig => {
-        const dir = sig.avgMove < 0 ? "SHORTER" : "LONGER";
-        const dirColor = sig.avgMove < 0 ? "#4ecca3" : "#ff6b6b";
-        steamBody += '<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">' + sig.books + ' BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">' + dir + ' ' + Math.abs(Math.round(sig.avgMove)) + 'pts</span></div></div>';
-      });
-    });
-  }
-  h += buildSection("steam", "🔥", "STEAM MOVES", steamSignals.length, steamBody,
-    '<strong>What it means:</strong> When 3+ public sportsbooks move their lines the same direction at the same time. Clearest sign of professional syndicate action hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> Follow the steam immediately. More books moving = stronger signal. Window to catch old price is minutes.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD at any book that hasn\'t moved yet.<br><br><strong>Note:</strong> Needs multiple app refreshes over time to detect movement.');
-  
-  let rlmBody = "";
-  if (!rlmSignals.length) {
-    rlmBody = '<div class="empty">No reverse line movement detected yet.</div>';
-  } else {
-    rlmSignals.slice(0, 10).forEach(s => {
-      s.signals.forEach(sig => {
-        rlmBody += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span></div></div>';
-      });
-    });
-  }
-  h += buildSection("rlm", "🎯", "REVERSE LINE MOVEMENT", rlmSignals.length, rlmBody,
-    '<strong>What it means:</strong> When the public heavily bets one team but the line moves TOWARD the OTHER team. Sharp money is overwhelming public money.<br><br><strong>How to read it:</strong> A team has a line moving against them despite public support (Pinnacle longer than public books) = sharp money on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side.');
-  
-  let clvBody = "";
-  if (!clvSignals.length) {
-    clvBody = '<div class="empty">No CLV opportunities ≥3% right now.</div>';
-  } else {
-    clvSignals.slice(0, 15).forEach(s => {
-      s.signals.forEach(sig => {
-        clvBody += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">' + sig.team + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span></div></div>';
-      });
-    });
-  }
-  h += buildSection("clv", "💎", "CLOSING LINE VALUE", clvSignals.length, clvBody,
-    '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle\'s line will likely move to match public books by game time.');
-  
-  h += '<div class="legend">' +
-    '<div class="legend-title">📖 EMOJI INDEX</div>' +
-    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Pinnacle vs Public</div><div class="legend-desc">Pinnacle\'s odds are 8+ points shorter than public books on one team. Sharp money moved Pinnacle\'s line.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ sportsbooks moving their lines the same direction simultaneously. Professional syndicate action.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ — betting at a discount to true odds.</div></div></div>' +
-    '</div>';
-  
-  document.getElementById("sharp").innerHTML = h;
+const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+
+const pinSignals = [];
+eligibleGames.forEach(g => {
+const bks = g.bookmakers || [];
+[g.away_team, g.home_team].forEach(t => {
+const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) pinSignals.push({ score: d, game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk }); }
+});
+});
+pinSignals.sort((a, b) => b.score - a.score);
+
+const steamSignals = [];
+eligibleGames.forEach(g => {
+const steam = detectSteamMove(g);
+if (steam) steamSignals.push({ game: g, signals: steam });
+});
+
+const rlmSignals = [];
+eligibleGames.forEach(g => {
+const rlm = detectRLM(g);
+if (rlm) rlmSignals.push({ game: g, signals: rlm });
+});
+
+const clvSignals = [];
+eligibleGames.forEach(g => {
+const clv = calcCLV(g);
+if (clv) clvSignals.push({ game: g, signals: clv });
+});
+clvSignals.sort((a, b) => Math.max(…b.signals.map(s => s.clvPct)) - Math.max(…a.signals.map(s => s.clvPct)));
+
+let h = “”;
+
+let pinBody = “”;
+if (!pinSignals.length) {
+pinBody = ‘<div class="empty">No discrepancies ≥8pts right now.</div>’;
+} else {
+pinSignals.slice(0, 15).forEach(s => {
+const pEv=calcEV(s.pin,s.pub);const pEvInfo=evLabel(pEv);
+pinBody += ‘<div class="sc"><div class="sh"><div class="sr">⚡</div><div style="flex:1"><div class="sm">’ + s.game.away_team.split(” “).pop() + “ vs “ + s.game.home_team.split(” “).pop() + ‘</div><div class="smeta">’ + s.game.sport_title + “ - “ + fmtT(s.game.commence_time) + ‘</div></div></div><div class="sbb"><div class="sbl">SHARP SIDE</div><div class="sbv">’ + s.label + ‘</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp pin">PIN ’ + fmt(s.pin) + ‘</span><span class="pp pub">’ + s.bk.split(” “)[0].toUpperCase() + “ “ + fmt(s.pub) + ‘</span><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">DIFF: ’ + Math.round(s.score) + ‘</span>’ + (pEvInfo?’<span class="'+pEvInfo.cls+'">’+pEvInfo.lbl+’</span>’:’’) + ‘</div>’ +
+‘<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">’ + s.label + ‘</div><div class="sharp-cta-ev">’ + s.bk.split(” “)[0].toUpperCase() + ’ · ’ + fmt(s.pub) + (pEv&&pEv>0?’ · +’+pEv+’% EV’:’’) + ‘</div></div><div class="sharp-cta-arrow">→</div></div>’ +
+‘</div>’;
+});
+}
+h += buildSection(“pin”, “⚡”, “PINNACLE VS PUBLIC”, pinSignals.length, pinBody,
+‘<strong>What it means:</strong> Pinnacle is the sharpest book because they accept huge limits from pros. When Pinnacle's odds are shorter than public books by 8+ points, sharps moved the line toward one side.<br><br><strong>How to read it:</strong> The “SHARP SIDE” is where sharp money is. Larger DIFF = stronger signal.<br><br><strong>When to bet:</strong> Bet the sharp side at the public book before their line moves too.’);
+
+let steamBody = “”;
+if (!steamSignals.length) {
+steamBody = ‘<div class="empty">No steam moves detected. Refresh periodically to build history.</div>’;
+} else {
+steamSignals.slice(0, 10).forEach(s => {
+s.signals.forEach(sig => {
+const dir = sig.avgMove < 0 ? “SHORTER” : “LONGER”;
+const dirColor = sig.avgMove < 0 ? “#4ecca3” : “#ff6b6b”;
+steamBody += ‘<div class="sc"><div class="sh"><div class="sr">🔥</div><div style="flex:1"><div class="sm">’ + s.game.away_team.split(” “).pop() + “ vs “ + s.game.home_team.split(” “).pop() + ‘</div><div class="smeta">’ + s.game.sport_title + “ - “ + fmtT(s.game.commence_time) + ‘</div></div></div><div class="sbb"><div class="sbl">STEAM ON</div><div class="sbv">’ + sig.team + ‘</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-steam">’ + sig.books + ’ BOOKS MOVED</span><span class="pp" style="background:rgba(255,107,107,.1);color:' + dirColor + '">’ + dir + ’ ’ + Math.abs(Math.round(sig.avgMove)) + ‘pts</span></div></div>’;
+});
+});
+}
+h += buildSection(“steam”, “🔥”, “STEAM MOVES”, steamSignals.length, steamBody,
+‘<strong>What it means:</strong> When 3+ public sportsbooks move their lines the same direction at the same time. Clearest sign of professional syndicate action hitting multiple books simultaneously.<br><br><strong>How to read it:</strong> Follow the steam immediately. More books moving = stronger signal. Window to catch old price is minutes.<br><br><strong>When to bet:</strong> ASAP on the team the steam is moving TOWARD at any book that hasn't moved yet.<br><br><strong>Note:</strong> Needs multiple app refreshes over time to detect movement.’);
+
+let rlmBody = “”;
+if (!rlmSignals.length) {
+rlmBody = ‘<div class="empty">No reverse line movement detected yet.</div>’;
+} else {
+rlmSignals.slice(0, 10).forEach(s => {
+s.signals.forEach(sig => {
+const rEv=calcEV(sig.pinOdds,sig.pubOdds);const rEvInfo=evLabel(rEv);
+rlmBody += ‘<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">’ + s.game.away_team.split(” “).pop() + “ vs “ + s.game.home_team.split(” “).pop() + ‘</div><div class="smeta">’ + s.game.sport_title + “ - “ + fmtT(s.game.commence_time) + ‘</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">’ + sig.team + ‘</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ’ + Math.round(sig.movement) + ‘pts</span><span class="pp pin">PIN ’ + fmt(sig.pinOdds) + ‘</span><span class="pp pub">PUB ’ + fmt(sig.pubOdds) + ‘</span>’ + (rEvInfo?’<span class="'+rEvInfo.cls+'">’+rEvInfo.lbl+’</span>’:’’) + ‘</div>’ +
+‘<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">’ + sig.team + ‘</div><div class="sharp-cta-ev">PUBLIC BOOK · ’ + fmt(sig.pubOdds) + (rEv&&rEv>0?’ · +’+rEv+’% EV’:’’) + ‘</div></div><div class="sharp-cta-arrow">→</div></div>’ +
+‘</div>’;
+});
+});
+}
+h += buildSection(“rlm”, “🎯”, “REVERSE LINE MOVEMENT”, rlmSignals.length, rlmBody,
+‘<strong>What it means:</strong> When the public heavily bets one team but the line moves TOWARD the OTHER team. Sharp money is overwhelming public money.<br><br><strong>How to read it:</strong> A team has a line moving against them despite public support (Pinnacle longer than public books) = sharp money on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side.’);
+
+let clvBody = “”;
+if (!clvSignals.length) {
+clvBody = ‘<div class="empty">No CLV opportunities ≥3% right now.</div>’;
+} else {
+clvSignals.slice(0, 15).forEach(s => {
+s.signals.forEach(sig => {
+const cEv=calcEV(sig.pinOdds,sig.pubOdds);const cBk=bkOdds(s.game.bookmakers||[],sig.team,PUB);
+clvBody += ‘<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">’ + s.game.away_team.split(” “).pop() + “ vs “ + s.game.home_team.split(” “).pop() + ‘</div><div class="smeta">’ + s.game.sport_title + “ - “ + fmtT(s.game.commence_time) + ‘</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">’ + sig.team + ‘</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+’ + sig.clvPct + ‘% CLV</span><span class="pp pub">PUB ’ + fmt(sig.pubOdds) + ‘</span><span class="pp pin">PIN ’ + fmt(sig.pinOdds) + ‘</span>’ + (cEv&&cEv>0?’<span class="bet-ev-high">+’+cEv+’% EV</span>’:’’) + ‘</div>’ +
+‘<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">’ + sig.team + ‘</div><div class="sharp-cta-ev">’ + (cBk?cBk.bk.split(” “)[0].toUpperCase()+’ · ‘+fmt(sig.pubOdds):‘PUBLIC BOOK’) + ’ · +’ + sig.clvPct + ‘% CLV</div></div><div class="sharp-cta-arrow">→</div></div>’ +
+‘</div>’;
+});
+});
+}
+h += buildSection(“clv”, “💎”, “CLOSING LINE VALUE”, clvSignals.length, clvBody,
+‘<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle's line will likely move to match public books by game time.’);
+
+h += ‘<div class="legend">’ +
+‘<div class="legend-title">📖 EMOJI INDEX</div>’ +
+‘<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Pinnacle vs Public</div><div class="legend-desc">Pinnacle's odds are 8+ points shorter than public books on one team. Sharp money moved Pinnacle's line.</div></div></div>’ +
+‘<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ sportsbooks moving their lines the same direction simultaneously. Professional syndicate action.</div></div></div>’ +
+‘<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>’ +
+‘<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle's fair line by 3%+ — betting at a discount to true odds.</div></div></div>’ +
+‘</div>’;
+
+document.getElementById(“sharp”).innerHTML = h;
 }
 
-function iProb(o) { return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100); }
-function ev(pin, pub) { if (!pin || !pub) return 0; const fp = Math.min(iProb(pin) * 1.02, 0.99); const dec = pub > 0 ? (pub / 100) + 1 : (100 / Math.abs(pub)) + 1; return Math.round((fp * dec - 1) * 1000) / 10; }
+// EV functions defined above
 
-function selectModelSport(sport) { selectedModelSport = sport; modelView = "details"; renderModel(); }
-function backToModelSports() { selectedModelSport = null; modelView = "sports"; renderModel(); }
+function selectModelSport(sport) { selectedModelSport = sport; modelView = “details”; renderModel(); }
+function backToModelSports() { selectedModelSport = null; modelView = “sports”; renderModel(); }
 
 function renderModel() {
-  const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
-  const cands = [];
-  eligibleGames.forEach(g => {
-    const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(t => {
-      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (!pin || !pub) return;
-      const sd = pub.o - pin.o, ev2 = ev(pin.o, pub.o), sc = sd * 0.5 + ev2 * 2;
-      if (sc > 5 || ev2 > 1) cands.push({ game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk, sharp: sd, ev: ev2, score: sc });
-    });
-  });
-  if (!cands.length) { document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; return; }
-  if (modelView === "sports") {
-    const bySport = {};
-    cands.forEach(c => {
-      const sp = c.game.sport_title;
-      if (!bySport[sp]) bySport[sp] = [];
-      bySport[sp].push(c);
-    });
-    const sports = Object.keys(bySport).sort((a, b) => bySport[b].length - bySport[a].length);
-    let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SPORT TO VIEW PICKS</div>';
-    sports.forEach(sp => {
-      const picks = bySport[sp];
-      const maxScore = Math.max(...picks.map(p => p.score));
-      const maxEv = Math.max(...picks.map(p => p.ev));
-      h += '<div class="src-card" onclick="selectModelSport(\'' + sp.replace(/'/g, "\\'") + '\')">' +
-        '<div><div class="src-name">' + sp + '</div><div class="src-meta">' +
-        picks.length + ' picks · top score ' + Math.round(maxScore) + ' · max EV +' + maxEv + '%</div></div>' +
-        '<div class="src-count">' + picks.length + '</div></div>';
-    });
-    document.getElementById("model").innerHTML = h;
-    return;
-  }
-  const sportCands = cands.filter(c => c.game.sport_title === selectedModelSport);
-  const byDay = {};
-  const dayOrder = [];
-  sportCands.forEach(c => {
-    const dayKey = new Date(c.game.commence_time).toLocaleDateString("en-US", {weekday: "long", month: "short", day: "numeric"});
-    if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
-    byDay[dayKey].push(c);
-  });
-  dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
-  dayOrder.forEach(day => byDay[day].sort((a, b) => b.score - a.score));
-  let h = '<button class="back-btn" onclick="backToModelSports()">← All Sports</button>';
-  h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedModelSport + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sportCands.length + ' model picks</div></div>';
-  dayOrder.forEach(day => {
-    h += '<div class="dl">' + day + '</div>';
-    byDay[day].forEach((p, i) => {
-      const strength = p.score >= 20 ? "STRONG" : p.score >= 10 ? "MEDIUM" : "WEAK";
-      const strengthColor = p.score >= 20 ? "#4ecca3" : p.score >= 10 ? "#ffc832" : "#888";
-      h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div></div>';
-    });
-  });
-  document.getElementById("model").innerHTML = h;
+const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+const cands = [];
+eligibleGames.forEach(g => {
+const bks = g.bookmakers || [];
+[g.away_team, g.home_team].forEach(t => {
+const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+if (!pin || !pub) return;
+const sd = pub.o - pin.o, ev2 = calcEV(pin.o, pub.o)||0, sc = sd * 0.5 + ev2 * 2;
+if (sc > 5 || ev2 > 1) cands.push({ game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk, sharp: sd, ev: ev2, score: sc });
+});
+});
+if (!cands.length) { document.getElementById(“model”).innerHTML = ‘<div class="empty">No high-value model picks.</div>’; return; }
+if (modelView === “sports”) {
+const bySport = {};
+cands.forEach(c => {
+const sp = c.game.sport_title;
+if (!bySport[sp]) bySport[sp] = [];
+bySport[sp].push(c);
+});
+const sports = Object.keys(bySport).sort((a, b) => bySport[b].length - bySport[a].length);
+let h = ‘<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SPORT TO VIEW PICKS</div>’;
+sports.forEach(sp => {
+const picks = bySport[sp];
+const maxScore = Math.max(…picks.map(p => p.score));
+const maxEv = Math.max(…picks.map(p => p.ev));
+h += ‘<div class=“src-card” onclick=“selectModelSport('’ + sp.replace(/’/g, “\’”) + ‘')”>’ +
+‘<div><div class="src-name">’ + sp + ‘</div><div class="src-meta">’ +
+picks.length + ’ picks · top score ’ + Math.round(maxScore) + ’ · max EV +’ + maxEv + ‘%</div></div>’ +
+‘<div class="src-count">’ + picks.length + ‘</div></div>’;
+});
+document.getElementById(“model”).innerHTML = h;
+return;
+}
+const sportCands = cands.filter(c => c.game.sport_title === selectedModelSport);
+const byDay = {};
+const dayOrder = [];
+sportCands.forEach(c => {
+const dayKey = new Date(c.game.commence_time).toLocaleDateString(“en-US”, {weekday: “long”, month: “short”, day: “numeric”});
+if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
+byDay[dayKey].push(c);
+});
+dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
+dayOrder.forEach(day => byDay[day].sort((a, b) => b.score - a.score));
+let h = ‘<button class="back-btn" onclick="backToModelSports()">← All Sports</button>’;
+h += ‘<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">’ + selectedModelSport + ‘</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">’ + sportCands.length + ’ model picks</div></div>’;
+dayOrder.forEach(day => {
+h += ‘<div class="dl">’ + day + ‘</div>’;
+byDay[day].forEach((p, i) => {
+const strength = p.score >= 20 ? “STRONG” : p.score >= 10 ? “MEDIUM” : “WEAK”;
+const strengthColor = p.score >= 20 ? “#4ecca3” : p.score >= 10 ? “#ffc832” : “#888”;
+h += ‘<div class="sc"><div class="sh"><div class="sr">#’ + (i + 1) + ‘</div><div style="flex:1"><div class="sm">’ + p.game.away_team.split(” “).pop() + “ @ “ + p.game.home_team.split(” “).pop() + ‘</div><div class="smeta">’ + fmtT(p.game.commence_time) + ‘</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">’ + strength + ‘</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">’ + p.label + ‘</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +’ + p.ev + ’%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ’ + Math.round(p.score) + ’</span><span class="pp pin">PIN ’ + fmt(p.pin) + ‘</span><span class="pp pub">’ + p.bk.split(” “)[0].toUpperCase() + “ “ + fmt(p.pub) + ‘</span></div></div>’;
+});
+});
+document.getElementById(“model”).innerHTML = h;
 }
 
-function selectSource(src) { selectedSource = src; picksView = "details"; renderPicks(); }
-function backToSources() { selectedSource = null; picksView = "sources"; renderPicks(); }
+function selectSource(src) { selectedSource = src; picksView = “details”; renderPicks(); }
+function backToSources() { selectedSource = null; picksView = “sources”; renderPicks(); }
 
 function renderPicks() {
-  if (!allPicks.length) { document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>'; return; }
-  if (picksView === "sources") {
-    const bySource = {};
-    allPicks.forEach(p => {
-      const src = p.source || "Unknown";
-      if (!bySource[src]) bySource[src] = { picks: [], expert: p.expert };
-      bySource[src].picks.push(p);
-    });
-    const sources = Object.keys(bySource).sort((a, b) => bySource[b].picks.length - bySource[a].picks.length);
-    let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SOURCE TO VIEW PICKS</div>';
-    sources.forEach(src => {
-      const info = bySource[src];
-      const avgConf = info.picks.reduce((a, p) => a + p.confidence, 0) / info.picks.length;
-      const highEV = info.picks.filter(p => p.ev === "HIGH").length;
-      h += '<div class="src-card" onclick="selectSource(\'' + src.replace(/'/g, "\\'") + '\')">' +
-        '<div><div class="src-name">' + src + '</div><div class="src-meta">' + 
-        info.picks.length + ' picks · avg ' + avgConf.toFixed(1) + '★ · ' + highEV + ' high EV</div></div>' +
-        '<div class="src-count">' + info.picks.length + '</div></div>';
-    });
-    document.getElementById("picks").innerHTML = h;
-    return;
-  }
-  const sourcePicks = allPicks.filter(p => (p.source || "Unknown") === selectedSource);
-  const byDay = {};
-  const dayOrder = [];
-  sourcePicks.forEach(p => {
-    const dayKey = p.day || "Undated";
-    if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
-    byDay[dayKey].push(p);
-  });
-  dayOrder.forEach(day => {
-    byDay[day].sort((a, b) => {
-      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-      const evRank = { HIGH: 2, MEDIUM: 1 };
-      return (evRank[b.ev] || 0) - (evRank[a.ev] || 0);
-    });
-  });
-  let h = '<button class="back-btn" onclick="backToSources()">← All Sources</button>';
-  h += '<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">' + selectedSource + '</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">' + sourcePicks.length + ' picks total</div></div>';
-  dayOrder.forEach(day => {
-    h += '<div class="dl">' + day + '</div>';
-    byDay[day].forEach(p => {
-      h += '<div class="sc"><div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-        '<div><div class="sm">' + p.expert + '</div><div class="smeta">' + (p.sport || "Sports") + '</div></div>' +
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:13px">' + "⭐".repeat(p.confidence) + '</div>' +
-        (p.ev === "HIGH" ? '<span class="pp" style="background:rgba(78,204,163,.12);color:#4ecca3;font-size:9px">HIGH EV</span>' : p.ev === "MEDIUM" ? '<span class="pp" style="background:rgba(255,200,50,.1);color:#ffc832;font-size:9px">MED EV</span>' : '') +
-        '</div></div>' +
-        '<div class="sbb"><div class="sbl">' + (p.betType || "PICK") + '</div><div class="sbv">' + p.bet + '</div></div>' +
-        (p.detail ? '<div style="font-size:11px;color:#555;margin-top:6px">' + p.detail.slice(0, 200) + '</div>' : "") +
-        '</div>';
-    });
-  });
-  document.getElementById("picks").innerHTML = h;
+if (!allPicks.length) { document.getElementById(“picks”).innerHTML = ‘<div class="empty">No picks available.</div>’; return; }
+if (picksView === “sources”) {
+const bySource = {};
+allPicks.forEach(p => {
+const src = p.source || “Unknown”;
+if (!bySource[src]) bySource[src] = { picks: [], expert: p.expert };
+bySource[src].picks.push(p);
+});
+const sources = Object.keys(bySource).sort((a, b) => bySource[b].picks.length - bySource[a].picks.length);
+let h = ‘<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SOURCE TO VIEW PICKS</div>’;
+sources.forEach(src => {
+const info = bySource[src];
+const avgConf = info.picks.reduce((a, p) => a + p.confidence, 0) / info.picks.length;
+const highEV = info.picks.filter(p => p.ev === “HIGH”).length;
+h += ‘<div class=“src-card” onclick=“selectSource('’ + src.replace(/’/g, “\’”) + ‘')”>’ +
+‘<div><div class="src-name">’ + src + ‘</div><div class="src-meta">’ +
+info.picks.length + ’ picks · avg ’ + avgConf.toFixed(1) + ‘★ · ’ + highEV + ’ high EV</div></div>’ +
+‘<div class="src-count">’ + info.picks.length + ‘</div></div>’;
+});
+document.getElementById(“picks”).innerHTML = h;
+return;
+}
+const sourcePicks = allPicks.filter(p => (p.source || “Unknown”) === selectedSource);
+const byDay = {};
+const dayOrder = [];
+sourcePicks.forEach(p => {
+const dayKey = p.day || “Undated”;
+if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
+byDay[dayKey].push(p);
+});
+dayOrder.forEach(day => {
+byDay[day].sort((a, b) => {
+if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+const evRank = { HIGH: 2, MEDIUM: 1 };
+return (evRank[b.ev] || 0) - (evRank[a.ev] || 0);
+});
+});
+let h = ‘<button class="back-btn" onclick="backToSources()">← All Sources</button>’;
+h += ‘<div style="margin-bottom:14px"><div style="font-size:18px;font-weight:900;color:#fff">’ + selectedSource + ‘</div><div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">’ + sourcePicks.length + ’ picks total</div></div>’;
+dayOrder.forEach(day => {
+h += ‘<div class="dl">’ + day + ‘</div>’;
+byDay[day].forEach(p => {
+h += ‘<div class="sc"><div style="display:flex;justify-content:space-between;margin-bottom:6px">’ +
+‘<div><div class="sm">’ + p.expert + ‘</div><div class="smeta">’ + (p.sport || “Sports”) + ‘</div></div>’ +
+‘<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:13px">’ + “⭐”.repeat(p.confidence) + ‘</div>’ +
+(p.ev === “HIGH” ? ‘<span class="pp" style="background:rgba(78,204,163,.12);color:#4ecca3;font-size:9px">HIGH EV</span>’ : p.ev === “MEDIUM” ? ‘<span class="pp" style="background:rgba(255,200,50,.1);color:#ffc832;font-size:9px">MED EV</span>’ : ‘’) +
+‘</div></div>’ +
+‘<div class="sbb"><div class="sbl">’ + (p.betType || “PICK”) + ‘</div><div class="sbv">’ + p.bet + ‘</div></div>’ +
+(p.detail ? ‘<div style="font-size:11px;color:#555;margin-top:6px">’ + p.detail.slice(0, 200) + ‘</div>’ : “”) +
+‘</div>’;
+});
+});
+document.getElementById(“picks”).innerHTML = h;
 }
 
 async function loadPicks() {
-  try {
-    const r = await fetch("/api/picks");
-    const data = await r.json();
-    const picks = data.picks || [];
-    picks.forEach(p => { p.day = "Recent"; });
-    allPicks = picks;
-    picksView = "sources";
-    selectedSource = null;
-    renderPicks();
-  } catch (e) {
-    document.getElementById("picks").innerHTML = '<div class="empty">Picks error: ' + e.message + '</div>';
-  }
+try {
+const r = await fetch(”/api/picks”);
+const data = await r.json();
+const picks = data.picks || [];
+picks.forEach(p => { p.day = “Recent”; });
+allPicks = picks;
+picksView = “sources”;
+selectedSource = null;
+renderPicks();
+} catch (e) {
+document.getElementById(“picks”).innerHTML = ’<div class="empty">Picks error: ’ + e.message + ‘</div>’;
+}
 }
 
 async function init() {
-  const btn = document.getElementById("rfBtn");
-  btn.classList.add("spin");
-  document.getElementById("hSub").textContent = "LOADING...";
-  document.getElementById("games").innerHTML = '<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div></div>';
-  setTimeout(loadPicks, 500);
-  try {
-    const sr = await fetch("/api/sports");
-    const sports = await sr.json();
-    const now = Date.now();
-    const results = [];
-    const promises = sports.map(sp => fetch("/api/odds?sport=" + sp.key).then(r => r.json()).then(data => {
-      if (Array.isArray(data)) {
-        data.forEach(g => {
-          const t = new Date(g.commence_time).getTime();
-          if (t >= now - 86400000 && t <= now + WEEK) results.push(g);
-        });
-      }
-    }).catch(() => { }));
-    await Promise.all(promises);
-    results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
-    allGames = results;
-    allGames.forEach(captureSnapshot);
-    saveHistory();
-    computeSharpSignals();
-    modelView = "sports";
-    selectedModelSport = null;
-    sharpOpen = {};
-    document.getElementById("hBadge").innerHTML = '<span class="badge">LIVE</span>';
-    document.getElementById("hSub").textContent = "UPDATED " + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    const sc = {}; results.forEach(g => sc[g.sport_title] = true);
-    document.getElementById("sL").textContent = results.length + " GAMES - " + Object.keys(sc).length + " SPORTS";
-    document.getElementById("sR").textContent = "ODDS + SHARP";
-    renderFltrs(); renderGames(); renderSharp(); renderModel();
-  } catch (e) {
-    document.getElementById("games").innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
-    document.getElementById("hSub").textContent = "ERROR";
-  }
-  btn.classList.remove("spin");
+const btn = document.getElementById(“rfBtn”);
+btn.classList.add(“spin”);
+document.getElementById(“hSub”).textContent = “LOADING…”;
+document.getElementById(“games”).innerHTML = ‘<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div></div>’;
+setTimeout(loadPicks, 500);
+try {
+const sr = await fetch(”/api/sports”);
+const sports = await sr.json();
+const now = Date.now();
+const results = [];
+const promises = sports.map(sp => fetch(”/api/odds?sport=” + sp.key).then(r => r.json()).then(data => {
+if (Array.isArray(data)) {
+data.forEach(g => {
+const t = new Date(g.commence_time).getTime();
+if (t >= now - 86400000 && t <= now + WEEK) results.push(g);
+});
+}
+}).catch(() => { }));
+await Promise.all(promises);
+results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
+allGames = results;
+allGames.forEach(captureSnapshot);
+saveHistory();
+computeSharpSignals();
+modelView = “sports”;
+selectedModelSport = null;
+sharpOpen = {};
+document.getElementById(“hBadge”).innerHTML = ‘<span class="badge">LIVE</span>’;
+document.getElementById(“hSub”).textContent = “UPDATED “ + new Date().toLocaleTimeString(“en-US”, { hour: “numeric”, minute: “2-digit” });
+const sc = {}; results.forEach(g => sc[g.sport_title] = true);
+document.getElementById(“sL”).textContent = results.length + “ GAMES - “ + Object.keys(sc).length + “ SPORTS”;
+document.getElementById(“sR”).textContent = “ODDS + SHARP”;
+renderFltrs(); renderGames(); renderSharp(); renderModel();
+} catch (e) {
+document.getElementById(“games”).innerHTML = ’<div class="empty">Error: ’ + e.message + ‘</div>’;
+document.getElementById(“hSub”).textContent = “ERROR”;
+}
+btn.classList.remove(“spin”);
 }
 init();
 </script>
+
 </body>
 </html>
