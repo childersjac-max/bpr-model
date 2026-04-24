@@ -430,6 +430,39 @@ function formatUnitDollars(units) {
 }
 function formatUnits(u) { return Number.isInteger(u) ? u : (Math.round(u * 100) / 100); }
 
+
+function isInModelPicks(game) {
+  // Mirrors renderModel() qualifying criteria
+  if (FIGHT_SPORTS.includes(game.sport_key)) return false;
+  const bks = game.bookmakers || [];
+  for (const t of [game.away_team, game.home_team]) {
+    const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
+    if (!pin || !pub) continue;
+    const sd = pub.o - pin.o, ev2 = calcEV(pin.o, pub.o) || 0;
+    const sc = sd * 0.5 + ev2 * 2;
+    if (sc > 5 || ev2 > 1) return true;
+  }
+  return false;
+}
+
+function isInExpertPicks(game) {
+  if (!allPicks || !allPicks.length) return false;
+  const a = (game.away_team || '').toLowerCase();
+  const h = (game.home_team || '').toLowerCase();
+  const aWord = a.split(' ').pop();
+  const hWord = h.split(' ').pop();
+  for (const p of allPicks) {
+    const bet = (p.bet || '').toLowerCase();
+    const detail = (p.detail || '').toLowerCase();
+    const haystack = bet + ' ' + detail;
+    // Match if either team's last word appears in the bet/detail
+    if ((aWord && haystack.includes(aWord)) || (hWord && haystack.includes(hWord))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function renderFltrs() {
   const sp = ["All"], seen = {};
   allGames.forEach(g => { if (!seen[g.sport_title]) { seen[g.sport_title] = true; sp.push(g.sport_title); } });
@@ -568,9 +601,28 @@ function renderGames() {
       if (badges.length) {
         badgeHtml = '<span class="sharp-badges">' + badges.map(b => '<span class="sharp-badge" title="' + b.name + '">' + b.emoji + '</span>').join("") + '</span>';
       }
-      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')""><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
+      // Model and Expert Picks badges
+      let crossBadges = "";
+      if (isInModelPicks(game)) crossBadges += '<span class="sharp-badge" title="Featured in Model tab">🧠</span>';
+      if (isInExpertPicks(game)) crossBadges += '<span class="sharp-badge" title="Featured in Picks tab">📰</span>';
+      if (crossBadges) crossBadges = '<span class="sharp-badges">' + crossBadges + '</span>';
+      h += '<div class="gc" onclick="toggle(\'' + game.id + '\')""><div class="gt"><div class="gtl"><span class="sl">' + game.sport_title + '</span>' + (isLive(game.commence_time) ? '<span class="live">LIVE</span>' : "") + badgeHtml + crossBadges + '</div><span class="tl">' + fmtT(game.commence_time) + '</span></div><div class="mu"><div><div class="tn">' + game.away_team + '</div><div class="ts">Away</div>' + (awO ? chip(awO.price) : "") + '</div><div class="vs">VS</div><div class="tr"><div class="tn">' + game.home_team + '</div><div class="ts">Home</div>' + (hmO ? chip(hmO.price) : "") + '</div></div>' + (isX ? renderExpand(game) : "") + '<div class="eh">' + (isX ? "collapse" : "tap for sharp") + '</div></div>';
     });
   });
+
+  // Legend for Lines tab
+  h += '<div class="legend">' +
+    '<div class="legend-title">📖 LINES LEGEND</div>' +
+    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Sharp Signal</div><div class="legend-desc">Pinnacle\'s line differs sharply from public books (8+ pts).</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ public sportsbooks shifted lines in sync — syndicate action.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moved against the public — sharps overwhelming public money.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Public price beats Pinnacle fair line by 3%+ — a discount.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🧠</div><div class="legend-text"><div class="legend-name">Model Pick</div><div class="legend-desc">Featured in the Model tab — quantitative edge detected.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">📰</div><div class="legend-text"><div class="legend-name">Expert Pick</div><div class="legend-desc">Featured in the Picks tab — covered by at least one expert source.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% — favorable pricing.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% — book taking extra margin.</div></div></div>' +
+    '</div>';
+
   document.getElementById("games").innerHTML = h;
 }
 
@@ -1292,7 +1344,8 @@ function renderLocks() {
   dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
   // Within each day, sort locks by units (desc), then by alignment score (desc), then by EV (desc)
   dayOrder.forEach(day => {
-    byDay[day].sort((a, b) => b.units - a.units || b.alignScore - a.alignScore || b.ev - a.ev);
+    // Sort by units (largest first), then composite score, then EV
+    byDay[day].sort((a, b) => b.units - a.units || b.compositeScore - a.compositeScore || b.ev - a.ev);
   });
 
   // Split out leans from core locks per day
