@@ -899,7 +899,6 @@ function renderExpand(game) {
     // Add to Bet Card button
     const bcKey = "lines_" + game.id + "_" + rec.team;
     const isAdded = betCardHas(bcKey);
-    const isLock = isGameInLocks(game.id, rec.team);
     const strippedReasons = recReasons.map(r => r.replace(/<[^>]+>/g, ''));
     const itemObj = {
       key: bcKey,
@@ -908,16 +907,13 @@ function renderExpand(game) {
       sport: game.sport_title,
       commence_time: game.commence_time,
       pub: rec.pub, pin: rec.pin, bk: rec.bk,
-      ev: rec.ev, units: isLock ? 2 : 1, source: isLock ? "LINES-LOCK" : "LINES",
+      ev: rec.ev, units: 1, source: "LINES",
       reasons: strippedReasons, gameId: game.id
     };
-    const btnClass = isLock ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
     if (isAdded) {
-      h += '<button class="' + btnClass + ' added" onclick="removeFromBetCard(\'' + bcKey + '\')">✓ In Betslip · Tap to remove</button>';
-    } else if (isLock) {
-      h += '<button class="' + btnClass + '" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
+      h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\'' + bcKey + '\')">✓ In Betslip · Tap to remove</button>';
     } else {
-      h += '<button class="' + btnClass + '" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
+      h += '<button class="add-to-bc-btn" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
     }
   } else {
     h += '<div class="no-bet-box">NO CLEAR EDGE - NO BET</div>';
@@ -1356,11 +1352,7 @@ function renderSharp() {
         const added = betCardHas(k);
         if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
         const obj = {key:k,team:s.label,matchup:s.game.away_team.split(' ').pop()+' vs '+s.game.home_team.split(' ').pop(),sport:s.game.sport_title,commence_time:s.game.commence_time,pub:s.pub,pin:s.pin,bk:s.bk,ev:pEv||0,units:1,source:"SHARP",reasons:["Pinnacle has "+s.label+" at "+fmt(s.pin)+", "+Math.round(s.score)+" pts shorter than "+s.bk.split(' ')[0]+" - sharp money favors this side.", (pEv&&pEv>0?"Pinnacle fair line implies +"+pEv+"% EV.":"")].filter(x=>x),gameId:s.game.id};
-        const isLk = isGameInLocks(s.game.id, s.label);
-        const cls = isLk ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
-        const label = isLk ? '<span class="bc-btn-plus">+</span> Add to Betslip' : '<span class="bc-btn-plus">+</span> Add to Betslip';
-        if (isLk) obj.source = "SHARP-LOCK";
-        return '<button class="'+cls+'" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>'+label+'</button>';
+        return '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
       })() +
       '</div>';
     });
@@ -1539,11 +1531,8 @@ function renderModel() {
         if (added) {
           bcBtn = '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
         } else {
-          const isLk = isGameInLocks(p.game.id, p.label);
-          const obj = {key:k,team:p.label,matchup:p.game.away_team.split(' ').pop()+' @ '+p.game.home_team.split(' ').pop(),sport:p.game.sport_title,commence_time:p.game.commence_time,pub:p.pub,pin:p.pin,bk:p.bk,ev:p.ev,units:isLk?2:1,source:isLk?"MODEL-LOCK":"MODEL",reasons:["Model score of "+Math.round(p.score)+" ("+strength+") combining sharp divergence and EV.", "Pinnacle at "+fmt(p.pin)+" vs "+p.bk.split(' ')[0]+" at "+fmt(p.pub)+" - "+Math.round(p.sharp)+" pt gap.", "Positive EV of +"+p.ev+"% at current public book price."],gameId:p.game.id};
-          const cls = isLk ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
-          const label = isLk ? '<span class="bc-btn-plus">+</span> Add to Betslip' : '<span class="bc-btn-plus">+</span> Add to Betslip';
-          bcBtn = '<button class="'+cls+'" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>'+label+'</button>';
+          const obj = {key:k,team:p.label,matchup:p.game.away_team.split(' ').pop()+' @ '+p.game.home_team.split(' ').pop(),sport:p.game.sport_title,commence_time:p.game.commence_time,pub:p.pub,pin:p.pin,bk:p.bk,ev:p.ev,units:1,source:"MODEL",reasons:["Model score of "+Math.round(p.score)+" ("+strength+") combining sharp divergence and EV.", "Pinnacle at "+fmt(p.pin)+" vs "+p.bk.split(' ')[0]+" at "+fmt(p.pub)+" - "+Math.round(p.sharp)+" pt gap.", "Positive EV of +"+p.ev+"% at current public book price."],gameId:p.game.id};
+          bcBtn = '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
         }
         h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div>'+bcBtn+'</div>';
       }
