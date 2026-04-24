@@ -228,9 +228,14 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <div class="betcard-bar" id="betcardBar" onclick="toggleBetCard(event)">
   <div class="betcard-header">
     <div class="betcard-left">
-      <span class="betcard-icon">🎫</span>
-      <span class="betcard-count-pill empty" id="bcCount">0</span>
-      <span class="betcard-title">BET CARD</span>
+      <div class="betcard-icon-wrap">
+        <span class="betcard-icon">🎟️</span>
+        <span class="betcard-count-pill empty" id="bcCount">0</span>
+      </div>
+      <div class="betcard-title-wrap">
+        <span class="betcard-title">BET SLIP</span>
+        <span class="betcard-subtitle" id="bcSubtitle">EMPTY · TAP TO EXPAND</span>
+      </div>
     </div>
     <div class="betcard-summary" id="bcSummary">
       <div class="betcard-summary-item"><span class="betcard-summary-lbl">WAGER</span><span class="betcard-summary-val" id="bcWager">$0</span></div>
@@ -240,7 +245,12 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
     <span class="betcard-arrow">▼</span>
   </div>
   <div class="betcard-body" id="bcBody">
-    <div class="betcard-empty">Your bet card is empty. Tap "Add to Bet Card" on any pick to start building your slip.</div>
+    <div class="betcard-body-inner">
+      <div class="betcard-empty">
+        <div class="betcard-empty-icon">🎟️</div>
+        Your bet slip is empty.<br>Tap the <b style="color:#4ecca3">+ ADD TO BET SLIP</b> button on any pick to build your slip.
+      </div>
+    </div>
   </div>
 </div>
 <div class="main">
@@ -366,6 +376,12 @@ function toggleBetCard(ev) {
   if (betCardOpen) bar.classList.add("open"); else bar.classList.remove("open");
 }
 
+
+function isGameInLocks(gameId, team) {
+  // Use cached locks from last computeLocks call if available
+  if (!window._cachedLocks) return false;
+  return window._cachedLocks.some(l => l.game.id === gameId && (!team || l.team === team));
+}
 function rerenderCurrentTab() {
   if (curTab === 0) renderGames();
   else if (curTab === 1) renderSharp();
@@ -384,6 +400,7 @@ function potentialWin(wager, americanOdds) {
 
 function renderBetCard() {
   const countEl = document.getElementById("bcCount");
+  const subtitleEl = document.getElementById("bcSubtitle");
   const wagerEl = document.getElementById("bcWager");
   const winEl = document.getElementById("bcWin");
   const evEl = document.getElementById("bcEV");
@@ -393,10 +410,11 @@ function renderBetCard() {
   countEl.className = "betcard-count-pill" + (betCard.length === 0 ? " empty" : "");
 
   if (!betCard.length) {
+    if (subtitleEl) subtitleEl.textContent = "EMPTY · TAP TO EXPAND";
     wagerEl.textContent = "$0";
     winEl.textContent = "$0";
     evEl.textContent = "+0%";
-    bodyEl.innerHTML = '<div class="betcard-empty">Your bet card is empty. Tap "Add to Bet Card" on any pick to start building your slip.</div>';
+    bodyEl.innerHTML = '<div class="betcard-body-inner"><div class="betcard-empty"><div class="betcard-empty-icon">🎟️</div>Your bet slip is empty.<br>Tap the <b style="color:#4ecca3">+ ADD TO BET SLIP</b> button on any pick to build your slip.</div></div>';
     return;
   }
 
@@ -424,8 +442,10 @@ function renderBetCard() {
   winEl.textContent = "$" + totalWin.toFixed(2);
   evEl.textContent = "+" + avgEV.toFixed(1) + "%";
 
+  if (subtitleEl) subtitleEl.textContent = betCard.length + " PICK" + (betCard.length !== 1 ? "S" : "") + " · TAP TO " + (betCardOpen ? "COLLAPSE" : "EXPAND");
+
   // Render expanded body
-  let h = '<div class="betcard-stats">' +
+  let h = '<div class="betcard-body-inner"><div class="betcard-stats">' +
     '<div class="betcard-stat"><div class="betcard-stat-val">' + betCard.length + '</div><div class="betcard-stat-lbl">PICKS</div></div>' +
     '<div class="betcard-stat"><div class="betcard-stat-val win">$' + totalWin.toFixed(2) + '</div><div class="betcard-stat-lbl">POT. WIN</div></div>' +
     '<div class="betcard-stat"><div class="betcard-stat-val ev">$' + (expectedProfit>=0?'+':'') + expectedProfit.toFixed(2) + '</div><div class="betcard-stat-lbl">EXPECTED $</div></div>' +
@@ -433,9 +453,9 @@ function renderBetCard() {
 
   // Additional insights row
   const totalPayout = totalWager + totalWin;
-  h += '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;margin-bottom:12px;font-size:11px;font-family:monospace;color:#bbb">' +
-    '<span>Wager: <b style="color:#fff">$' + totalWager.toFixed(2) + '</b></span>' +
-    '<span>Unit: <b style="color:#fff">$' + unit + '</b></span>' +
+  h += '<div class="betcard-context">' +
+    '<span>Wager: <b>$' + totalWager.toFixed(2) + '</b></span>' +
+    '<span>Unit: <b>$' + unit + '</b></span>' +
     '<span>ROI: <b style="color:' + (roi>=0?'#4ecca3':'#ff6b6b') + '">' + (roi>=0?'+':'') + roi.toFixed(1) + '%</b></span>' +
     '</div>';
 
@@ -476,6 +496,8 @@ function renderBetCard() {
   h += '<div class="betcard-actions">' +
     '<button class="betcard-action-btn danger" onclick="clearBetCard()">🗑 CLEAR ALL</button>' +
     '</div>';
+
+  h += '</div>'; // close betcard-body-inner
 
   bodyEl.innerHTML = h;
 }
@@ -772,6 +794,7 @@ function renderExpand(game) {
     // Add to Bet Card button
     const bcKey = "lines_" + game.id + "_" + rec.team;
     const isAdded = betCardHas(bcKey);
+    const isLock = isGameInLocks(game.id, rec.team);
     const strippedReasons = recReasons.map(r => r.replace(/<[^>]+>/g, ''));
     const itemObj = {
       key: bcKey,
@@ -780,13 +803,16 @@ function renderExpand(game) {
       sport: game.sport_title,
       commence_time: game.commence_time,
       pub: rec.pub, pin: rec.pin, bk: rec.bk,
-      ev: rec.ev, units: 1, source: "LINES",
+      ev: rec.ev, units: isLock ? 2 : 1, source: isLock ? "LINES-LOCK" : "LINES",
       reasons: strippedReasons, gameId: game.id
     };
+    const btnClass = isLock ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
     if (isAdded) {
-      h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\'' + bcKey + '\')">✓ ADDED TO BET CARD - TAP TO REMOVE</button>';
+      h += '<button class="' + btnClass + ' added" onclick="removeFromBetCard(\'' + bcKey + '\')">✓ IN BET SLIP · TAP TO REMOVE</button>';
+    } else if (isLock) {
+      h += '<button class="' + btnClass + '" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'><span class="lock-icon">🔒</span> ADD LOCK TO BET SLIP</button>';
     } else {
-      h += '<button class="add-to-bc-btn" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'>🎫 ADD TO BET CARD</button>';
+      h += '<button class="' + btnClass + '" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/'/g, "&apos;") + ')\'><span class="bc-btn-plus">+</span> ADD TO BET SLIP</button>';
     }
   } else {
     h += '<div class="no-bet-box">NO CLEAR EDGE - NO BET</div>';
@@ -1092,9 +1118,13 @@ function renderSharp() {
       (function(){
         const k = "sharp_"+s.game.id+"_"+s.label;
         const added = betCardHas(k);
-        if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ ADDED - TAP TO REMOVE</button>';
+        if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ IN BET SLIP · TAP TO REMOVE</button>';
         const obj = {key:k,team:s.label,matchup:s.game.away_team.split(' ').pop()+' vs '+s.game.home_team.split(' ').pop(),sport:s.game.sport_title,commence_time:s.game.commence_time,pub:s.pub,pin:s.pin,bk:s.bk,ev:pEv||0,units:1,source:"SHARP",reasons:["Pinnacle has "+s.label+" at "+fmt(s.pin)+", "+Math.round(s.score)+" pts shorter than "+s.bk.split(' ')[0]+" - sharp money favors this side.", (pEv&&pEv>0?"Pinnacle fair line implies +"+pEv+"% EV.":"")].filter(x=>x),gameId:s.game.id};
-        return '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>🎫 ADD TO BET CARD</button>';
+        const isLk = isGameInLocks(s.game.id, s.label);
+        const cls = isLk ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
+        const label = isLk ? '<span class="lock-icon">🔒</span> ADD LOCK TO SLIP' : '<span class="bc-btn-plus">+</span> ADD TO BET SLIP';
+        if (isLk) obj.source = "SHARP-LOCK";
+        return '<button class="'+cls+'" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>'+label+'</button>';
       })() +
       '</div>';
     });
@@ -1271,10 +1301,13 @@ function renderModel() {
         const added = betCardHas(k);
         let bcBtn;
         if (added) {
-          bcBtn = '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ ADDED - TAP TO REMOVE</button>';
+          bcBtn = '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ IN BET SLIP · TAP TO REMOVE</button>';
         } else {
-          const obj = {key:k,team:p.label,matchup:p.game.away_team.split(' ').pop()+' @ '+p.game.home_team.split(' ').pop(),sport:p.game.sport_title,commence_time:p.game.commence_time,pub:p.pub,pin:p.pin,bk:p.bk,ev:p.ev,units:1,source:"MODEL",reasons:["Model score of "+Math.round(p.score)+" ("+strength+") combining sharp divergence and EV.", "Pinnacle at "+fmt(p.pin)+" vs "+p.bk.split(' ')[0]+" at "+fmt(p.pub)+" - "+Math.round(p.sharp)+" pt gap.", "Positive EV of +"+p.ev+"% at current public book price."],gameId:p.game.id};
-          bcBtn = '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>🎫 ADD TO BET CARD</button>';
+          const isLk = isGameInLocks(p.game.id, p.label);
+          const obj = {key:k,team:p.label,matchup:p.game.away_team.split(' ').pop()+' @ '+p.game.home_team.split(' ').pop(),sport:p.game.sport_title,commence_time:p.game.commence_time,pub:p.pub,pin:p.pin,bk:p.bk,ev:p.ev,units:isLk?2:1,source:isLk?"MODEL-LOCK":"MODEL",reasons:["Model score of "+Math.round(p.score)+" ("+strength+") combining sharp divergence and EV.", "Pinnacle at "+fmt(p.pin)+" vs "+p.bk.split(' ')[0]+" at "+fmt(p.pub)+" - "+Math.round(p.sharp)+" pt gap.", "Positive EV of +"+p.ev+"% at current public book price."],gameId:p.game.id};
+          const cls = isLk ? 'add-to-bc-btn lock' : 'add-to-bc-btn';
+          const label = isLk ? '<span class="lock-icon">🔒</span> ADD LOCK TO SLIP' : '<span class="bc-btn-plus">+</span> ADD TO BET SLIP';
+          bcBtn = '<button class="'+cls+'" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>'+label+'</button>';
         }
         h += '<div class="sc"><div class="sh"><div class="sr">#' + (i + 1) + '</div><div style="flex:1"><div class="sm">' + p.game.away_team.split(" ").pop() + " @ " + p.game.home_team.split(" ").pop() + '</div><div class="smeta">' + fmtT(p.game.commence_time) + '</div></div><span class="pp" style="background:rgba(78,204,163,.1);color:' + strengthColor + ';border:1px solid ' + strengthColor + '40">' + strength + '</span></div><div class="sbb"><div class="sbl">MODEL PICK</div><div class="sbv">' + p.label + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">EV +' + p.ev + '%</span><span class="pp" style="background:rgba(200,16,46,.1);color:#ff6b6b">SCORE ' + Math.round(p.score) + '</span><span class="pp pin">PIN ' + fmt(p.pin) + '</span><span class="pp pub">' + p.bk.split(" ")[0].toUpperCase() + " " + fmt(p.pub) + '</span></div>'+bcBtn+'</div>';
       }
@@ -1499,6 +1532,7 @@ function computeLocks() {
 
   // Sort: by composite score (desc), then tier, then ev
   lockCands.sort((a, b) => b.compositeScore - a.compositeScore || a.tier - b.tier || b.ev - a.ev);
+  window._cachedLocks = lockCands;
   return lockCands;
 }
 
@@ -1664,10 +1698,10 @@ function renderLocks() {
       (function(){
         const k = "lock_"+l.game.id+"_"+l.team;
         const added = betCardHas(k);
-        if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ ADDED - TAP TO REMOVE</button>';
+        if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ IN BET SLIP · TAP TO REMOVE</button>';
         const strippedReasons = reasons.map(r => r.replace(/<[^>]+>/g, ''));
         const obj = {key:k,team:l.team,matchup:l.game.away_team.split(' ').pop()+' @ '+l.game.home_team.split(' ').pop(),sport:l.game.sport_title,commence_time:l.game.commence_time,pub:l.pub,pin:l.pin,bk:l.bk,ev:l.ev,units:l.units,source:"LOCK-"+tierLabel.split(' ')[0],reasons:strippedReasons,gameId:l.game.id};
-        return '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'>🎫 ADD TO BET CARD ('+unitsDisplay+')</button>';
+        return '<button class="add-to-bc-btn lock" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="lock-icon">🔒</span> ADD LOCK TO SLIP · '+unitsDisplay+'</button>';
       })() +
     '</div>';
   }
@@ -1797,7 +1831,7 @@ async function init() {
     const sc = {}; results.forEach(g => sc[g.sport_title] = true);
     document.getElementById("sL").textContent = results.length + " GAMES - " + Object.keys(sc).length + " SPORTS";
     document.getElementById("sR").textContent = "ODDS + SHARP";
-    renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks(); renderBetCard();
+    computeLocks(); renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks(); renderBetCard();
   } catch (e) {
     document.getElementById("games").innerHTML = '<div class="empty">Failed to load: ' + e.message + '<br><br><span style=\"font-size:11px;color:#333\">Tap ↻ to retry</span></div>';
     document.getElementById("hSub").textContent = "ERROR - TAP ↻";
