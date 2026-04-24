@@ -955,7 +955,15 @@ function computeLocks() {
         if (alignScore >= 10 && units < 5) units = Math.min(units + 1, 5);
       }
 
-      lockCands.push({ game: g, team, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, signals, alignScore, units, tier });
+      // Calculate line movement direction for THIS team
+      const movement = detectLineMovement(g);
+      const teamMovement = movement && movement[team] ? movement[team] : null;
+      const opponent = team === g.away_team ? g.home_team : g.away_team;
+
+      // Also check opponent's movement for RLM context
+      const oppMovement = movement && movement[opponent] ? movement[opponent] : null;
+
+      lockCands.push({ game: g, team, opponent, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, signals, alignScore, units, tier, teamMovement, oppMovement });
     });
   });
 
@@ -969,36 +977,71 @@ function buildLockReasoning(l) {
   const reasons = [];
   const pin = l.pin, pub = l.pub;
   const sharpDiff = pub - pin;
+  const teamName = l.team;
+  const oppName = l.opponent;
+  const teamShort = teamName.split(' ').pop();
+  const oppShort = oppName.split(' ').pop();
+
+  // Helper: describe line movement on this team
+  // A team's odds getting SHORTER (e.g. +150 -> +130, or -110 -> -130) means money is coming in on them.
+  // A team's odds getting LONGER means money is fleeing them.
+  function movementDir(m) {
+    if (!m || m.snapshots < 2) return null;
+    // diff = last - first. If odds went from +150 to +130, diff = -20 (shorter/favored).
+    // If odds went from -110 to -130, diff = -20 (shorter/more favored).
+    if (m.diff <= -3) return 'shorter'; // money coming in on this team
+    if (m.diff >= 3) return 'longer';   // money fleeing this team
+    return 'flat';
+  }
+
+  const teamDir = movementDir(l.teamMovement);
+  const oppDir = movementDir(l.oppMovement);
 
   // Reason based on signals
   l.signals.forEach(sig => {
     if (sig.key === 'ev') {
       const strength = l.ev >= 5 ? 'strong' : l.ev >= 2 ? 'solid' : 'slight';
-      reasons.push('Pinnacle\'s fair probability implies <b>' + strength + ' +' + l.ev + '% EV</b> at ' + l.bk.split(' ')[0] + '\'s current price.');
+      reasons.push('Pinnacle\'s fair probability implies <b>' + strength + ' +' + l.ev + '% EV</b> on <b>' + teamName + '</b> at ' + l.bk.split(' ')[0] + '\'s current price.');
     }
     if (sig.key === 'sharp') {
-      reasons.push('Pinnacle\'s line (' + fmt(pin) + ') is <b>' + Math.round(sharpDiff) + ' points shorter</b> than public books — sharp money has moved the sharpest book toward this side.');
+      reasons.push('Pinnacle has <b>' + teamName + '</b> at ' + fmt(pin) + ', which is <b>' + Math.round(sharpDiff) + ' points shorter</b> than public books — sharp money at the sharpest book favors ' + teamShort + '.');
     }
     if (sig.key === 'steam') {
-      reasons.push('<b>Steam move detected</b>: 3+ public sportsbooks shifted this line the same direction simultaneously — classic syndicate action.');
+      if (teamDir === 'shorter') {
+        reasons.push('<b>Steam move on ' + teamShort + '</b>: 3+ public sportsbooks shortened ' + teamShort + '\'s price simultaneously — syndicate money pounding ' + teamShort + '.');
+      } else {
+        reasons.push('<b>Steam move detected toward ' + teamShort + '</b>: 3+ public sportsbooks shifted this market the same direction simultaneously — classic syndicate action on ' + teamShort + '.');
+      }
     }
     if (sig.key === 'rlm') {
-      reasons.push('<b>Reverse line movement</b>: Line moved toward this team despite public betting the other side — sharps overwhelming the public.');
+      // RLM: line moves toward team X (team X gets shorter) even though public is betting opponent
+      if (oppDir === 'longer' || teamDir === 'shorter') {
+        reasons.push('<b>Reverse line movement on ' + teamShort + '</b>: Public is betting <b>' + oppShort + '</b>, but ' + teamShort + '\'s price is getting shorter anyway — sharp money overwhelming the public on ' + teamShort + '.');
+      } else {
+        reasons.push('<b>Reverse line movement on ' + teamShort + '</b>: ' + teamShort + '\'s line moved against public betting patterns — sharps taking ' + teamShort + '.');
+      }
     }
     if (sig.key === 'clv') {
       const c = sig.lbl.match(/\+([\d.]+)%/);
       const pct = c ? c[1] : '?';
-      reasons.push('Your price beats Pinnacle\'s fair line by <b>' + pct + '%</b> — you\'re betting at a discount to true odds.');
+      reasons.push('<b>' + teamShort + '</b> at ' + l.bk.split(' ')[0] + ' beats Pinnacle\'s fair line by <b>' + pct + '%</b> — betting ' + teamShort + ' at a discount to true odds.');
     }
   });
 
+  // Add movement context line if we have directional data
+  if (teamDir === 'shorter' && !l.signals.find(s => s.key === 'steam' || s.key === 'rlm')) {
+    reasons.push('<b>' + teamShort + '\'s price has shortened</b> since open (' + (l.teamMovement.diff < 0 ? '' : '+') + Math.round(l.teamMovement.diff) + ' pts) — money flowing toward ' + teamShort + '.');
+  } else if (oppDir === 'shorter' && !l.signals.find(s => s.key === 'rlm')) {
+    reasons.push('Note: Public is currently on <b>' + oppShort + '</b> (their line shortened) but signals favor ' + teamShort + '.');
+  }
+
   // Tier summary
   if (l.tier === 1) {
-    reasons.push('<b>Verdict:</b> Multiple strong signals aligned — highest-confidence play of the slate.');
+    reasons.push('<b>Verdict:</b> Multiple strong signals aligned on ' + teamShort + ' — highest-confidence play of the slate.');
   } else if (l.tier === 2) {
-    reasons.push('<b>Verdict:</b> Two+ signals confirm the edge — solid core play.');
+    reasons.push('<b>Verdict:</b> Two+ signals confirm the edge on ' + teamShort + ' — solid core play.');
   } else {
-    reasons.push('<b>Verdict:</b> Thin edge — small stake recommended as a lean rather than a core play.');
+    reasons.push('<b>Verdict:</b> Thin edge on ' + teamShort + ' — small stake recommended as a lean rather than a core play.');
   }
 
   return reasons;
