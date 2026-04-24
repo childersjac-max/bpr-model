@@ -116,7 +116,53 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .sharp-cta-team{font-size:13px;font-weight:900;color:#fff}
 .sharp-cta-ev{font-size:10px;color:#888;font-family:monospace;margin-top:2px}
 .sharp-cta-arrow{font-size:18px;color:#4ecca3}
+
+.lock-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden}
+.lock-card.tier1{border-color:rgba(78,204,163,.4);background:linear-gradient(135deg,rgba(78,204,163,.06),rgba(78,204,163,.02))}
+.lock-card.tier2{border-color:rgba(255,200,50,.3);background:linear-gradient(135deg,rgba(255,200,50,.06),rgba(255,200,50,.02))}
+.lock-card.tier3{border-color:rgba(255,255,255,.1)}
+.lock-tier-bar{position:absolute;top:0;left:0;width:3px;height:100%}
+.tier1 .lock-tier-bar{background:#4ecca3}
+.tier2 .lock-tier-bar{background:#ffc832}
+.tier3 .lock-tier-bar{background:#555}
+.lock-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-left:10px}
+.lock-matchup{font-size:12px;color:#555;font-family:monospace;margin-bottom:3px}
+.lock-team{font-size:18px;font-weight:900;color:#fff;line-height:1.1}
+.lock-sport{font-size:10px;color:#555;font-family:monospace;margin-top:2px}
+.lock-unit-box{text-align:right}
+.lock-unit-num{font-size:28px;font-weight:900;line-height:1}
+.lock-unit-lbl{font-size:9px;letter-spacing:2px;font-family:monospace;margin-top:2px}
+.tier1 .lock-unit-num{color:#4ecca3}
+.tier1 .lock-unit-lbl{color:#4ecca3}
+.tier2 .lock-unit-num{color:#ffc832}
+.tier2 .lock-unit-lbl{color:#ffc832}
+.tier3 .lock-unit-num{color:#888}
+.tier3 .lock-unit-lbl{color:#888}
+.lock-signals{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;padding-left:10px}
+.lock-sig{font-size:10px;padding:2px 7px;border-radius:4px;font-family:monospace;font-weight:700}
+.lock-sig-sharp{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
+.lock-sig-steam{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
+.lock-sig-rlm{background:rgba(255,200,50,.12);color:#ffc832;border:1px solid rgba(255,200,50,.3)}
+.lock-sig-clv{background:rgba(138,43,226,.12);color:#b99aff;border:1px solid rgba(138,43,226,.3)}
+.lock-sig-ev{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.4)}
+.lock-bottom{display:flex;justify-content:space-between;align-items:center;padding:9px 10px 0 10px;border-top:1px solid rgba(255,255,255,.06)}
+.lock-odds{font-size:13px;font-weight:700;font-family:monospace;color:#fff}
+.lock-book{font-size:10px;color:#555;font-family:monospace}
+.lock-time{font-size:10px;color:#444;font-family:monospace}
+.lock-ev-row{display:flex;align-items:center;gap:6px}
+.locks-summary{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.locks-summary-stat{text-align:center}
+.locks-summary-num{font-size:20px;font-weight:900;color:#fff}
+.locks-summary-lbl{font-size:9px;color:#555;font-family:monospace;letter-spacing:1px;margin-top:2px}
+.locks-empty{font-size:14px;color:#444;text-align:center;padding:40px 20px;line-height:1.8}
+.locks-hdr{font-size:10px;color:#555;margin-bottom:12px;display:flex;justify-content:space-between;font-family:monospace}
+.alignment-bar{display:flex;gap:3px;align-items:center;margin-bottom:10px;padding-left:10px}
+.align-dot{width:8px;height:8px;border-radius:50%;background:#222}
+.align-dot.on{background:#4ecca3}
+.align-dot.warn{background:#ffc832}
+.align-label{font-size:9px;color:#555;font-family:monospace;margin-left:4px}
 </style>
+
 </head>
 <body>
 <div class="hdr">
@@ -135,6 +181,7 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 <button class="tab" id="t1" onclick="goTab(1)">SHARP</button>
 <button class="tab" id="t2" onclick="goTab(2)">MODEL</button>
 <button class="tab" id="t3" onclick="goTab(3)">PICKS</button>
+<button class="tab" id="t4" onclick="goTab(4)">🔒 LOCKS</button>
 </div>
 <div id="v0">
 <div class="sb"><span id="sL">--</span><span id="sR"></span></div>
@@ -152,6 +199,9 @@ body{background:#0a0a0f;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 </div>
 <div id="v3" style="display:none">
 <div id="picks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING PICKS</div></div></div>
+</div>
+<div id="v4" style="display:none">
+<div id="locks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING LOCKS</div></div></div>
 </div>
 <div class="footer">J LAB - Odds: The Odds API - Sharp: Pinnacle vs Public<br>Verify all lines before wagering</div>
 </div>
@@ -204,7 +254,7 @@ if (oddsHistory[game.id].length > 30) oddsHistory[game.id] = oddsHistory[game.id
 
 function goTab(n) {
 curTab = n;
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 5; i++) {
 document.getElementById(“t” + i).className = “tab” + (i === n ? “ on” : “”);
 document.getElementById(“v” + i).style.display = i === n ? “block” : “none”;
 }
@@ -734,6 +784,179 @@ document.getElementById(“picks”).innerHTML = ’<div class="empty">Picks err
 }
 }
 
+function computeLocks() {
+// For each game+team, score alignment across all signals
+const lockCands = [];
+const eligibleGames = allGames.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+
+eligibleGames.forEach(g => {
+const bks = g.bookmakers || [];
+[g.away_team, g.home_team].forEach(team => {
+const pin = bkOdds(bks, team, SHP);
+const pub = bkOdds(bks, team, PUB);
+if (!pin || !pub) return;
+
+```
+  const evVal = calcEV(pin.o, pub.o);
+  if (!evVal || evVal <= 0) return;
+
+  const sharpDiff = pub.o - pin.o;
+  const signals = [];
+  let alignScore = 0;
+
+  // Signal 1: Sharp (Pinnacle vs Public)
+  if (sharpDiff >= 8) { signals.push({ key: 'sharp', lbl: '⚡ SHARP', cls: 'lock-sig-sharp' }); alignScore += 3; }
+  else if (sharpDiff >= 4) { signals.push({ key: 'sharp', lbl: '⚡ SHARP (SOFT)', cls: 'lock-sig-sharp' }); alignScore += 1; }
+
+  // Signal 2: EV
+  if (evVal >= 5) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 3; }
+  else if (evVal >= 2) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 2; }
+  else if (evVal > 0) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 1; }
+
+  // Signal 3: Steam
+  const steam = detectSteamMove(g);
+  if (steam && steam.find(s => s.team === team)) {
+    signals.push({ key: 'steam', lbl: '🔥 STEAM', cls: 'lock-sig-steam' }); alignScore += 3;
+  }
+
+  // Signal 4: RLM
+  const rlm = detectRLM(g);
+  if (rlm && rlm.find(r => r.team === team)) {
+    signals.push({ key: 'rlm', lbl: '🎯 RLM', cls: 'lock-sig-rlm' }); alignScore += 2;
+  }
+
+  // Signal 5: CLV
+  const clv = calcCLV(g);
+  if (clv && clv.find(c => c.team === team)) {
+    const c = clv.find(c => c.team === team);
+    signals.push({ key: 'clv', lbl: '💎 CLV +' + c.clvPct + '%', cls: 'lock-sig-clv' }); alignScore += 2;
+  }
+
+  // Must have EV + at least one other signal to qualify
+  const hasEV = signals.find(s => s.key === 'ev');
+  if (!hasEV || signals.length < 2) return;
+
+  // Unit sizing: Kelly-inspired, capped at 5u
+  // Full Kelly = (p * b - q) / b where b = decimal odds - 1
+  const p = Math.min(iProb(pin.o) * 1.02, 0.99);
+  const q = 1 - p;
+  const dec = pub.o > 0 ? (pub.o / 100) + 1 : (100 / Math.abs(pub.o)) + 1;
+  const b = dec - 1;
+  const kelly = (p * b - q) / b;
+  const halfKelly = Math.max(0, kelly / 2);
+  // Scale to 1-5 units
+  let units;
+  if (halfKelly >= 0.08) units = 5;
+  else if (halfKelly >= 0.05) units = 4;
+  else if (halfKelly >= 0.03) units = 3;
+  else if (halfKelly >= 0.015) units = 2;
+  else units = 1;
+
+  // Also scale by alignment score
+  if (alignScore >= 10 && units < 5) units = Math.min(units + 1, 5);
+  if (alignScore <= 3 && units > 1) units = Math.max(units - 1, 1);
+
+  const tier = alignScore >= 8 ? 1 : alignScore >= 5 ? 2 : 3;
+
+  lockCands.push({ game: g, team, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, signals, alignScore, units, tier });
+});
+```
+
+});
+
+// Sort: tier first, then alignment score, then ev
+lockCands.sort((a, b) => a.tier - b.tier || b.alignScore - a.alignScore || b.ev - a.ev);
+return lockCands;
+}
+
+function renderLocks() {
+const locks = computeLocks();
+
+if (!locks.length) {
+document.getElementById(“locks”).innerHTML =
+‘<div class="locks-empty">🔒 No aligned picks right now.<br><span style="font-size:11px;color:#333">Locks appear when EV + sharp signals align.<br>Refresh to update data.</span></div>’;
+return;
+}
+
+const tier1 = locks.filter(l => l.tier === 1);
+const tier2 = locks.filter(l => l.tier === 2);
+const tier3 = locks.filter(l => l.tier === 3);
+const totalUnits = locks.reduce((a, l) => a + l.units, 0);
+const avgEV = (locks.reduce((a, l) => a + l.ev, 0) / locks.length).toFixed(1);
+
+let h = ‘’;
+
+// Summary bar
+h += ‘<div class="locks-summary">’ +
+‘<div class="locks-summary-stat"><div class="locks-summary-num">’ + locks.length + ‘</div><div class="locks-summary-lbl">LOCKS</div></div>’ +
+‘<div class="locks-summary-stat"><div class="locks-summary-num">’ + totalUnits + ‘u</div><div class="locks-summary-lbl">TOTAL UNITS</div></div>’ +
+‘<div class="locks-summary-stat"><div class="locks-summary-num">+’ + avgEV + ‘%</div><div class="locks-summary-lbl">AVG EV</div></div>’ +
+‘<div class="locks-summary-stat"><div class="locks-summary-num">’ + tier1.length + ‘</div><div class="locks-summary-lbl">PREMIUM</div></div>’ +
+‘</div>’;
+
+h += ‘<div class="locks-hdr"><span>SORTED BY SIGNAL ALIGNMENT</span><span>’ + new Date().toLocaleTimeString(“en-US”,{hour:“numeric”,minute:“2-digit”}) + ‘</span></div>’;
+
+function renderLockCard(l) {
+const tierClass = ‘tier’ + l.tier;
+const tierLabel = l.tier === 1 ? ‘PREMIUM LOCK’ : l.tier === 2 ? ‘SOLID PLAY’ : ‘LEAN’;
+const awayShort = l.game.away_team.split(’ ‘).pop();
+const homeShort = l.game.home_team.split(’ ’).pop();
+const isAway = l.team === l.game.away_team;
+const matchupStr = awayShort + ’ @ ’ + homeShort;
+
+```
+// Alignment dots (5 possible signals)
+const sigKeys = ['ev','sharp','steam','rlm','clv'];
+const foundKeys = l.signals.map(s => s.key);
+const dots = sigKeys.map(k => '<div class="align-dot ' + (foundKeys.includes(k) ? (k==='steam'||k==='rlm'?'warn':'on') : '') + '"></div>').join('');
+
+return '<div class="lock-card ' + tierClass + '">' +
+  '<div class="lock-tier-bar"></div>' +
+  '<div class="lock-header">' +
+    '<div>' +
+      '<div class="lock-matchup">' + matchupStr + ' · ' + l.game.sport_title + '</div>' +
+      '<div class="lock-team">' + l.team + '</div>' +
+      '<div class="lock-sport">' + tierLabel + ' · ' + fmtT(l.game.commence_time) + '</div>' +
+    '</div>' +
+    '<div class="lock-unit-box">' +
+      '<div class="lock-unit-num">' + l.units + 'u</div>' +
+      '<div class="lock-unit-lbl">UNITS</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="alignment-bar">' + dots + '<span class="align-label">' + l.signals.length + '/5 SIGNALS ALIGNED</span></div>' +
+  '<div class="lock-signals">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
+  '<div class="lock-bottom">' +
+    '<div><div class="lock-odds">' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</div><div class="lock-book">PIN ' + fmt(l.pin) + ' · DIFF ' + (l.pub - l.pin > 0 ? '+' : '') + Math.round(l.pub - l.pin) + '</div></div>' +
+    '<div class="lock-ev-row"><span class="lock-sig lock-sig-ev">+' + l.ev + '% EV</span><span class="lock-time">' + fmtT(l.game.commence_time) + '</span></div>' +
+  '</div>' +
+'</div>';
+```
+
+}
+
+if (tier1.length) {
+h += ‘<div class="dl">🔒 PREMIUM LOCKS</div>’;
+tier1.forEach(l => { h += renderLockCard(l); });
+}
+if (tier2.length) {
+h += ‘<div class="dl">✅ SOLID PLAYS</div>’;
+tier2.forEach(l => { h += renderLockCard(l); });
+}
+if (tier3.length) {
+h += ‘<div class="dl">📊 LEANS</div>’;
+tier3.forEach(l => { h += renderLockCard(l); });
+}
+
+h += ‘<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:10px;font-size:10px;color:#444;line-height:1.7;font-family:monospace">’ +
+‘📐 UNIT SIZING: Half-Kelly criterion based on EV vs Pinnacle fair line.<br>’ +
+‘🟢 GREEN DOTS = EV/Sharp alignment · 🟡 YELLOW = Steam/RLM<br>’ +
+‘🔒 PREMIUM: 3+ signals, high EV · ✅ SOLID: 2 signals · 📊 LEAN: EV only<br>’ +
+‘Never bet more than you can afford to lose.’ +
+‘</div>’;
+
+document.getElementById(“locks”).innerHTML = h;
+}
+
 async function init() {
 const btn = document.getElementById(“rfBtn”);
 btn.classList.add(“spin”);
@@ -767,7 +990,7 @@ document.getElementById(“hSub”).textContent = “UPDATED “ + new Date().to
 const sc = {}; results.forEach(g => sc[g.sport_title] = true);
 document.getElementById(“sL”).textContent = results.length + “ GAMES - “ + Object.keys(sc).length + “ SPORTS”;
 document.getElementById(“sR”).textContent = “ODDS + SHARP”;
-renderFltrs(); renderGames(); renderSharp(); renderModel();
+renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks();
 } catch (e) {
 document.getElementById(“games”).innerHTML = ’<div class="empty">Error: ’ + e.message + ‘</div>’;
 document.getElementById(“hSub”).textContent = “ERROR”;
