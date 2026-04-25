@@ -2061,33 +2061,50 @@ function fetchAllSplits() {
   return Promise.all(Object.keys(sportsInGames).map(s => fetchSplitsForSport(s)));
 }
 
-// Try to find splits for a given game by team name matching
+// Match a game to a VSiN splits event by team name
 function getSplitsForGame(game) {
   const events = splitsCache[game.sport_key];
   if (!events || !events.length) return null;
-  // Try to match event by team names. TheRundown uses 'teams' or 'teams_normalized' arrays.
-  const awayLower = game.away_team.toLowerCase();
-  const homeLower = game.home_team.toLowerCase();
+
+  // Tokenize the away/home team names (last word + key tokens)
+  const awayTokens = teamTokens(game.away_team);
+  const homeTokens = teamTokens(game.home_team);
+
   for (const ev of events) {
-    const teams = ev.teams || ev.teams_normalized || [];
-    if (!teams.length) continue;
-    let foundAway = false, foundHome = false;
-    for (const t of teams) {
-      const nm = ((t.name || '') + ' ' + (t.full_name || '') + ' ' + (t.mascot || '') + ' ' + (t.location || '')).toLowerCase();
-      if (awayLower.split(' ').some(w => w.length > 2 && nm.includes(w))) foundAway = true;
-      if (homeLower.split(' ').some(w => w.length > 2 && nm.includes(w))) foundHome = true;
+    const evAwayTokens = teamTokens(ev.away_team || '');
+    const evHomeTokens = teamTokens(ev.home_team || '');
+
+    // Both teams must match (in either home/away orientation)
+    const matchSame = tokenMatch(awayTokens, evAwayTokens) && tokenMatch(homeTokens, evHomeTokens);
+    const matchSwapped = tokenMatch(awayTokens, evHomeTokens) && tokenMatch(homeTokens, evAwayTokens);
+
+    if (matchSame || matchSwapped) {
+      return parseSplitsEvent(ev, game);
     }
-    if (foundAway && foundHome) return parseSplitsEvent(ev, game);
   }
   return null;
 }
 
-// Parse a TheRundown event for betting splits data
+function teamTokens(name) {
+  return (name || '').toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !['the','los','san','new','of','de'].includes(w));
+}
+
+function tokenMatch(aTokens, bTokens) {
+  if (!aTokens.length || !bTokens.length) return false;
+  // At least one significant token from a must appear in b (and vice versa)
+  // E.g. "Houston Rockets" matches "Houston Rockets" via 'houston' or 'rockets'
+  return aTokens.some(t => bTokens.some(b => b.includes(t) || t.includes(b)));
+}
+
+// Parse a VSiN event for betting splits data
+// New shape from /api/splits (VSiN scrape):
+// { away_team, home_team, spread:{away:{line,handle,bets}, home:{...}},
+//   total:{line, over:{handle,bets}, under:{...}}, moneyline:{away:{...}, home:{...}} }
 function parseSplitsEvent(ev, game) {
-  // The Rundown 'betting_splits' shape has been observed as:
-  //   ev.lines[bookId].moneyline.{bet_percent_home/away, money_percent_home/away}
-  //   or ev.betting_splits.moneyline.{tickets_home/away, money_home/away}
-  // Be defensive: try several paths.
+  if (!ev) return null;
   const result = {
     moneyline: null,
     spread: null,
@@ -2096,71 +2113,40 @@ function parseSplitsEvent(ev, game) {
     homeTeam: game.home_team
   };
 
-  // Try the most common shape first: betting_splits at event level
-  const bs = ev.betting_splits || ev.split || null;
-  if (bs && typeof bs === 'object') {
-    // Pattern A: {moneyline: {tickets_home, money_home, ...}}
-    if (bs.moneyline) result.moneyline = normalizeSplit(bs.moneyline, 'home', 'away');
-    if (bs.spread) result.spread = normalizeSplit(bs.spread, 'home', 'away');
-    if (bs.total) result.total = normalizeTotalSplit(bs.total);
+  if (ev.moneyline && (ev.moneyline.away || ev.moneyline.home)) {
+    result.moneyline = {
+      ticketsAway: num(ev.moneyline.away && ev.moneyline.away.bets),
+      ticketsHome: num(ev.moneyline.home && ev.moneyline.home.bets),
+      moneyAway: num(ev.moneyline.away && ev.moneyline.away.handle),
+      moneyHome: num(ev.moneyline.home && ev.moneyline.home.handle),
+      lineAway: ev.moneyline.away && ev.moneyline.away.line,
+      lineHome: ev.moneyline.home && ev.moneyline.home.line
+    };
   }
 
-  // Pattern B: lines[bookId].moneyline.bet_percent_home etc.
-  if (!result.moneyline && ev.lines) {
-    for (const bookId in ev.lines) {
-      const ln = ev.lines[bookId];
-      if (ln.moneyline && (ln.moneyline.bet_percent_home || ln.moneyline.bet_percent_away)) {
-        result.moneyline = normalizePctSplit(ln.moneyline);
-      }
-      if (ln.spread && (ln.spread.bet_percent_home || ln.spread.bet_percent_away)) {
-        result.spread = normalizePctSplit(ln.spread);
-      }
-      if (ln.total && (ln.total.bet_percent_over || ln.total.bet_percent_under)) {
-        result.total = normalizeTotalPctSplit(ln.total);
-      }
-      if (result.moneyline) break;
-    }
+  if (ev.spread && (ev.spread.away || ev.spread.home)) {
+    result.spread = {
+      ticketsAway: num(ev.spread.away && ev.spread.away.bets),
+      ticketsHome: num(ev.spread.home && ev.spread.home.bets),
+      moneyAway: num(ev.spread.away && ev.spread.away.handle),
+      moneyHome: num(ev.spread.home && ev.spread.home.handle),
+      lineAway: ev.spread.away && ev.spread.away.line,
+      lineHome: ev.spread.home && ev.spread.home.line
+    };
+  }
+
+  if (ev.total && (ev.total.over || ev.total.under)) {
+    result.total = {
+      ticketsOver: num(ev.total.over && ev.total.over.bets),
+      ticketsUnder: num(ev.total.under && ev.total.under.bets),
+      moneyOver: num(ev.total.over && ev.total.over.handle),
+      moneyUnder: num(ev.total.under && ev.total.under.handle),
+      line: ev.total.line
+    };
   }
 
   if (!result.moneyline && !result.spread && !result.total) return null;
   return result;
-}
-
-function normalizeSplit(obj, homeKey, awayKey) {
-  // Possible field names: tickets_home/away, money_home/away, bet_count_home, handle_home, etc.
-  const hT = num(obj['tickets_' + homeKey] || obj['bet_percent_' + homeKey] || obj['bets_' + homeKey] || obj.tickets_home || obj.bet_percent_home);
-  const aT = num(obj['tickets_' + awayKey] || obj['bet_percent_' + awayKey] || obj['bets_' + awayKey] || obj.tickets_away || obj.bet_percent_away);
-  const hM = num(obj['money_' + homeKey] || obj['money_percent_' + homeKey] || obj['handle_' + homeKey] || obj.money_home || obj.money_percent_home);
-  const aM = num(obj['money_' + awayKey] || obj['money_percent_' + awayKey] || obj['handle_' + awayKey] || obj.money_away || obj.money_percent_away);
-  if (hT == null && aT == null && hM == null && aM == null) return null;
-  return { ticketsHome: hT, ticketsAway: aT, moneyHome: hM, moneyAway: aM };
-}
-
-function normalizePctSplit(obj) {
-  return {
-    ticketsHome: num(obj.bet_percent_home),
-    ticketsAway: num(obj.bet_percent_away),
-    moneyHome: num(obj.money_percent_home),
-    moneyAway: num(obj.money_percent_away)
-  };
-}
-
-function normalizeTotalSplit(obj) {
-  const oT = num(obj.tickets_over || obj.bet_percent_over || obj.bets_over);
-  const uT = num(obj.tickets_under || obj.bet_percent_under || obj.bets_under);
-  const oM = num(obj.money_over || obj.money_percent_over || obj.handle_over);
-  const uM = num(obj.money_under || obj.money_percent_under || obj.handle_under);
-  if (oT == null && uT == null && oM == null && uM == null) return null;
-  return { ticketsOver: oT, ticketsUnder: uT, moneyOver: oM, moneyUnder: uM };
-}
-
-function normalizeTotalPctSplit(obj) {
-  return {
-    ticketsOver: num(obj.bet_percent_over),
-    ticketsUnder: num(obj.bet_percent_under),
-    moneyOver: num(obj.money_percent_over),
-    moneyUnder: num(obj.money_percent_under)
-  };
 }
 
 function num(v) {
