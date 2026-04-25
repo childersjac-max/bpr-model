@@ -1,127 +1,40 @@
-// Free expert picks scraper - VSiN primary, plus other free sources where available
-// VSiN /propicks/active/ exposes 300+ active picks publicly without login
-// Each row has: sport · expert · show · pick text · game info · units
+// Free expert picks aggregator
+// Scrapes publicly accessible pick listings from multiple free handicapper sites.
+// Each source's parser is independent so a failure in one doesn't break others.
 
+const SPORT_PAGES = {
+  docsports: [
+    { url: 'https://www.docsports.com/free-picks/baseball/', sport: 'MLB', sportKey: 'baseball_mlb' },
+    { url: 'https://www.docsports.com/free-picks/nba-basketball/', sport: 'NBA', sportKey: 'basketball_nba' },
+    { url: 'https://www.docsports.com/free-picks/nhl-hockey/', sport: 'NHL', sportKey: 'icehockey_nhl' },
+    { url: 'https://www.docsports.com/free-picks/nfl-football/', sport: 'NFL', sportKey: 'americanfootball_nfl' },
+    { url: 'https://www.docsports.com/free-picks/college-basketball/', sport: 'CBB', sportKey: 'basketball_ncaab' }
+  ],
+  sportschatplace: [
+    { url: 'https://sportschatplace.com/mlb-picks/', sport: 'MLB', sportKey: 'baseball_mlb' },
+    { url: 'https://sportschatplace.com/nba-picks/', sport: 'NBA', sportKey: 'basketball_nba' },
+    { url: 'https://sportschatplace.com/nhl-picks/', sport: 'NHL', sportKey: 'icehockey_nhl' },
+    { url: 'https://sportschatplace.com/nfl-picks/', sport: 'NFL', sportKey: 'americanfootball_nfl' }
+  ],
+  pickdawgz: [
+    { url: 'https://pickdawgz.com/mlb-picks/', sport: 'MLB', sportKey: 'baseball_mlb' },
+    { url: 'https://pickdawgz.com/nba-picks/', sport: 'NBA', sportKey: 'basketball_nba' },
+    { url: 'https://pickdawgz.com/nhl-picks/', sport: 'NHL', sportKey: 'icehockey_nhl' },
+    { url: 'https://pickdawgz.com/nfl-picks/', sport: 'NFL', sportKey: 'americanfootball_nfl' }
+  ],
+  winnersandwhiners: [
+    { url: 'https://winnersandwhiners.com/free-picks/mlb', sport: 'MLB', sportKey: 'baseball_mlb' },
+    { url: 'https://winnersandwhiners.com/free-picks/nba', sport: 'NBA', sportKey: 'basketball_nba' },
+    { url: 'https://winnersandwhiners.com/free-picks/nhl', sport: 'NHL', sportKey: 'icehockey_nhl' }
+  ]
+};
 
-
-// Transform raw picks into frontend-friendly format
-function transformPicks(rawPicks) {
-  return rawPicks.map(p => {
-    let bet = formatBetForDisplay(p);
-    let betType = formatBetTypeLabel(p);
-    let detail = formatDetail(p);
-
-    // Confidence: use units if available, else default by source
-    let confidence = 3;
-    if (p.units != null) {
-      if (p.units >= 2) confidence = 5;
-      else if (p.units >= 1) confidence = 4;
-      else if (p.units >= 0.5) confidence = 3;
-      else confidence = 2;
-    } else if (p.source === 'VSiN') {
-      confidence = 3;
-    } else if (p.source === 'OddsShark') {
-      confidence = 3;
-    } else {
-      confidence = 2;
-    }
-
-    // EV grade: heuristic - units 1+ is HIGH, .5+ MEDIUM
-    let ev = 'LOW';
-    if (p.units != null) {
-      if (p.units >= 1.5) ev = 'HIGH';
-      else if (p.units >= 0.75) ev = 'MEDIUM';
-    }
-
-    // Day - map gameDate to "Today" / "Tomorrow" / formatted date
-    let day = formatPickDay(p.gameDate);
-
-    return {
-      source: p.source,
-      sport: p.sportLabel || p.sport,
-      sportKey: p.sport,
-      expert: p.expert + (p.show ? ' · ' + p.show : ''),
-      bet,
-      betType,
-      detail,
-      confidence,
-      ev,
-      day,
-      units: p.units,
-      gameId: p.gameId,
-      gameDate: p.gameDate,
-      gameTime: p.gameTime,
-      timestamp: p.timestamp,
-      // Raw structured fields for matching to local games
-      team: p.team,
-      line: p.line,
-      odds: p.odds,
-      side: p.side,
-      market: p.market,
-      isPlayerProp: p.isPlayerProp,
-      pickText: p.pickText
-    };
-  });
-}
-
-function formatBetForDisplay(p) {
-  if (!p.team && p.pickText) return p.pickText.slice(0, 80);
-  switch (p.betType) {
-    case 'ml':
-      return p.team + (p.odds != null ? ' ML (' + (p.odds > 0 ? '+' : '') + p.odds + ')' : ' ML');
-    case 'spread':
-      return p.team + ' ' + (p.line >= 0 ? '+' : '') + p.line + (p.odds != null ? ' (' + (p.odds > 0 ? '+' : '') + p.odds + ')' : '');
-    case 'total':
-      return (p.side || 'OVER') + ' ' + p.line + (p.odds != null ? ' (' + (p.odds > 0 ? '+' : '') + p.odds + ')' : '');
-    case 'team_total':
-      return p.team + ' ' + (p.side || 'OVER') + ' ' + p.line + (p.odds != null ? ' (' + (p.odds > 0 ? '+' : '') + p.odds + ')' : '');
-    case 'prop':
-      return p.team + ' ' + (p.side || 'OVER') + ' ' + p.line + ' ' + (p.market || '') + (p.odds != null ? ' (' + (p.odds > 0 ? '+' : '') + p.odds + ')' : '');
-    default:
-      return p.pickText || (p.team || 'Pick');
-  }
-}
-
-function formatBetTypeLabel(p) {
-  switch (p.betType) {
-    case 'ml': return 'MONEYLINE';
-    case 'spread': return 'SPREAD';
-    case 'total': return 'TOTAL';
-    case 'team_total': return 'TEAM TOTAL';
-    case 'prop': return 'PLAYER PROP';
-    default: return p.sportLabel || 'PICK';
-  }
-}
-
-function formatDetail(p) {
-  const parts = [];
-  if (p.gameDate) parts.push(p.gameDate);
-  if (p.gameTime) parts.push(p.gameTime);
-  if (p.units != null) parts.push(p.units + (p.units === 1 ? ' unit' : ' units'));
-  if (p.timestamp) parts.push('Posted ' + p.timestamp);
-  return parts.join(' · ');
-}
-
-function formatPickDay(gameDate) {
-  if (!gameDate) return 'Other';
-  // Try to parse "Thu February 5th, 2026" -> compare with today
-  try {
-    const cleaned = gameDate.replace(/(\d+)(?:st|nd|rd|th)/, '$1');
-    const d = new Date(cleaned);
-    if (isNaN(d.getTime())) return gameDate;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    const dDay = new Date(d);
-    dDay.setHours(0,0,0,0);
-    if (dDay.getTime() === today.getTime()) return 'Today';
-    if (dDay.getTime() === tomorrow.getTime()) return 'Tomorrow';
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  } catch(e) {
-    return gameDate;
-  }
-}
+const UA_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache'
+};
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -129,306 +42,371 @@ module.exports = async function handler(req, res) {
 
   const out = { picks: [], sources: {}, errors: [] };
 
-  // ============================================================
-  // VSiN /propicks/active/ - the goldmine
-  // ============================================================
-  try {
-    const url = 'https://data.vsin.com/propicks/active/';
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
-    if (r.ok) {
-      const html = await r.text();
-      const vsinPicks = parseVsinActive(html);
-      out.picks.push(...vsinPicks);
-      out.sources.vsin = vsinPicks.length;
-    } else {
-      out.errors.push('vsin: ' + r.status);
+  // Helper: fetch with timeout to avoid hanging the function
+  async function safeFetch(url, timeoutMs = 8000) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { headers: UA_HEADERS, signal: ctrl.signal });
+      clearTimeout(t);
+      if (!r.ok) return null;
+      return await r.text();
+    } catch (e) {
+      clearTimeout(t);
+      return null;
     }
-  } catch (e) {
-    out.errors.push('vsin: ' + e.message);
   }
 
   // ============================================================
-  // OddsShark - public picks (best bets / consensus)
-  // Has a "Best Bets" / "Computer Picks" page per sport
-  // We'll attempt the consensus picks page
+  // Doc's Sports - "Yankees vs Astros Prediction, 4/25/2026 MLB Picks, Best Bets & Odds by Guy Bruhn"
   // ============================================================
-  try {
-    const sources = [
-      { url: 'https://www.oddsshark.com/nba/computer-picks', sport: 'NBA' },
-      { url: 'https://www.oddsshark.com/mlb/computer-picks', sport: 'MLB' },
-      { url: 'https://www.oddsshark.com/nfl/computer-picks', sport: 'NFL' },
-      { url: 'https://www.oddsshark.com/nhl/computer-picks', sport: 'NHL' }
-    ];
-    let osCount = 0;
-    for (const src of sources) {
-      try {
-        const r = await fetch(src.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html'
-          }
-        });
-        if (r.ok) {
-          const html = await r.text();
-          const parsed = parseOddsShark(html, src.sport);
-          out.picks.push(...parsed);
-          osCount += parsed.length;
-        }
-      } catch (e) {}
-    }
-    if (osCount > 0) out.sources.oddsshark = osCount;
-  } catch (e) {
-    out.errors.push('oddsshark: ' + e.message);
+  let docsCount = 0;
+  for (const src of SPORT_PAGES.docsports) {
+    const html = await safeFetch(src.url);
+    if (!html) continue;
+    const picks = parseDocSports(html, src.sport, src.sportKey);
+    out.picks.push(...picks);
+    docsCount += picks.length;
   }
+  if (docsCount > 0) out.sources["Doc's Sports"] = docsCount;
 
   // ============================================================
-  // Covers - consensus picks (% of public/experts on each side)
+  // Sports Chat Place - "Marlins vs Giants Prediction for this MLB matchup on Friday, April 25th"
   // ============================================================
-  try {
-    const covSports = [
-      { url: 'https://www.covers.com/sports/nba/matchups', sport: 'NBA' },
-      { url: 'https://www.covers.com/sports/mlb/matchups', sport: 'MLB' },
-      { url: 'https://www.covers.com/sports/nfl/matchups', sport: 'NFL' },
-      { url: 'https://www.covers.com/sports/nhl/matchups', sport: 'NHL' }
-    ];
-    let covCount = 0;
-    for (const src of covSports) {
-      try {
-        const r = await fetch(src.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html'
-          }
-        });
-        if (r.ok) {
-          const html = await r.text();
-          const parsed = parseCovers(html, src.sport);
-          out.picks.push(...parsed);
-          covCount += parsed.length;
-        }
-      } catch (e) {}
-    }
-    if (covCount > 0) out.sources.covers = covCount;
-  } catch (e) {
-    out.errors.push('covers: ' + e.message);
+  let scpCount = 0;
+  for (const src of SPORT_PAGES.sportschatplace) {
+    const html = await safeFetch(src.url);
+    if (!html) continue;
+    const picks = parseSportsChatPlace(html, src.sport, src.sportKey);
+    out.picks.push(...picks);
+    scpCount += picks.length;
   }
+  if (scpCount > 0) out.sources['Sports Chat Place'] = scpCount;
 
+  // ============================================================
+  // PickDawgz - "Tigers vs Reds prediction for this MLB game on Saturday, April 25th"
+  // ============================================================
+  let pdCount = 0;
+  for (const src of SPORT_PAGES.pickdawgz) {
+    const html = await safeFetch(src.url);
+    if (!html) continue;
+    const picks = parsePickDawgz(html, src.sport, src.sportKey);
+    out.picks.push(...picks);
+    pdCount += picks.length;
+  }
+  if (pdCount > 0) out.sources['PickDawgz'] = pdCount;
+
+  // ============================================================
+  // Winners and Whiners - "Boston and Baltimore clash at Camden Yards on April 24"
+  // ============================================================
+  let wwCount = 0;
+  for (const src of SPORT_PAGES.winnersandwhiners) {
+    const html = await safeFetch(src.url);
+    if (!html) continue;
+    const picks = parseWinnersAndWhiners(html, src.sport, src.sportKey);
+    out.picks.push(...picks);
+    wwCount += picks.length;
+  }
+  if (wwCount > 0) out.sources['Winners and Whiners'] = wwCount;
+
+  // Filter to today + tomorrow (within ~36 hours)
+  const now = Date.now();
+  const cutoff = now + 36 * 3600 * 1000;
+  out.picks = out.picks.filter(p => {
+    if (!p.gameDateMs) return true; // Keep undated picks
+    return p.gameDateMs >= now - 8 * 3600 * 1000 && p.gameDateMs <= cutoff;
+  });
+
+  // Transform to display format
   out.picks = transformPicks(out.picks);
+
   res.status(200).json(out);
 };
 
 // ============================================================
-// VSiN /propicks/active/ parser
-// Format: each pick is in a <tr> with cells:
-//   [SPORT] | [EXPERT name + show + timestamp] | [...] | [game date - time - pick text with link to game]
-// We extract: sport, expert, show, pick text, game string, units
+// Doc's Sports parser
+// Format: "<Team A> vs <Team B> Prediction, M/D/YYYY <Sport> Picks, Best Bets & Odds by <Expert> - <PostDate>"
+// Followed by paragraph: "The <Team A> are scheduled to take on the <Team B> at <Venue> on <Day, Month D, YYYY>."
 // ============================================================
-function parseVsinActive(html) {
+function parseDocSports(html, sport, sportKey) {
   const out = [];
-  // The page is a table-style layout. Rows look like:
-  //  <tr> <td><a href="/propicks/sport/?sportid=nba">NBA</a></td>
-  //  <td><a href="/propicks/vsinexpert/?...">Mitch Moss</a> &nbsp;- Follow the Money - 2026-02-05 ...</td>
-  //  ... <a href="/propicks/game/?gameid=...">Hornets (+4) (-108) at Rockets</a> ...
-
-  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  let m;
-  while ((m = rowRe.exec(html)) !== null) {
-    const rowHtml = m[1];
-    // Sport tag
-    const sportMatch = rowHtml.match(/<a[^>]*href="[^"]*\/propicks\/sport\/\?sportid=([^&"]+)[^"]*"[^>]*>([^<]+)<\/a>/i);
-    if (!sportMatch) continue;
-    const sportSlug = sportMatch[1].toUpperCase();
-    const sportLabel = sportMatch[2].trim();
-
-    // Expert name
-    const expertMatch = rowHtml.match(/<a[^>]*href="[^"]*\/propicks\/vsinexpert\/[^"]*"[^>]*>([^<]+)<\/a>\s*(?:&nbsp;|\s)*-\s*([^<-]+?)\s*-\s*(\d{4}-\d{2}-\d{2}\s*@\s*[\d:APM\s]+)/i);
-    if (!expertMatch) continue;
-    const expert = expertMatch[1].trim();
-    const show = expertMatch[2].trim();
-    const timestamp = expertMatch[3].trim();
-
-    // Pick text - the link to the game with the actual pick
-    const pickMatch = rowHtml.match(/<a[^>]*href="[^"]*\/propicks\/game\/\?gameid=([^"&]+)[^"]*"[^>]*>([^<]+)<\/a>/i);
-    if (!pickMatch) continue;
-    const gameId = pickMatch[1];
-    let pickText = pickMatch[2].trim().replace(/\s+/g, ' ');
-
-    // Extract units if present "[ 1.5 units ]"
-    const unitsMatch = pickText.match(/\[\s*(\d+(?:\.\d+)?)\s*units?\s*\]/i);
-    const units = unitsMatch ? parseFloat(unitsMatch[1]) : null;
-    if (unitsMatch) pickText = pickText.replace(unitsMatch[0], '').trim();
-
-    // Extract game date/time (appears before the link as " - 7:40 PM ET --- ")
-    // Look up to ~200 chars before the link for a date pattern
-    const beforeLinkIdx = rowHtml.indexOf(pickMatch[0]);
-    const before = rowHtml.substring(Math.max(0, beforeLinkIdx - 300), beforeLinkIdx);
-    let gameDate = null, gameTime = null;
-    const dateTimeMatch = before.match(/(\w+\s+\w+\s+\d+\w+,\s*\d{4})[^<]*?-\s*(\d{1,2}:\d{2}\s*[AP]M\s*ET)/i);
-    if (dateTimeMatch) {
-      gameDate = dateTimeMatch[1].trim();
-      gameTime = dateTimeMatch[2].trim();
-    } else {
-      const dateOnly = before.match(/(\w+\s+\w+\s+\d+\w+,\s*\d{4})/);
-      if (dateOnly) gameDate = dateOnly[1].trim();
-    }
-
-    // Parse the pick to get team / market / line
-    const parsed = parsePickText(pickText);
-
-    // Filter: keep only major sports + skip duplicates
-    if (!['NFL', 'NBA', 'MLB', 'NHL', 'CFB', 'CBB', 'WNBA'].includes(sportSlug)) continue;
-
-    out.push({
-      source: 'VSiN',
-      sport: sportSlug,
-      sportLabel,
-      expert,
-      show,
-      timestamp,
-      pickText,
-      gameId,
-      gameDate,
-      gameTime,
-      units,
-      ...parsed
-    });
-  }
-  return out;
-}
-
-// Parse the pick text to extract team, market, line, odds
-// Examples:
-//  "Hornets (+4) (-108) at Rockets" - spread pick
-//  "Money Line - Kings (+114) at Golden Knights" - moneyline
-//  "Senators at Flyers - UNDER (6.5) (-135)" - total
-//  "Team Total - Jazz OVER (117.5) (-112) at Hawks" - team total
-//  "Quinten Post (Warriors) OVER 9.5 Points (+154)" - player prop
-function parsePickText(text) {
-  const result = { betType: 'unknown', team: null, line: null, odds: null, isPlayerProp: false };
-
-  // Player prop?
-  if (/\([A-Z][a-z]+s?\)\s*(?:OVER|UNDER)/i.test(text) || /\(.*\)\s*OVER\s+\d+\.?\d*\s+(?:Points|Yards|Rebounds|Assists|Receiving|Rushing|Passing|Hits|Strikeouts|3PT)/i.test(text)) {
-    result.isPlayerProp = true;
-    result.betType = 'prop';
-    const m = text.match(/^(.+?)\s*\((.+?)\)\s*(OVER|UNDER)\s+([\d.]+)\s*(.+?)(?:\s*\(([+-]?\d+)\))?$/i);
-    if (m) {
-      result.team = m[1].trim();   // player name
-      result.market = m[5].trim(); // stat name
-      result.side = m[3].toUpperCase();
-      result.line = parseFloat(m[4]);
-      if (m[6]) result.odds = parseInt(m[6], 10);
-    }
-    return result;
-  }
-
-  // Moneyline
-  if (/^Money Line\s*-/i.test(text)) {
-    result.betType = 'ml';
-    const m = text.match(/Money Line\s*-\s*(.+?)\s*\(([+-]?\d+)\)/i);
-    if (m) {
-      result.team = m[1].trim();
-      result.odds = parseInt(m[2], 10);
-    }
-    return result;
-  }
-
-  // Team total
-  if (/^Team Total\s*-/i.test(text)) {
-    result.betType = 'team_total';
-    const m = text.match(/Team Total\s*-\s*(.+?)\s+(OVER|UNDER)\s*\(([\d.]+)\)\s*(?:\(([+-]?\d+)\))?/i);
-    if (m) {
-      result.team = m[1].trim();
-      result.side = m[2].toUpperCase();
-      result.line = parseFloat(m[3]);
-      if (m[4]) result.odds = parseInt(m[4], 10);
-    }
-    return result;
-  }
-
-  // Total: "TeamA at TeamB - OVER (9.5) (-110)" or "OVER (9.5)" pattern
-  const totalMatch = text.match(/(OVER|UNDER)\s*\(([\d.]+)\)\s*(?:\(([+-]?\d+)\))?/i);
-  if (totalMatch && !/^Team Total/i.test(text)) {
-    result.betType = 'total';
-    result.side = totalMatch[1].toUpperCase();
-    result.line = parseFloat(totalMatch[2]);
-    if (totalMatch[3]) result.odds = parseInt(totalMatch[3], 10);
-    // Try to grab matchup as team
-    const matchup = text.match(/^(.+?)\s+at\s+(.+?)\s*-/i);
-    if (matchup) result.team = matchup[1].trim() + ' / ' + matchup[2].trim();
-    return result;
-  }
-
-  // Spread: "Team (+4) (-108) at Other"  or  "Team (-3.5) (+100) vs Other"
-  const spreadMatch = text.match(/^(.+?)\s*\(([+-]?[\d.]+)\)\s*\(([+-]?\d+)\)/);
-  if (spreadMatch) {
-    result.betType = 'spread';
-    result.team = spreadMatch[1].trim();
-    result.line = parseFloat(spreadMatch[2]);
-    result.odds = parseInt(spreadMatch[3], 10);
-    return result;
-  }
-
-  return result;
-}
-
-// ============================================================
-// OddsShark computer picks parser
-// Look for pick blocks that say "Pick: X" or similar consensus output
-// ============================================================
-function parseOddsShark(html, sport) {
-  const out = [];
-  // OddsShark embeds picks within article-style cards. Look for picks like:
-  // "<strong>Pick:</strong> Lakers ML" or similar patterns
-  const pickRe = /(?:Pick|Best Bet|Prediction):\s*<\/strong>\s*([^<\n]{5,150})/gi;
+  // Regex captures: TeamA vs TeamB Prediction, MM/DD/YYYY ... by Expert - MM/DD/YYYY
+  const re = /(?:^|[\s>·.])([A-Z][A-Za-z' ]{2,30}?)\s+vs\s+([A-Z][A-Za-z' ]{2,30}?)\s+Prediction,\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(?:[A-Z]+\s+)?(?:Picks|Pick|Preview).*?by\s+([A-Za-z. '"&]+?)\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}/g;
   let m;
   const seen = new Set();
-  while ((m = pickRe.exec(html)) !== null) {
-    const txt = m[1].trim().replace(/\s+/g, ' ');
-    if (txt.length < 5 || seen.has(txt)) continue;
-    seen.add(txt);
+  while ((m = re.exec(html)) !== null) {
+    const awayTeam = cleanTeam(m[1]);
+    const homeTeam = cleanTeam(m[2]);
+    const gameDate = m[3];
+    const expert = cleanExpert(m[4]);
+    const key = awayTeam + '|' + homeTeam + '|' + gameDate;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const gameDateMs = parseUSDate(gameDate);
     out.push({
-      source: 'OddsShark',
-      sport,
-      sportLabel: sport,
-      expert: 'OddsShark Computer',
-      show: 'Computer Picks',
-      pickText: txt,
-      betType: 'unknown'
+      source: "Doc's Sports",
+      sport, sportKey,
+      expert, show: 'Free Pick',
+      awayTeam, homeTeam,
+      gameDate, gameDateMs,
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://www.docsports.com/free-picks/'
     });
   }
   return out;
 }
 
 // ============================================================
-// Covers consensus parser - look for pick percentages
-// Format may be sparse since Covers uses dynamic data
+// Sports Chat Place - "<Team A> vs <Team B> Prediction for this MLB matchup on <Day>, <Month> <D>th"
+// or "The <Team A> and the <Team B> meet <Day> in <League> action at <Venue>"
 // ============================================================
-function parseCovers(html, sport) {
+function parseSportsChatPlace(html, sport, sportKey) {
   const out = [];
-  // Covers shows "Pick: X" in consensus sections too
-  const pickRe = /(?:Consensus|Best\s+Pick|Pick):\s*([A-Z][^<\n]{5,80})/gi;
-  let m;
   const seen = new Set();
-  let count = 0;
-  while ((m = pickRe.exec(html)) !== null && count < 10) {
-    const txt = m[1].trim().replace(/\s+/g, ' ');
-    if (txt.length < 5 || seen.has(txt)) continue;
-    seen.add(txt);
+
+  // Pattern 1: "<Team A> vs <Team B> Prediction for this <League> matchup on <Day>, <Month> <Date>"
+  const re1 = /(?:^|[\s>·.])([A-Z][A-Za-z' ]{2,30}?)\s+vs\s+([A-Z][A-Za-z' ]{2,30}?)\s+Prediction[^<]{0,100}?on\s+(\w+,\s*\w+\s+\d{1,2})/g;
+  let m;
+  while ((m = re1.exec(html)) !== null) {
+    const awayTeam = cleanTeam(m[1]);
+    const homeTeam = cleanTeam(m[2]);
+    const dateStr = m[3];
+    const key = awayTeam + '|' + homeTeam;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
     out.push({
-      source: 'Covers',
-      sport,
-      sportLabel: sport,
-      expert: 'Covers Consensus',
-      show: 'Consensus',
-      pickText: txt,
-      betType: 'unknown'
+      source: 'Sports Chat Place',
+      sport, sportKey,
+      expert: 'SCP Expert', show: 'Free Pick',
+      awayTeam, homeTeam,
+      gameDate: dateStr,
+      gameDateMs: parseDayMonthDate(dateStr),
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://sportschatplace.com/'
     });
-    count++;
+  }
+
+  // Pattern 2: "The <Team A> and the <Team B> meet <Day> in <League> action"
+  const re2 = /The\s+([A-Z][A-Za-z. ']{2,30}?)\s+and\s+(?:the\s+)?([A-Z][A-Za-z. ']{2,30}?)\s+meet\s+(\w+)\s+in\s+(?:MLB|NBA|NHL|NFL)/g;
+  while ((m = re2.exec(html)) !== null) {
+    const awayTeam = cleanTeam(m[1]);
+    const homeTeam = cleanTeam(m[2]);
+    const day = m[3];
+    const key = awayTeam + '|' + homeTeam;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      source: 'Sports Chat Place',
+      sport, sportKey,
+      expert: 'SCP Expert', show: 'Free Pick',
+      awayTeam, homeTeam,
+      gameDate: day,
+      gameDateMs: parseDayName(day),
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://sportschatplace.com/'
+    });
+  }
+
+  return out;
+}
+
+// ============================================================
+// PickDawgz - "<Team A> vs <Team B> prediction for this MLB game on Saturday, April 25th"
+// ============================================================
+function parsePickDawgz(html, sport, sportKey) {
+  const out = [];
+  const seen = new Set();
+  const re = /(?:^|[\s>·.])([A-Z][A-Za-z' ]{2,30}?)\s+vs\s+([A-Z][A-Za-z' ]{2,30}?)\s+prediction\s+for\s+this\s+\w+\s+game\s+on\s+(\w+,\s*\w+\s+\d{1,2})/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const awayTeam = cleanTeam(m[1]);
+    const homeTeam = cleanTeam(m[2]);
+    const dateStr = m[3];
+    const key = awayTeam + '|' + homeTeam;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      source: 'PickDawgz',
+      sport, sportKey,
+      expert: 'PickDawgz Staff', show: 'Free Pick',
+      awayTeam, homeTeam,
+      gameDate: dateStr,
+      gameDateMs: parseDayMonthDate(dateStr),
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://pickdawgz.com/'
+    });
+  }
+  // Also: "The <TeamA> and <TeamB> meet <Day> in <Sport> Game X at <Venue>"
+  const re2 = /The\s+([A-Z][A-Za-z. ']{2,30}?)\s+and\s+(?:the\s+)?([A-Z][A-Za-z. ']{2,30}?)\s+(?:meet|will meet)\s+(\w+)/g;
+  while ((m = re2.exec(html)) !== null) {
+    const awayTeam = cleanTeam(m[1]);
+    const homeTeam = cleanTeam(m[2]);
+    const key = awayTeam + '|' + homeTeam;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      source: 'PickDawgz',
+      sport, sportKey,
+      expert: 'PickDawgz Staff', show: 'Free Pick',
+      awayTeam, homeTeam,
+      gameDate: m[3],
+      gameDateMs: parseDayName(m[3]),
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://pickdawgz.com/'
+    });
   }
   return out;
+}
+
+// ============================================================
+// Winners and Whiners - looks for matchup mentions with date
+// "Boston and Baltimore clash at Camden Yards on April 24"
+// "Detroit heads into Great American Ball Park on April 24"
+// "Yankees-Astros matchup" / "Pirates-Rangers matchup"
+// ============================================================
+function parseWinnersAndWhiners(html, sport, sportKey) {
+  const out = [];
+  const seen = new Set();
+  // Hyphenated matchup pattern: "<TeamA>-<TeamB> matchup"
+  const re = /([A-Z][a-z]+)[-\s]+([A-Z][a-z]+)\s+matchup/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const awayTeam = m[1];
+    const homeTeam = m[2];
+    const key = awayTeam + '|' + homeTeam;
+    if (seen.has(key) || awayTeam === homeTeam) continue;
+    seen.add(key);
+    out.push({
+      source: 'Winners and Whiners',
+      sport, sportKey,
+      expert: 'W&W Analyst', show: 'Free Pick',
+      awayTeam, homeTeam,
+      pickText: awayTeam + ' vs ' + homeTeam + ' (' + sport + ' pick)',
+      betType: 'preview',
+      url: 'https://winnersandwhiners.com/'
+    });
+  }
+  return out;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function cleanTeam(s) {
+  let cleaned = (s || '').trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:]+$/, '');
+  // Strip leading filler phrases that bleed in from regex backtracking
+  const fillers = [
+    /^.*?\bformulate\s+(?:a|an)\s+/i,
+    /^.*?\bpresents\s+/i,
+    /^.*?\bfeaturing\s+/i,
+    /^The\s+/i,
+    /^the\s+/i,
+    /^we will\s+/i,
+    /^Let's\s+take\s+a\s+look\s+at\s+(?:the\s+|this\s+)?/i,
+    /^Today's\s+/i,
+    /^Tonight's\s+/i,
+    /^This\s+article\s+/i
+  ];
+  for (const f of fillers) cleaned = cleaned.replace(f, '');
+  return cleaned.trim();
+}
+
+function cleanExpert(s) {
+  return (s || '').trim()
+    .replace(/&#x27;|&apos;/g, "'")
+    .replace(/[.,;:]+$/, '')
+    .replace(/\s+/g, ' ');
+}
+
+// Parse "4/25/2026" -> ms
+function parseUSDate(s) {
+  const m = (s || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  const d = new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]));
+  return d.getTime();
+}
+
+// Parse "Friday, April 25th" -> ms (assumes current year)
+function parseDayMonthDate(s) {
+  const m = (s || '').match(/(?:\w+,\s*)?(\w+)\s+(\d{1,2})/);
+  if (!m) return null;
+  const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const monIdx = months.indexOf(m[1].toLowerCase());
+  if (monIdx < 0) return null;
+  const day = parseInt(m[2], 10);
+  const now = new Date();
+  let year = now.getFullYear();
+  // If the date is more than ~3 months in the past, assume next year
+  const candidate = new Date(year, monIdx, day);
+  if (candidate.getTime() < now.getTime() - 90 * 24 * 3600 * 1000) {
+    candidate.setFullYear(year + 1);
+  }
+  return candidate.getTime();
+}
+
+// Parse a day-of-week name relative to today
+function parseDayName(s) {
+  if (!s) return null;
+  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const lower = s.toLowerCase();
+  const idx = dayNames.indexOf(lower);
+  if (idx < 0) return null;
+  const now = new Date();
+  let diff = idx - now.getDay();
+  if (diff < -3) diff += 7; // Future day this week
+  if (diff < 0) diff = 0;   // "Today" if same day
+  const d = new Date(now);
+  d.setDate(now.getDate() + diff);
+  d.setHours(12, 0, 0, 0);
+  return d.getTime();
+}
+
+// ============================================================
+// Transform raw picks to frontend display format
+// ============================================================
+function transformPicks(rawPicks) {
+  return rawPicks.map(p => {
+    const matchup = p.awayTeam && p.homeTeam ? p.awayTeam + ' vs ' + p.homeTeam : p.pickText;
+    let day = formatDay(p.gameDateMs, p.gameDate);
+
+    return {
+      source: p.source,
+      sport: p.sport,
+      sportKey: p.sportKey,
+      expert: p.expert + (p.show ? ' · ' + p.show : ''),
+      bet: matchup,
+      betType: 'PREVIEW',
+      detail: (p.gameDate ? p.gameDate + ' · ' : '') + 'Visit source for full breakdown',
+      confidence: 3,
+      ev: 'MEDIUM',
+      day,
+      awayTeam: p.awayTeam,
+      homeTeam: p.homeTeam,
+      url: p.url,
+      pickText: p.pickText
+    };
+  });
+}
+
+function formatDay(ms, fallback) {
+  if (!ms) return fallback || 'Recent';
+  const d = new Date(ms);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const dDay = new Date(d); dDay.setHours(0, 0, 0, 0);
+  if (dDay.getTime() === today.getTime()) return 'Today';
+  if (dDay.getTime() === tomorrow.getTime()) return 'Tomorrow';
+  if (dDay.getTime() === yesterday.getTime()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
