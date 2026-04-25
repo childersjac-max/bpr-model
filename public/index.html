@@ -334,6 +334,41 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .split-mini-bar{display:inline-block;width:34px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-left:6px;vertical-align:middle}
 .split-mini-bar-fill{height:100%;background:#4ecca3}
 
+
+/* Player props styling */
+.props-row{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
+.props-header{padding:11px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.props-header:active{background:rgba(255,255,255,.04)}
+.props-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.props-arrow{font-size:11px;color:#666;transition:transform 0.2s}
+.props-row.open .props-arrow{transform:rotate(180deg)}
+.props-empty{font-size:11px;color:#888;text-align:center;padding:14px;font-style:italic}
+.props-loading{font-size:11px;color:#888;text-align:center;padding:10px}
+.props-detail{display:none;border-top:1px solid rgba(255,255,255,.06);padding:8px}
+.props-row.open .props-detail{display:block}
+.props-summary{padding:0 12px 11px;font-size:12px;color:#bbb;line-height:1.5}
+.prop-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.prop-card.strong{border-color:rgba(78,204,163,.35);background:rgba(78,204,163,.05)}
+.prop-card.solid{border-color:rgba(255,200,50,.25);background:rgba(255,200,50,.03)}
+.prop-row1{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.prop-player{font-size:13px;font-weight:700;color:#fff}
+.prop-stat{font-size:11px;color:#bbb;font-family:monospace;background:rgba(255,255,255,.05);padding:2px 7px;border-radius:4px}
+.prop-tier-pill{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;font-family:monospace;flex-shrink:0}
+.prop-tier-pill.strong{background:rgba(78,204,163,.2);color:#4ecca3;border:1px solid rgba(78,204,163,.4)}
+.prop-tier-pill.solid{background:rgba(255,200,50,.15);color:#ffc832;border:1px solid rgba(255,200,50,.3)}
+.prop-tier-pill.lean{background:rgba(255,255,255,.06);color:#bbb;border:1px solid rgba(255,255,255,.1)}
+.prop-line-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;font-size:11px;font-family:monospace}
+.prop-pill{padding:3px 7px;border-radius:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#bbb}
+.prop-pill.hl{color:#fff;background:rgba(78,204,163,.1);border-color:rgba(78,204,163,.3)}
+.prop-pill.book{color:#5ba3ff;background:rgba(91,163,255,.08);border-color:rgba(91,163,255,.25)}
+.prop-best-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:6px 8px;background:rgba(91,163,255,.05);border:1px solid rgba(91,163,255,.2);border-radius:6px;font-size:11px}
+.prop-best-label{color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;font-size:9px}
+.prop-best-val{color:#5ba3ff;font-weight:700;font-family:monospace}
+.prop-reasoning{font-size:11px;color:#aaa;line-height:1.5;padding:6px 9px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:7px}
+.prop-reasoning b{color:#4ecca3}
+.props-section-header{font-size:10px;color:#888;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin:10px 4px 6px}
+.props-section-header:first-child{margin-top:4px}
+
 /* Sharp tab splits divergence cards */
 .splits-sig{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.35)}
 
@@ -638,6 +673,11 @@ try {
 // Splits state - cache by sport key
 let splitsCache = {};
 let splitsLoading = {};
+
+// Player props state - cache by sport key  
+let propsCache = {};
+let propsLoading = {};
+window.propsExpanded = window.propsExpanded || {};
 
 // Bet Card state
 let betCard = [];
@@ -1055,8 +1095,11 @@ function renderExpand(game) {
   });
   if (hasMl) h += '<div class="xp-title">MONEYLINE</div>' + mlRows;
 
-  // Public Splits (TheRundown)
+  // Public Splits (VSiN)
   h += renderSplitsUI(game);
+
+  // Player Props (VSiN + Odds API)
+  h += renderPropsUI(game);
 
   // Juice detail
   const juiceDetail = calcJuice(game);
@@ -1378,7 +1421,7 @@ function renderGames() {
     '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Public price beats Pinnacle fair line by 3%+.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🧠</div><div class="legend-text"><div class="legend-name">Model Pick</div><div class="legend-desc">Featured in the Model tab — quantitative edge detected.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">📰</div><div class="legend-text"><div class="legend-name">Expert Pick</div><div class="legend-desc">Featured in the Picks tab — covered by at least one expert.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% — favorable pricing.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Player Prop Plays</div><div class="legend-desc">Player props ranked by historical hit rate vs current DK line. STRONG = 65%+ hit + 15%+ ROI. SOLID = 58%+ hit. LEAN = 55%+.</div></div></div>' +'<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% — favorable pricing.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% — book taking extra margin.</div></div></div>' +
     '</div>';
 
@@ -1665,6 +1708,36 @@ function renderSharp() {
   h += buildSection("splits", "📊", "SHARP MONEY DIVERGENCE", divergenceGames.length, divBody,
     '<strong>What it means:</strong> When the percentage of money (handle) on a side is far higher than the percentage of tickets (bets), it means a small number of large bettors are pounding that side - typically sharps.<br><br><strong>How to read it:</strong> A 12+ point gap between money% and bets% is significant. The bigger the gap, the stronger the signal.<br><br><strong>When to bet:</strong> Bet the side where money% > bets% before public books move the line. Source: VSiN/DraftKings, updated every 5 minutes.');
 
+  // TOP PLAYER PROPS section
+  const topProps = findTopProps();
+  let propsBody = "";
+  if (!topProps.length) {
+    propsBody = '<div class="empty">No high-edge player props found.</div>';
+  } else {
+    topProps.forEach(p => {
+      const matchupStr = p.game.away_team.split(' ').pop() + ' vs ' + p.game.home_team.split(' ').pop();
+      const oddsStr = p.dkOdds != null ? (p.dkOdds > 0 ? '+' + p.dkOdds : p.dkOdds) : '';
+      const tierLabel = p.tier.toUpperCase();
+      propsBody += '<div class="sc">' +
+        '<div class="sh"><div class="sr">🎯</div>' +
+        '<div style="flex:1"><div class="sm">' + p.player + ' · ' + p.stat + '</div>' +
+        '<div class="smeta">' + matchupStr + ' · ' + p.game.sport_title + '</div></div></div>' +
+        '<div class="sbb"><div class="sbl">PROP PLAY · ' + tierLabel + '</div>' +
+        '<div class="sbv">Take Over ' + p.dkLine + (oddsStr ? ' (' + oddsStr + ')' : '') + '</div></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+        '<span class="prop-pill hl">' + Math.round(p.hitPct) + '% hit rate</span>' +
+        '<span class="prop-pill">' + p.histRecord + '</span>' +
+        (p.histRoi ? '<span class="prop-pill">ROI ' + p.histRoi + '</span>' : '') +
+        (p.gamesPlayed ? '<span class="prop-pill">' + p.gamesPlayed + ' games</span>' : '') +
+        (p.bestBook ? '<span class="prop-pill book">Best: ' + p.bestBook + '</span>' : '') +
+        '</div>' +
+        '<div class="prop-reasoning"><b>Why:</b> ' + buildPropReasoning(p) + '</div>' +
+        '</div>';
+    });
+  }
+  h += buildSection("props", "🎯", "TOP PLAYER PROPS", topProps.length, propsBody,
+    '<strong>What it means:</strong> Player props ranked by historical hit rate against the current DraftKings line.<br><br><strong>How to read it:</strong> "65% hit rate" means the player has gone Over 65% of his tracked games this season. ROI shows what a $100 bet on every game would have returned.<br><br><strong>Best price:</strong> When live cross-book pricing is available, we surface the book offering the best price vs DraftKings.<br><br><strong>Source:</strong> VSiN historical splits + The Odds API live cross-book pricing.');
+
   // LOW JUICE section
   const lowJuiceGames = [];
   const highJuiceGames = [];
@@ -1720,7 +1793,7 @@ function renderSharp() {
     '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ - betting at a discount to true odds.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">📊</div><div class="legend-text"><div class="legend-name">Sharp Money Divergence</div><div class="legend-desc">Money% far exceeds Bets% on one side - a few large (sharp) bettors pounding it. 12+ pt gap is significant.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% - better pricing than standard -110/-110 markets. You pay less to bet.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Player Prop Plays</div><div class="legend-desc">Player props ranked by historical hit rate vs current DK line. STRONG = 65%+ hit + 15%+ ROI. SOLID = 58%+ hit. LEAN = 55%+.</div></div></div>' +'<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% - better pricing than standard -110/-110 markets. You pay less to bet.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% - book charging extra margin. Avoid unless you have a strong edge.</div></div></div>' +
     '</div>';
   
@@ -2282,6 +2355,214 @@ async function fetchSplitsForSport(sportKey) {
   splitsLoading[sportKey] = false;
 }
 
+
+// ============================================================
+// PLAYER PROPS - VSiN historical hit rates + Odds API live odds
+// ============================================================
+
+async function fetchPropsForSport(sportKey) {
+  if (propsCache[sportKey] || propsLoading[sportKey]) return;
+  propsLoading[sportKey] = true;
+  try {
+    const r = await fetch('/api/props?sport=' + encodeURIComponent(sportKey));
+    const data = await r.json();
+    propsCache[sportKey] = data && data.props ? data.props : [];
+  } catch(e) {
+    propsCache[sportKey] = [];
+  }
+  propsLoading[sportKey] = false;
+}
+
+function fetchAllProps() {
+  const supported = ['basketball_nba', 'baseball_mlb', 'americanfootball_nfl'];
+  const sportsInGames = {};
+  allGames.forEach(g => { if (supported.includes(g.sport_key)) sportsInGames[g.sport_key] = true; });
+  return Promise.all(Object.keys(sportsInGames).map(s => fetchPropsForSport(s)));
+}
+
+function getPropsForGame(game) {
+  const props = propsCache[game.sport_key];
+  if (!props || !props.length) return [];
+  // Match props to game by team-name fuzzy match against the 'game' string in each prop
+  const awayTokens = teamTokens(game.away_team);
+  const homeTokens = teamTokens(game.home_team);
+  return props.filter(p => {
+    if (!p.game) return false;
+    const propTokens = teamTokens(p.game);
+    const awayHit = awayTokens.some(t => propTokens.some(pt => pt.includes(t) || t.includes(pt)));
+    const homeHit = homeTokens.some(t => propTokens.some(pt => pt.includes(t) || t.includes(pt)));
+    return awayHit && homeHit;
+  });
+}
+
+// Score a prop based on hit rate, ROI, sample size
+function scoreProp(prop) {
+  if (prop.hitPct == null || prop.gamesPlayed == null || prop.gamesPlayed < 5) {
+    return { tier: null, score: 0 };
+  }
+  const hitPct = prop.hitPct;
+  const roi = parseFloat((prop.histRoi || '').replace('%', '')) || 0;
+  const games = prop.gamesPlayed;
+
+  let score = 0;
+  // Hit rate weighting
+  if (hitPct >= 70) score += 4;
+  else if (hitPct >= 65) score += 3;
+  else if (hitPct >= 60) score += 2;
+  else if (hitPct >= 55) score += 1;
+  // ROI weighting
+  if (roi >= 25) score += 3;
+  else if (roi >= 15) score += 2;
+  else if (roi >= 8) score += 1;
+  // Sample size
+  if (games >= 20) score += 1;
+  else if (games >= 10) score += 0.5;
+
+  let tier;
+  if (score >= 6 && hitPct >= 65 && roi >= 15) tier = 'strong';
+  else if (score >= 4 && hitPct >= 58) tier = 'solid';
+  else if (score >= 2 && hitPct >= 55) tier = 'lean';
+  else tier = null;
+
+  return { tier, score, hitPct, roi, games };
+}
+
+function getRankedPropsForGame(game) {
+  const props = getPropsForGame(game);
+  const scored = props.map(p => ({ ...p, ...scoreProp(p) })).filter(p => p.tier);
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+// Build the props panel HTML for an expanded game card
+function renderPropsUI(game) {
+  const supported = ['basketball_nba', 'baseball_mlb', 'americanfootball_nfl'];
+  if (!supported.includes(game.sport_key)) return '';
+  if (propsLoading[game.sport_key] && !propsCache[game.sport_key]) {
+    return '<div class="props-row"><div class="props-header"><span class="props-title">🎯 Player Props</span></div><div class="props-loading">Loading props…</div></div>';
+  }
+
+  const ranked = getRankedPropsForGame(game);
+  if (!ranked.length) {
+    return '<div class="props-row"><div class="props-header"><span class="props-title">🎯 Player Props</span></div><div class="props-empty">No high-edge player props found for this game.</div></div>';
+  }
+
+  const isOpen = !!window.propsExpanded[game.id];
+  const strong = ranked.filter(p => p.tier === 'strong');
+  const solid = ranked.filter(p => p.tier === 'solid');
+  const leans = ranked.filter(p => p.tier === 'lean');
+
+  let h = '<div class="props-row' + (isOpen ? ' open' : '') + '">';
+  h += '<div class="props-header" onclick="toggleProps(\'' + game.id + '\')">' +
+    '<span class="props-title">🎯 Player Props' +
+    (strong.length ? ' <span class="splits-sig">⚡ ' + strong.length + ' STRONG</span>' : '') +
+    '</span>' +
+    '<span class="props-arrow">▼</span>' +
+    '</div>';
+
+  // Summary
+  let summary = strong.length + ' strong, ' + solid.length + ' solid, ' + leans.length + ' leans';
+  h += '<div class="props-summary">' + summary + ' (sourced from VSiN historical hit rates)</div>';
+
+  // Detail (collapsed)
+  h += '<div class="props-detail">';
+  if (strong.length) {
+    h += '<div class="props-section-header">⚡ Strong plays</div>';
+    strong.slice(0, 5).forEach(p => h += renderPropCard(p, game));
+  }
+  if (solid.length) {
+    h += '<div class="props-section-header">📊 Solid plays</div>';
+    solid.slice(0, 5).forEach(p => h += renderPropCard(p, game));
+  }
+  if (leans.length) {
+    h += '<div class="props-section-header">🟡 Leans</div>';
+    leans.slice(0, 4).forEach(p => h += renderPropCard(p, game));
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderPropCard(p, game) {
+  const tier = p.tier;
+  let h = '<div class="prop-card ' + tier + '">';
+
+  // Header row: player name + tier pill
+  h += '<div class="prop-row1">' +
+    '<div><span class="prop-player">' + p.player + '</span></div>' +
+    '<span class="prop-tier-pill ' + tier + '">' + tier.toUpperCase() + '</span>' +
+    '</div>';
+
+  // Pick line: stat + over + line + odds
+  const oddsStr = p.dkOdds != null ? (p.dkOdds > 0 ? '+' + p.dkOdds : p.dkOdds) : '';
+  h += '<div style="font-size:13px;color:#fff;margin-bottom:3px">Take Over · <b>' + p.dkLine + '</b> ' + p.stat + (oddsStr ? ' (' + oddsStr + ')' : '') + '</div>';
+
+  // Stats row
+  h += '<div class="prop-line-row">';
+  h += '<span class="prop-pill hl">' + Math.round(p.hitPct) + '% hit rate</span>';
+  h += '<span class="prop-pill">' + p.histRecord + '</span>';
+  if (p.histRoi) h += '<span class="prop-pill">ROI ' + p.histRoi + '</span>';
+  if (p.gamesPlayed) h += '<span class="prop-pill">' + p.gamesPlayed + ' games</span>';
+  if (p.seasonAvg != null) h += '<span class="prop-pill">avg ' + p.seasonAvg + '</span>';
+  h += '</div>';
+
+  // Best price row (if Odds API merged)
+  if (p.bestBook && p.bestPrice != null) {
+    const priceStr = p.bestPrice > 0 ? '+' + p.bestPrice : p.bestPrice;
+    const dkOddsNum = p.dkOdds || 0;
+    let edgeNote = '';
+    if (p.bestPrice > dkOddsNum) {
+      const diff = p.bestPrice - dkOddsNum;
+      edgeNote = ' (+' + diff + ' vs DK)';
+    }
+    h += '<div class="prop-best-row">' +
+      '<span><span class="prop-best-label">Best price</span> <span class="prop-best-val">' + priceStr + '</span> at <b>' + p.bestBook + '</b>' + edgeNote + '</span>' +
+      '</div>';
+  }
+
+  // Reasoning
+  h += '<div class="prop-reasoning"><b>Why:</b> ' + buildPropReasoning(p) + '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function buildPropReasoning(p) {
+  const parts = [];
+  if (p.hitPct != null && p.gamesPlayed) {
+    parts.push(p.player + ' has hit Over ' + p.dkLine + ' ' + p.stat + ' in ' + Math.round(p.hitPct) + '% of ' + p.gamesPlayed + ' tracked games this season');
+  }
+  if (p.histRoi) {
+    const roi = parseFloat((p.histRoi || '').replace('%', '')) || 0;
+    if (roi > 0) parts.push('with a ' + p.histRoi + ' ROI for bettors taking Over');
+  }
+  if (p.seasonAvg != null) {
+    parts.push('Season average: ' + p.seasonAvg + ' ' + p.stat.toLowerCase());
+  }
+  if (p.bestBook && p.bestPrice != null && p.dkOdds != null && p.bestPrice > p.dkOdds) {
+    parts.push(p.bestBook + ' offers a better price (' + (p.bestPrice > 0 ? '+' + p.bestPrice : p.bestPrice) + ') than DK (' + (p.dkOdds > 0 ? '+' + p.dkOdds : p.dkOdds) + ')');
+  }
+  return parts.join('. ') + '.';
+}
+
+function toggleProps(gameId) {
+  event.stopPropagation();
+  window.propsExpanded[gameId] = !window.propsExpanded[gameId];
+  if (curTab === 0) renderGames();
+}
+
+// Aggregated top props across all games (for Sharp tab)
+function findTopProps() {
+  const all = [];
+  allGames.forEach(g => {
+    const ranked = getRankedPropsForGame(g);
+    ranked.forEach(p => all.push({ ...p, game: g }));
+  });
+  all.sort((a, b) => b.score - a.score);
+  return all.slice(0, 12);
+}
+
 function fetchAllSplits() {
   const supported = ['baseball_mlb', 'basketball_nba', 'americanfootball_nfl', 'icehockey_nhl'];
   const sportsInGames = {};
@@ -2654,7 +2935,7 @@ async function init() {
     const sc = {}; results.forEach(g => sc[g.sport_title] = true);
     document.getElementById("sL").textContent = results.length + " GAMES - " + Object.keys(sc).length + " SPORTS";
     document.getElementById("sR").textContent = "ODDS + SHARP";
-    computeLocks(); renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks(); renderBetCard(); fetchAllSplits().then(() => { renderGames(); });
+    computeLocks(); renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks(); renderBetCard(); fetchAllSplits().then(() => { renderGames(); renderSharp(); }); fetchAllProps().then(() => { renderGames(); renderSharp(); });
   } catch (e) {
     document.getElementById("games").innerHTML = '<div class="empty">Failed to load: ' + e.message + '<br><br><span style=\"font-size:11px;color:#333\">Tap ↻ to retry</span></div>';
     document.getElementById("hSub").textContent = "ERROR - TAP ↻";
