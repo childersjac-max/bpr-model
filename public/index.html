@@ -369,6 +369,28 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .props-section-header{font-size:10px;color:#888;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin:10px 4px 6px}
 .props-section-header:first-child{margin-top:4px}
 
+
+/* Collapsible expansion sections inside game cards */
+.collapse-section{margin-top:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:8px;overflow:hidden}
+.collapse-header{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.collapse-header:active{background:rgba(255,255,255,.04)}
+.collapse-title{font-size:11px;color:#bbb;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.collapse-arrow{font-size:10px;color:#666;transition:transform 0.2s}
+.collapse-section.open .collapse-arrow{transform:rotate(180deg)}
+.collapse-detail{display:none;padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.05)}
+.collapse-section.open .collapse-detail{display:block}
+.collapse-count{font-size:10px;color:#888;font-family:monospace;margin-left:auto;padding-right:8px}
+
+/* Splits summary detail enhancement */
+.splits-summary-detail{font-size:11px;color:#aaa;font-family:monospace;line-height:1.7;margin-top:6px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:5px}
+.splits-summary-detail b{color:#fff;font-weight:700}
+.splits-summary-detail .sharp-side{color:#4ecca3}
+.splits-summary-detail .public-side{color:#ffc832}
+
+/* Bet rec inline synopsis (replaces CTA line) */
+.bet-rec-synopsis{font-size:12px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:8px}
+.bet-rec-synopsis b{color:#fff}
+
 /* Sharp tab splits divergence cards */
 .splits-sig{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.35)}
 
@@ -678,6 +700,8 @@ let splitsLoading = {};
 let propsCache = {};
 let propsLoading = {};
 window.propsExpanded = window.propsExpanded || {};
+window.sharpSigsExpanded = window.sharpSigsExpanded || {};
+window.whyBetExpanded = window.whyBetExpanded || {};
 
 // Bet Card state
 let betCard = [];
@@ -1116,19 +1140,27 @@ function renderExpand(game) {
 
   const badges = sharpSignalMap[game.id] || [];
   if (badges.length) {
-    h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">';
-    h += '<div class="xp-title">SHARP SIGNALS</div>';
+    const isOpen = !!window.sharpSigsExpanded[game.id];
+    // Preview emojis for collapsed header
+    const emojiPreview = badges.slice(0, 4).map(b => b.emoji).join(' ');
+    h += '<div class="collapse-section' + (isOpen ? ' open' : '') + '">' +
+      '<div class="collapse-header" onclick="toggleSharpSigs(\'' + game.id + '\')">' +
+      '<span class="collapse-title">⚡ Sharp Signals <span style="color:#666;font-size:14px;letter-spacing:0;margin-left:6px">' + emojiPreview + '</span></span>' +
+      '<span class="collapse-count">' + badges.length + ' signal' + (badges.length === 1 ? '' : 's') + '</span>' +
+      '<span class="collapse-arrow">▼</span>' +
+      '</div>' +
+      '<div class="collapse-detail">';
     badges.forEach(b => {
       const def = EMOJI_DEFS[b.emoji];
       if (def) {
         h += '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">' +
           '<div style="font-size:18px;min-width:24px">' + b.emoji + '</div>' +
-          '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#fff">' + def.name + '</div>' +
-          '<div style="font-size:10px;color:#888;margin-top:2px;line-height:1.4">' + def.desc + '</div></div>' +
+          '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:#fff">' + def.name + '</div>' +
+          '<div style="font-size:11px;color:#aaa;margin-top:2px;line-height:1.5">' + def.desc + '</div></div>' +
           '</div>';
       }
     });
-    h += '</div>';
+    h += '</div></div>';
   }
   
   // BET RECOMMENDATION BOX
@@ -1137,6 +1169,8 @@ function renderExpand(game) {
     const evInfo = evLabel(rec.ev);
     const evCls = evInfo ? evInfo.cls : 'bet-ev-low';
     const evTxt = evInfo ? evInfo.lbl : '+'+rec.ev+'%';
+    // Build a short synopsis (1 sentence) for inline display
+    const synopsis = buildBetRecSynopsis(game, rec);
     h += '<div class="bet-box">' +
       '<div class="bet-box-lbl">🎯 BET RECOMMENDATION</div>' +
       '<div class="bet-team-name">Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + '</div>' +
@@ -1146,15 +1180,21 @@ function renderExpand(game) {
       '<span class="pp pub">' + rec.bk.split(' ')[0].toUpperCase() + ' ' + fmt(rec.pub) + '</span>' +
       (rec.sharpDiff>=8?'<span class="sig">SHARP ⚡</span>':'') +
       '</div>' +
-      '<div class="bet-cta">▶ Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + ' @ ' + rec.bk.split(' ')[0].toUpperCase() + '</div>' +
+      '<div class="bet-rec-synopsis">' + synopsis + '</div>' +
       '</div>';
 
-    // Reasoning for why this is the recommended bet
+    // Reasoning collapsed by default - tap to expand
     const recReasons = buildBetRecReasoning(game, rec);
-    h += '<div class="bet-reasoning">' +
-      '<div class="bet-reasoning-title">📖 WHY THIS BET</div>' +
-      recReasons.map(r => '<div class="bet-reasoning-item">' + r + '</div>').join('') +
-      '</div>';
+    const isWhyOpen = !!window.whyBetExpanded[game.id];
+    h += '<div class="collapse-section' + (isWhyOpen ? ' open' : '') + '">' +
+      '<div class="collapse-header" onclick="toggleWhyBet(\'' + game.id + '\')">' +
+      '<span class="collapse-title">📖 Why This Bet</span>' +
+      '<span class="collapse-count">' + recReasons.length + ' point' + (recReasons.length === 1 ? '' : 's') + '</span>' +
+      '<span class="collapse-arrow">▼</span>' +
+      '</div>' +
+      '<div class="collapse-detail">' +
+      recReasons.map(r => '<div style="font-size:12px;color:#bbb;line-height:1.6;margin-bottom:7px">' + r + '</div>').join('') +
+      '</div></div>';
 
     // Add to Bet Card button
     const bcKey = "lines_" + game.id + "_" + rec.team;
@@ -1183,6 +1223,42 @@ function renderExpand(game) {
   return h;
 }
 
+
+
+// Build a short 1-sentence synopsis for the bet recommendation (inline display)
+function buildBetRecSynopsis(game, rec) {
+  const team = rec.team.split(' ').pop();
+  const evStr = rec.ev > 0 ? '+' + rec.ev.toFixed(1) + '%' : rec.ev.toFixed(1) + '%';
+  const bkShort = rec.bk.split(' ')[0];
+  const parts = [];
+
+  if (rec.ev >= 5) {
+    parts.push('<b>Strong ' + evStr + ' EV</b> on ' + team + ' at ' + bkShort);
+  } else if (rec.ev >= 2) {
+    parts.push('<b>' + evStr + ' EV</b> on ' + team + ' at ' + bkShort);
+  } else {
+    parts.push(team + ' offers ' + evStr + ' edge at ' + bkShort);
+  }
+
+  if (rec.sharpDiff >= 8) {
+    parts.push('Pinnacle agrees - ' + rec.sharpDiff + '-pt gap shows sharp money on ' + team);
+  } else if (rec.sharpDiff >= 4) {
+    parts.push('Pinnacle leans this way (' + rec.sharpDiff + '-pt gap)');
+  }
+
+  // Splits corroboration if available
+  const splits = getSplitsForGame(game);
+  if (splits) {
+    const summary = findStrongestDivergence(splits);
+    if (summary && summary.tier === 'sharp' && summary.sharpShort === team) {
+      parts.push('public splits also back ' + team + ' (' + summary.sharpMoney + '% money / ' + summary.sharpTickets + '% bets)');
+    } else if (summary && summary.tier === 'sharp' && summary.publicShort === team) {
+      parts.push('though public splits favor ' + summary.sharpShort);
+    }
+  }
+
+  return parts.join('. ') + '.';
+}
 
 function buildBetRecReasoning(game, rec) {
   const reasons = [];
@@ -2546,6 +2622,18 @@ function buildPropReasoning(p) {
   return parts.join('. ') + '.';
 }
 
+function toggleSharpSigs(gameId) {
+  event.stopPropagation();
+  window.sharpSigsExpanded[gameId] = !window.sharpSigsExpanded[gameId];
+  if (curTab === 0) renderGames();
+}
+
+function toggleWhyBet(gameId) {
+  event.stopPropagation();
+  window.whyBetExpanded[gameId] = !window.whyBetExpanded[gameId];
+  if (curTab === 0) renderGames();
+}
+
 function toggleProps(gameId) {
   event.stopPropagation();
   window.propsExpanded[gameId] = !window.propsExpanded[gameId];
@@ -2702,9 +2790,16 @@ function renderSplitsUI(game) {
     '<span class="splits-arrow">▼</span>' +
     '</div>';
 
-  // Summary verdict (always visible)
+  // Summary verdict (always visible) - now includes the public vs money details
   if (summary) {
-    h += '<div class="splits-summary"><div class="splits-divergence ' + summary.tier + '">' + summary.text + '</div></div>';
+    h += '<div class="splits-summary"><div class="splits-divergence ' + summary.tier + '">' + summary.text + '</div>';
+    if (summary.sharpMoney != null && summary.publicMoney != null) {
+      h += '<div class="splits-summary-detail">' +
+        '<div><span class="sharp-side">⚡ ' + summary.sharpShort + '</span>: <b>' + summary.sharpMoney + '%</b> money / <b>' + summary.sharpTickets + '%</b> bets <span style="color:#666">(money +' + (summary.sharpMoney - summary.sharpTickets) + 'pts)</span></div>' +
+        '<div><span class="public-side">⚖ ' + summary.publicShort + '</span>: <b>' + summary.publicMoney + '%</b> money / <b>' + summary.publicTickets + '%</b> bets <span style="color:#666">(public +' + (summary.publicTickets - summary.publicMoney) + 'pts)</span></div>' +
+        '</div>';
+    }
+    h += '</div>';
   }
 
   // Detailed table (only when expanded)
@@ -2715,7 +2810,7 @@ function renderSplitsUI(game) {
 }
 
 function findStrongestDivergence(splits) {
-  // Look across moneyline, spread, total — return the largest gap
+  // Look across moneyline, spread, total — return the largest gap with full details
   let best = null;
   let bestMagnitude = 0;
 
@@ -2729,20 +2824,33 @@ function findStrongestDivergence(splits) {
 
     const threshold = 12;
     const moderate = 7;
+    const sharpSide = diff1 > diff2 ? side1Name : side2Name;
+    const publicSide = diff1 > diff2 ? side2Name : side1Name;
+    const sharpShort = sharpSide.split(' ').pop();
+    const publicShort = publicSide.split(' ').pop();
+    const sharpTickets = diff1 > diff2 ? t1 : t2;
+    const sharpMoney = diff1 > diff2 ? m1 : m2;
+    const publicTickets = diff1 > diff2 ? t2 : t1;
+    const publicMoney = diff1 > diff2 ? m2 : m1;
 
-    if (mag >= threshold) {
-      const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-      const publicSide = diff1 > diff2 ? side2Name : side1Name;
-      const sharpShort = sharpSide.split(' ').pop();
-      const publicShort = publicSide.split(' ').pop();
-      best = { tier: 'sharp', text: '⚡ Sharp money on ' + sharpShort + ' (' + market + ') · Public on ' + publicShort };
-    } else if (mag >= moderate) {
-      const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-      const sharpShort = sharpSide.split(' ').pop();
-      best = { tier: 'public', text: '↗ Slight ' + market + ' money lean toward ' + sharpShort };
-    } else if (!best) {
-      best = { tier: 'balanced', text: '⚖ Tickets and money roughly balanced across markets' };
-    }
+    let tier;
+    if (mag >= threshold) tier = 'sharp';
+    else if (mag >= moderate) tier = 'public';
+    else tier = 'balanced';
+
+    let text;
+    if (tier === 'sharp') text = '⚡ Sharp money on ' + sharpShort + ' (' + market + ') · Public on ' + publicShort;
+    else if (tier === 'public') text = '↗ Slight ' + market + ' money lean toward ' + sharpShort;
+    else text = '⚖ ' + market + ' tickets and money roughly balanced';
+
+    best = {
+      tier, text, market, magnitude: mag,
+      sharpSide, publicSide, sharpShort, publicShort,
+      sharpTickets: Math.round(sharpTickets),
+      sharpMoney: Math.round(sharpMoney),
+      publicTickets: Math.round(publicTickets),
+      publicMoney: Math.round(publicMoney)
+    };
   }
 
   if (splits.moneyline) {
