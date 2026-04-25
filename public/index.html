@@ -1953,7 +1953,7 @@ function selectSource(src) { selectedSource = src; picksView = "details"; render
 function backToSources() { selectedSource = null; picksView = "sources"; renderPicks(); }
 
 function renderPicks() {
-  if (!allPicks.length) { document.getElementById("picks").innerHTML = '<div class="empty">No picks available.</div>'; return; }
+  if (!allPicks.length) { document.getElementById("picks").innerHTML = '<div class="empty"><div style="font-size:14px;color:#888;margin-bottom:8px">No picks available right now.</div><div style="font-size:11px;color:#666;line-height:1.5">Sources: VSiN expert picks, OddsShark computer picks, Covers consensus.<br>This may indicate the scrape is rate-limited or off-season.</div></div>'; return; }
   if (picksView === "sources") {
     const bySource = {};
     allPicks.forEach(p => {
@@ -1963,13 +1963,19 @@ function renderPicks() {
     });
     const sources = Object.keys(bySource).sort((a, b) => bySource[b].picks.length - bySource[a].picks.length);
     let h = '<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">TAP A SOURCE TO VIEW PICKS</div>';
+    const srcIcons = { 'VSiN': '📊', 'OddsShark': '🦈', 'Covers': '👥' };
     sources.forEach(src => {
       const info = bySource[src];
       const avgConf = info.picks.reduce((a, p) => a + p.confidence, 0) / info.picks.length;
       const highEV = info.picks.filter(p => p.ev === "HIGH").length;
+      const totalUnits = info.picks.reduce((a, p) => a + (p.units || 0), 0);
+      const icon = srcIcons[src] || '📰';
       h += '<div class="src-card" onclick="selectSource(\'' + src.replace(/'/g, "\\'") + '\')">' +
-        '<div><div class="src-name">' + src + '</div><div class="src-meta">' + 
-        info.picks.length + ' picks · avg ' + avgConf.toFixed(1) + '★ · ' + highEV + ' high EV</div></div>' +
+        '<div style="flex:1"><div class="src-name">' + icon + ' ' + src + '</div><div class="src-meta">' +
+        info.picks.length + ' picks' +
+        (totalUnits > 0 ? ' · ' + totalUnits.toFixed(1) + ' units staked' : '') +
+        (highEV > 0 ? ' · ' + highEV + ' strong' : '') +
+        '</div></div>' +
         '<div class="src-count">' + info.picks.length + '</div></div>';
     });
     document.getElementById("picks").innerHTML = h;
@@ -2001,7 +2007,8 @@ function renderPicks() {
         (p.ev === "HIGH" ? '<span class="pp" style="background:rgba(78,204,163,.12);color:#4ecca3;font-size:9px">HIGH EV</span>' : p.ev === "MEDIUM" ? '<span class="pp" style="background:rgba(255,200,50,.1);color:#ffc832;font-size:9px">MED EV</span>' : '') +
         '</div></div>' +
         '<div class="sbb"><div class="sbl">' + (p.betType || "PICK") + '</div><div class="sbv">' + p.bet + '</div></div>' +
-        (p.detail ? '<div style="font-size:11px;color:#555;margin-top:6px">' + p.detail.slice(0, 200) + '</div>' : "") +
+        (p.units != null ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><span class="pp" style="background:rgba(78,204,163,.12);color:#4ecca3;font-size:9px;font-family:monospace">★ ' + p.units + ' UNIT' + (p.units === 1 ? '' : 'S') + '</span>' + (p.gameTime ? '<span class="pp pub" style="font-size:9px">' + p.gameTime + '</span>' : '') + '</div>' : '') +
+        (p.detail ? '<div style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">' + p.detail.slice(0, 200) + '</div>' : "") +
         '</div>';
     });
   });
