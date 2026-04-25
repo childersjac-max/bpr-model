@@ -300,29 +300,41 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .settings-btn-cancel{flex:1;background:rgba(255,255,255,.06);color:#aaa;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px;font-weight:700;font-size:13px;cursor:pointer}
 
 .unit-value{font-size:11px;color:#bbb;margin-top:3px;font-weight:700}
-.splits-row{margin-top:10px;padding:11px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px}
-.splits-title{font-size:10px;color:#888;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-.splits-team-row{margin-bottom:9px}
-.splits-team-row:last-child{margin-bottom:0}
-.splits-team-name{font-size:12px;color:#ddd;font-weight:600;margin-bottom:5px;display:flex;justify-content:space-between}
-.splits-team-name b{color:#fff}
-.splits-bars{display:flex;flex-direction:column;gap:4px}
-.splits-bar-row{display:flex;align-items:center;gap:8px;font-size:11px}
-.splits-bar-lbl{width:42px;color:#888;font-weight:600;flex-shrink:0}
-.splits-bar-track{flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;position:relative}
-.splits-bar-fill{height:100%;border-radius:4px;transition:width 0.3s}
-.splits-bar-fill.tickets{background:linear-gradient(90deg,#5ba3ff 0%,#4a8ce0 100%)}
-.splits-bar-fill.money{background:linear-gradient(90deg,#4ecca3 0%,#3eb892 100%)}
-.splits-bar-pct{width:40px;text-align:right;color:#fff;font-weight:700;font-family:monospace;flex-shrink:0}
-.splits-divergence{font-size:11px;padding:5px 9px;border-radius:5px;margin-top:8px;font-weight:600;text-align:center}
+.splits-row{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
+.splits-header{padding:11px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.splits-header:active{background:rgba(255,255,255,.04)}
+.splits-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.splits-arrow{font-size:11px;color:#666;transition:transform 0.2s}
+.splits-row.open .splits-arrow{transform:rotate(180deg)}
+.splits-summary{padding:0 12px 11px;font-size:12px;color:#bbb;line-height:1.5}
+.splits-divergence{font-size:12px;padding:7px 11px;border-radius:6px;font-weight:600;display:flex;align-items:center;gap:7px}
 .splits-divergence.sharp{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
 .splits-divergence.public{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.25)}
-.splits-divergence.balanced{background:rgba(255,255,255,.05);color:#888;border:1px solid rgba(255,255,255,.08)}
-.splits-empty{font-size:11px;color:#666;text-align:center;padding:8px}
-.splits-loading{font-size:11px;color:#666;text-align:center;padding:6px}
-.splits-source{font-size:9px;color:#555;font-weight:500;letter-spacing:0.3px}
-.splits-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700}
-.splits-pill.sharp{background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
+.splits-divergence.balanced{background:rgba(255,255,255,.05);color:#aaa;border:1px solid rgba(255,255,255,.08)}
+.splits-detail{display:none;border-top:1px solid rgba(255,255,255,.06);padding:0}
+.splits-row.open .splits-detail{display:block}
+.splits-table{width:100%;border-collapse:collapse;font-size:11px}
+.splits-table thead{background:rgba(78,204,163,.08)}
+.splits-table th{padding:7px 5px;font-size:9px;color:#4ecca3;letter-spacing:0.5px;font-weight:800;text-transform:uppercase;text-align:center;border-right:1px solid rgba(255,255,255,.05)}
+.splits-table th:first-child{text-align:left;padding-left:12px}
+.splits-table th.market-spread{background:rgba(91,163,255,.06)}
+.splits-table th.market-total{background:rgba(255,200,50,.06)}
+.splits-table th.market-ml{background:rgba(78,204,163,.06)}
+.splits-table td{padding:7px 5px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);border-right:1px solid rgba(255,255,255,.04);color:#ccc;font-family:monospace;font-size:11px}
+.splits-table td:first-child{text-align:left;padding-left:12px;font-family:-apple-system,sans-serif;font-weight:600;color:#fff;font-size:12px}
+.splits-table tr:last-child td{border-bottom:none}
+.splits-line-cell{background:rgba(255,255,255,.03);color:#aaa;font-weight:700}
+.splits-pct-cell{font-weight:700}
+.splits-pct-cell.high{color:#fff}
+.splits-pct-cell.low{color:#666}
+.splits-empty{font-size:11px;color:#888;text-align:center;padding:14px;font-style:italic}
+.splits-loading{font-size:11px;color:#888;text-align:center;padding:10px}
+.splits-source{font-size:9px;color:#666;font-weight:500;letter-spacing:0.3px;font-family:monospace}
+.split-mini-bar{display:inline-block;width:34px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-left:6px;vertical-align:middle}
+.split-mini-bar-fill{height:100%;background:#4ecca3}
+
+/* Sharp tab splits divergence cards */
+.splits-sig{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.35)}
 
 .juice-pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;display:inline-flex;align-items:center;gap:4px}
 .juice-low{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
@@ -1438,6 +1450,37 @@ function renderSharp() {
   h += buildSection("clv", "💎", "CLOSING LINE VALUE", clvSignals.length, clvBody,
     '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle\'s line will likely move to match public books by game time.');
 
+  // SPLITS DIVERGENCE section
+  const divergenceGames = findSharpDivergenceGames();
+  let divBody = "";
+  if (!divergenceGames.length) {
+    divBody = '<div class="empty">No significant ticket vs. money divergences detected.</div>';
+  } else {
+    divergenceGames.forEach(d => {
+      const m = d.market;
+      const sharpShort = m.sharpSide.split(' ').pop();
+      const publicShort = m.publicSide.split(' ').pop();
+      const matchupStr = d.game.away_team.split(' ').pop() + ' vs ' + d.game.home_team.split(' ').pop();
+      divBody += '<div class="sc">' +
+        '<div class="sh"><div class="sr">📊</div>' +
+        '<div style="flex:1"><div class="sm">' + matchupStr + '</div>' +
+        '<div class="smeta">' + d.game.sport_title + ' - ' + fmtT(d.game.commence_time) + '</div></div></div>' +
+        '<div class="sbb"><div class="sbl">SHARP DIVERGENCE · ' + m.market.toUpperCase() + '</div>' +
+        '<div class="sbv">Take ' + m.market + ' · ' + m.sharpSide + '</div></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+        '<span class="splits-sig">⚡ ' + Math.round(m.magnitude) + 'pt MONEY/BET GAP</span>' +
+        '<span class="pp pub">' + sharpShort + ': ' + Math.round(m.sharpMoney) + '% money / ' + Math.round(m.sharpTickets) + '% bets</span>' +
+        '<span class="pp pub">' + publicShort + ': ' + Math.round(m.publicMoney) + '% money / ' + Math.round(m.publicTickets) + '% bets</span>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#bbb;line-height:1.6;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:6px">' +
+        '<b style="color:#4ecca3">Why this matters:</b> ' + Math.round(m.publicTickets) + '% of bets are on <b>' + publicShort + '</b>, but only ' + Math.round(m.publicMoney) + '% of money is on them. The bigger bets - typically sharps - are on <b>' + sharpShort + '</b>.' +
+        '</div>' +
+        '</div>';
+    });
+  }
+  h += buildSection("splits", "📊", "SHARP MONEY DIVERGENCE", divergenceGames.length, divBody,
+    '<strong>What it means:</strong> When the percentage of money (handle) on a side is far higher than the percentage of tickets (bets), it means a small number of large bettors are pounding that side - typically sharps.<br><br><strong>How to read it:</strong> A 12+ point gap between money% and bets% is significant. The bigger the gap, the stronger the signal.<br><br><strong>When to bet:</strong> Bet the side where money% > bets% before public books move the line. Source: VSiN/DraftKings, updated every 5 minutes.');
+
   // LOW JUICE section
   const lowJuiceGames = [];
   const highJuiceGames = [];
@@ -1492,6 +1535,7 @@ function renderSharp() {
     '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ sportsbooks moving their lines the same direction simultaneously. Professional syndicate action.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public. Sharp money overwhelming public bets.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ - betting at a discount to true odds.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">📊</div><div class="legend-text"><div class="legend-name">Sharp Money Divergence</div><div class="legend-desc">Money% far exceeds Bets% on one side - a few large (sharp) bettors pounding it. 12+ pt gap is significant.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% - better pricing than standard -110/-110 markets. You pay less to bet.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% - book charging extra margin. Avoid unless you have a strong edge.</div></div></div>' +
     '</div>';
@@ -2155,94 +2199,229 @@ function num(v) {
   return isFinite(n) ? n : null;
 }
 
-// Render the splits UI for a given game
+// State: per-game splits expansion
+window.splitsExpanded = window.splitsExpanded || {};
+
+function toggleSplits(gameId) {
+  event.stopPropagation();
+  window.splitsExpanded[gameId] = !window.splitsExpanded[gameId];
+  // Rerender just this expansion area
+  if (curTab === 0) renderGames();
+  else if (curTab === 1) renderSharp();
+}
+
+// Render the splits UI for a given game (collapsible)
 function renderSplitsUI(game) {
-  const supported = ['baseball_mlb', 'basketball_nba', 'americanfootball_nfl', 'icehockey_nhl'];
+  const supported = ['baseball_mlb', 'basketball_nba', 'americanfootball_nfl', 'icehockey_nhl', 'americanfootball_ncaaf', 'basketball_ncaab', 'basketball_wnba'];
   if (!supported.includes(game.sport_key)) {
     return '';
   }
   if (splitsLoading[game.sport_key] && !splitsCache[game.sport_key]) {
-    return '<div class="splits-row"><div class="splits-title">📊 PUBLIC SPLITS</div><div class="splits-loading">Loading splits…</div></div>';
+    return '<div class="splits-row"><div class="splits-header"><span class="splits-title">📊 Public Splits</span></div><div class="splits-loading">Loading splits…</div></div>';
   }
   const splits = getSplitsForGame(game);
   if (!splits) {
-    return '<div class="splits-row"><div class="splits-title">📊 PUBLIC SPLITS</div><div class="splits-empty">Splits not available for this game.</div></div>';
+    return '<div class="splits-row"><div class="splits-header"><span class="splits-title">📊 Public Splits</span></div><div class="splits-empty">Splits not available for this game.</div></div>';
   }
 
-  let h = '<div class="splits-row">';
-  h += '<div class="splits-title"><span>📊 Public Splits</span><span class="splits-source">Source: TheRundown</span></div>';
+  const isOpen = !!window.splitsExpanded[game.id];
+
+  // Pick the strongest divergence across the three markets for headline summary
+  const summary = findStrongestDivergence(splits);
+
+  let h = '<div class="splits-row' + (isOpen ? ' open' : '') + '">';
+  h += '<div class="splits-header" onclick="toggleSplits(\'' + game.id + '\')">' +
+    '<span class="splits-title">📊 Public Splits' +
+    (summary && summary.tier === 'sharp' ? ' <span class="splits-sig">⚡ SHARP DIVERGENCE</span>' : '') +
+    '</span>' +
+    '<span class="splits-arrow">▼</span>' +
+    '</div>';
+
+  // Summary verdict (always visible)
+  if (summary) {
+    h += '<div class="splits-summary"><div class="splits-divergence ' + summary.tier + '">' + summary.text + '</div></div>';
+  }
+
+  // Detailed table (only when expanded)
+  h += '<div class="splits-detail">' + renderSplitsTable(splits) + '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function findStrongestDivergence(splits) {
+  // Look across moneyline, spread, total — return the largest gap
+  let best = null;
+  let bestMagnitude = 0;
+
+  function evalDivergence(t1, m1, t2, m2, side1Name, side2Name, market) {
+    if (t1 == null || m1 == null || t2 == null || m2 == null) return;
+    const diff1 = m1 - t1;
+    const diff2 = m2 - t2;
+    const mag = Math.max(Math.abs(diff1), Math.abs(diff2));
+    if (mag <= bestMagnitude && best) return;
+    bestMagnitude = mag;
+
+    const threshold = 12;
+    const moderate = 7;
+
+    if (mag >= threshold) {
+      const sharpSide = diff1 > diff2 ? side1Name : side2Name;
+      const publicSide = diff1 > diff2 ? side2Name : side1Name;
+      const sharpShort = sharpSide.split(' ').pop();
+      const publicShort = publicSide.split(' ').pop();
+      best = { tier: 'sharp', text: '⚡ Sharp money on ' + sharpShort + ' (' + market + ') · Public on ' + publicShort };
+    } else if (mag >= moderate) {
+      const sharpSide = diff1 > diff2 ? side1Name : side2Name;
+      const sharpShort = sharpSide.split(' ').pop();
+      best = { tier: 'public', text: '↗ Slight ' + market + ' money lean toward ' + sharpShort };
+    } else if (!best) {
+      best = { tier: 'balanced', text: '⚖ Tickets and money roughly balanced across markets' };
+    }
+  }
 
   if (splits.moneyline) {
-    h += renderSplitTeamPair('Moneyline', splits.awayTeam, splits.homeTeam,
+    evalDivergence(
       splits.moneyline.ticketsAway, splits.moneyline.moneyAway,
-      splits.moneyline.ticketsHome, splits.moneyline.moneyHome);
+      splits.moneyline.ticketsHome, splits.moneyline.moneyHome,
+      splits.awayTeam, splits.homeTeam, 'ML');
   }
   if (splits.spread) {
-    h += renderSplitTeamPair('Spread', splits.awayTeam, splits.homeTeam,
+    evalDivergence(
       splits.spread.ticketsAway, splits.spread.moneyAway,
-      splits.spread.ticketsHome, splits.spread.moneyHome);
+      splits.spread.ticketsHome, splits.spread.moneyHome,
+      splits.awayTeam, splits.homeTeam, 'Spread');
   }
   if (splits.total) {
-    h += renderSplitTeamPair('Total', 'Over', 'Under',
+    evalDivergence(
       splits.total.ticketsOver, splits.total.moneyOver,
-      splits.total.ticketsUnder, splits.total.moneyUnder);
+      splits.total.ticketsUnder, splits.total.moneyUnder,
+      'Over', 'Under', 'Total');
   }
 
-  h += '</div>';
+  return best;
+}
+
+// Build a VSiN-style table: rows for away/home teams, columns for spread/total/ml each with line/handle/bets
+function renderSplitsTable(splits) {
+  const aw = splits.awayTeam.split(' ').pop();
+  const hm = splits.homeTeam.split(' ').pop();
+
+  let h = '<table class="splits-table">';
+  h += '<thead><tr>' +
+    '<th rowspan="2">Team</th>' +
+    '<th colspan="3" class="market-spread">Spread</th>' +
+    '<th colspan="3" class="market-total">Total</th>' +
+    '<th colspan="3" class="market-ml">Moneyline</th>' +
+    '</tr><tr>' +
+    '<th class="market-spread">Line</th><th class="market-spread">Handle</th><th class="market-spread">Bets</th>' +
+    '<th class="market-total">Line</th><th class="market-total">Handle</th><th class="market-total">Bets</th>' +
+    '<th class="market-ml">Line</th><th class="market-ml">Handle</th><th class="market-ml">Bets</th>' +
+    '</tr></thead><tbody>';
+
+  // Away row
+  h += '<tr><td>' + splits.awayTeam + '</td>' +
+    splitCell(splits.spread && splits.spread.lineAway, 'line') +
+    splitCell(splits.spread && splits.spread.moneyAway, 'pct') +
+    splitCell(splits.spread && splits.spread.ticketsAway, 'pct') +
+    splitCell(splits.total && splits.total.line, 'line') +
+    splitCell(splits.total && splits.total.moneyOver, 'pct', 'Over') +
+    splitCell(splits.total && splits.total.ticketsOver, 'pct', 'Over') +
+    splitCell(splits.moneyline && splits.moneyline.lineAway, 'line') +
+    splitCell(splits.moneyline && splits.moneyline.moneyAway, 'pct') +
+    splitCell(splits.moneyline && splits.moneyline.ticketsAway, 'pct') +
+    '</tr>';
+
+  // Home row
+  h += '<tr><td>' + splits.homeTeam + '</td>' +
+    splitCell(splits.spread && splits.spread.lineHome, 'line') +
+    splitCell(splits.spread && splits.spread.moneyHome, 'pct') +
+    splitCell(splits.spread && splits.spread.ticketsHome, 'pct') +
+    splitCell(splits.total && splits.total.line, 'line') +
+    splitCell(splits.total && splits.total.moneyUnder, 'pct', 'Under') +
+    splitCell(splits.total && splits.total.ticketsUnder, 'pct', 'Under') +
+    splitCell(splits.moneyline && splits.moneyline.lineHome, 'line') +
+    splitCell(splits.moneyline && splits.moneyline.moneyHome, 'pct') +
+    splitCell(splits.moneyline && splits.moneyline.ticketsHome, 'pct') +
+    '</tr>';
+
+  h += '</tbody></table>';
   return h;
 }
 
-function renderSplitTeamPair(market, side1Name, side2Name, t1, m1, t2, m2) {
-  let h = '<div style="margin-bottom:10px"><div style="font-size:10px;color:#999;letter-spacing:1px;font-weight:700;margin-bottom:6px;text-transform:uppercase">' + market + '</div>';
-  h += renderSplitOne(side1Name, t1, m1);
-  h += renderSplitOne(side2Name, t2, m2);
-  // Divergence detection: large gap between tickets % and money % suggests sharp action
-  const div = detectSplitDivergence(t1, m1, t2, m2, side1Name, side2Name);
-  if (div) {
-    h += '<div class="splits-divergence ' + div.tier + '">' + div.text + '</div>';
+function splitCell(val, type, prefix) {
+  if (val == null || val === '') return '<td>-</td>';
+  if (type === 'line') {
+    return '<td class="splits-line-cell">' + (prefix ? prefix + ' ' + val : val) + '</td>';
   }
-  h += '</div>';
-  return h;
+  if (type === 'pct') {
+    const cls = val >= 60 ? 'high' : (val <= 40 ? 'low' : '');
+    return '<td class="splits-pct-cell ' + cls + '">' + Math.round(val) + '%</td>';
+  }
+  return '<td>' + val + '</td>';
 }
 
-function renderSplitOne(name, tickets, money) {
-  if (tickets == null && money == null) return '';
-  const tShort = name.split(' ').pop();
-  let h = '<div class="splits-team-row">';
-  h += '<div class="splits-team-name"><b>' + tShort + '</b></div>';
-  h += '<div class="splits-bars">';
-  if (tickets != null) {
-    h += '<div class="splits-bar-row"><span class="splits-bar-lbl">Bets</span><div class="splits-bar-track"><div class="splits-bar-fill tickets" style="width:' + Math.min(100, tickets) + '%"></div></div><span class="splits-bar-pct">' + Math.round(tickets) + '%</span></div>';
-  }
-  if (money != null) {
-    h += '<div class="splits-bar-row"><span class="splits-bar-lbl">Money</span><div class="splits-bar-track"><div class="splits-bar-fill money" style="width:' + Math.min(100, money) + '%"></div></div><span class="splits-bar-pct">' + Math.round(money) + '%</span></div>';
-  }
-  h += '</div></div>';
-  return h;
+// Identify all games with a strong sharp divergence across all loaded splits
+function findSharpDivergenceGames() {
+  const out = [];
+  allGames.forEach(g => {
+    const supported = ['baseball_mlb', 'basketball_nba', 'americanfootball_nfl', 'icehockey_nhl', 'americanfootball_ncaaf', 'basketball_ncaab', 'basketball_wnba'];
+    if (!supported.includes(g.sport_key)) return;
+    if (!splitsCache[g.sport_key]) return;
+    const splits = getSplitsForGame(g);
+    if (!splits) return;
+    const diverge = findStrongestDivergence(splits);
+    if (diverge && diverge.tier === 'sharp') {
+      // Pull the strongest specific market
+      const market = analyzeBestMarket(splits);
+      if (market) {
+        out.push({ game: g, splits, divergence: diverge, market });
+      }
+    }
+  });
+  // Sort by magnitude of divergence (desc)
+  out.sort((a, b) => b.market.magnitude - a.market.magnitude);
+  return out;
 }
 
-function detectSplitDivergence(t1, m1, t2, m2, side1Name, side2Name) {
-  // For side 1: if money% >> tickets%, sharp money is on side 1
-  // For side 2: if money% >> tickets%, sharp money is on side 2
-  if (t1 == null || m1 == null || t2 == null || m2 == null) return null;
-  const diff1 = m1 - t1; // positive = side 1 has heavier money than tickets
-  const diff2 = m2 - t2;
-  const threshold = 12; // 12+ point gap = significant divergence
-  const moderate = 7;
-  if (Math.abs(diff1) >= threshold || Math.abs(diff2) >= threshold) {
-    const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-    const publicSide = diff1 > diff2 ? side2Name : side1Name;
-    const sharpShort = sharpSide.split(' ').pop();
-    const publicShort = publicSide.split(' ').pop();
-    return { tier: 'sharp', text: '⚡ Sharp money on ' + sharpShort + ' · Public bets on ' + publicShort };
+function analyzeBestMarket(splits) {
+  let best = null;
+  function tryMarket(t1, m1, t2, m2, side1, side2, marketName) {
+    if (t1 == null || m1 == null || t2 == null || m2 == null) return;
+    const diff1 = m1 - t1;
+    const diff2 = m2 - t2;
+    const mag = Math.max(Math.abs(diff1), Math.abs(diff2));
+    if (mag < 12) return;
+    if (best && mag <= best.magnitude) return;
+    const sharpSide = diff1 > diff2 ? side1 : side2;
+    const publicSide = diff1 > diff2 ? side2 : side1;
+    const sharpTickets = diff1 > diff2 ? t1 : t2;
+    const sharpMoney = diff1 > diff2 ? m1 : m2;
+    const publicTickets = diff1 > diff2 ? t2 : t1;
+    const publicMoney = diff1 > diff2 ? m2 : m1;
+    best = {
+      market: marketName,
+      magnitude: mag,
+      sharpSide, publicSide,
+      sharpTickets, sharpMoney,
+      publicTickets, publicMoney
+    };
   }
-  if (Math.abs(diff1) >= moderate || Math.abs(diff2) >= moderate) {
-    const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-    const sharpShort = sharpSide.split(' ').pop();
-    return { tier: 'public', text: '↗ Slight money lean toward ' + sharpShort };
-  }
-  return { tier: 'balanced', text: '⚖ Tickets and money roughly balanced' };
+  if (splits.moneyline) tryMarket(
+    splits.moneyline.ticketsAway, splits.moneyline.moneyAway,
+    splits.moneyline.ticketsHome, splits.moneyline.moneyHome,
+    splits.awayTeam, splits.homeTeam, 'Moneyline');
+  if (splits.spread) tryMarket(
+    splits.spread.ticketsAway, splits.spread.moneyAway,
+    splits.spread.ticketsHome, splits.spread.moneyHome,
+    splits.awayTeam, splits.homeTeam, 'Spread');
+  if (splits.total) tryMarket(
+    splits.total.ticketsOver, splits.total.moneyOver,
+    splits.total.ticketsUnder, splits.total.moneyUnder,
+    'Over', 'Under', 'Total');
+  return best;
 }
+
 
 async function init() {
   const btn = document.getElementById("rfBtn");
