@@ -301,11 +301,22 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .settings-btn-cancel{flex:1;background:rgba(255,255,255,.06);color:#aaa;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px;font-weight:700;font-size:13px;cursor:pointer}
 
 .unit-value{font-size:11px;color:#bbb;margin-top:3px;font-weight:700}
-.splits-row{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
-.splits-header{padding:11px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.splits-header:active{background:rgba(255,255,255,.04)}
-.splits-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.splits-arrow{font-size:11px;color:#666;transition:transform 0.2s}
+.splits-header{
+  padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none
+}
+.splits-header:active { background: rgba(255,255,255,.03); }
+.splits-title{
+  font-size:13px;color:#fff;letter-spacing:0.2px;font-weight:600;
+  display:flex;align-items:center;gap:7px;flex-shrink:0
+}
+.splits-arrow{
+  font-size:10px;color:#555;transition:transform 0.2s ease, color 0.2s ease;
+  flex-shrink:0;margin-left:4px
+}
+.splits-row:hover .splits-arrow { color:#888 }
+.splits-row.open .splits-arrow {
+  transform:rotate(180deg);color:#aaa
+}
 .splits-row.open .splits-arrow{transform:rotate(180deg)}
 .splits-summary{padding:0 12px 11px;font-size:12px;color:#bbb;line-height:1.5}
 .splits-divergence{font-size:12px;padding:7px 11px;border-radius:6px;font-weight:600;display:flex;align-items:center;gap:7px}
@@ -337,10 +348,15 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 
 /* Splits bar inline synopsis */
-.splits-bar-synopsis{flex:1;font-size:12px;line-height:1.4;text-align:right;margin-right:8px}
-.splits-bar-synopsis b{font-weight:700}
-.splits-bar-synopsis.sharp{color:#4ecca3}
-.splits-bar-synopsis.public{color:#ffc832}
+.splits-bar-synopsis{
+  flex:1;font-size:12.5px;line-height:1.4;text-align:right;margin-right:0;
+  color:#b8b8b8;font-weight:400;letter-spacing:0.1px
+}
+.splits-bar-synopsis b{font-weight:600;color:#fff}
+.splits-bar-synopsis.sharp{color:#a3e8d0}
+.splits-bar-synopsis.sharp b{color:#5dd9b1}
+.splits-bar-synopsis.public{color:#e6d4a3}
+.splits-bar-synopsis.public b{color:#ffd970}
 .splits-bar-synopsis.balanced{color:#888}
 .splits-header{display:flex;align-items:center;gap:8px}
 @media (max-width: 480px) {
@@ -348,11 +364,22 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 }
 
 /* Player props styling */
-.props-row{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
-.props-header{padding:11px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.props-header:active{background:rgba(255,255,255,.04)}
-.props-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.props-arrow{font-size:11px;color:#666;transition:transform 0.2s}
+.props-header{
+  padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none
+}
+.props-header:active { background: rgba(255,255,255,.03); }
+.props-title{
+  font-size:13px;color:#fff;letter-spacing:0.2px;font-weight:600;
+  display:flex;align-items:center;gap:7px;flex-shrink:0
+}
+.props-arrow{
+  font-size:10px;color:#555;transition:transform 0.2s ease, color 0.2s ease;
+  flex-shrink:0;margin-left:4px
+}
+.props-row:hover .props-arrow { color:#888 }
+.props-row.open .props-arrow {
+  transform:rotate(180deg);color:#aaa
+}
 .props-row.open .props-arrow{transform:rotate(180deg)}
 .props-empty{font-size:11px;color:#888;text-align:center;padding:14px;font-style:italic}
 .props-loading{font-size:11px;color:#888;text-align:center;padding:10px}
@@ -384,30 +411,122 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 
 /* Collapsible Moneyline bar (yellow box) */
-.ml-bar{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
-.ml-bar-header{padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
-.ml-bar-header:active{background:rgba(255,255,255,.04)}
-.ml-bar-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;flex-shrink:0}
-.ml-bar-synopsis{flex:1;font-size:12px;line-height:1.4;text-align:right;color:#ccc}
-.ml-bar-synopsis b{font-weight:700}
-.ml-bar-arrow{font-size:10px;color:#666;transition:transform 0.2s;flex-shrink:0}
-.ml-bar.open .ml-bar-arrow{transform:rotate(180deg)}
-.ml-bar-detail{display:none;border-top:1px solid rgba(255,255,255,.06);padding:10px 12px}
-.ml-bar.open .ml-bar-detail{display:block}
+/* Premium collapsible bar system (shared by ML, Splits, Props) */
+.game-bar, .ml-bar, .props-row, .splits-row {
+  margin-top: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(255,255,255,.015) 100%);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.game-bar:hover, .ml-bar:hover, .props-row:hover, .splits-row:hover {
+  border-color: rgba(255,255,255,.12);
+}
+.game-bar.open, .ml-bar.open, .props-row.open, .splits-row.open {
+  border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.025);
+}
+
+/* Bar headers */
+.ml-bar-header {
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.ml-bar-header:active { background: rgba(255,255,255,.03); }
+
+/* Title style: mixed-case for premium feel */
+.ml-bar-title {
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: 0.2px;
+  font-weight: 600;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ml-bar-title-icon {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* Right-aligned synopsis - lighter weight, more breathing room */
+.ml-bar-synopsis {
+  flex: 1;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: right;
+  color: #b8b8b8;
+  font-weight: 400;
+  letter-spacing: 0.1px;
+}
+.ml-bar-synopsis b {
+  font-weight: 600;
+  color: #fff;
+}
+.ml-bar-synopsis.tier-strong b { color: #5dd9b1; }
+.ml-bar-synopsis.tier-soft b { color: #ffd970; }
+
+/* Refined chevron */
+.ml-bar-arrow {
+  font-size: 10px;
+  color: #555;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.ml-bar:hover .ml-bar-arrow { color: #888; }
+.ml-bar.open .ml-bar-arrow {
+  transform: rotate(180deg);
+  color: #aaa;
+}
+
+/* Detail panels */
+.ml-bar-detail {
+  display: none;
+  border-top: 1px solid rgba(255,255,255,.05);
+  padding: 12px 14px;
+}
+.ml-bar.open .ml-bar-detail { display: block; }
 @media (max-width: 480px) {
   .ml-bar-synopsis{font-size:11px}
 }
 
 /* Collapsible expansion sections inside game cards */
-.collapse-section{margin-top:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:8px;overflow:hidden}
-.collapse-header{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
-.collapse-header:active{background:rgba(255,255,255,.04)}
-.collapse-title{font-size:11px;color:#bbb;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.collapse-arrow{font-size:10px;color:#666;transition:transform 0.2s}
-.collapse-section.open .collapse-arrow{transform:rotate(180deg)}
-.collapse-detail{display:none;padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.05)}
+.collapse-section{
+  margin-top:8px;
+  background:linear-gradient(180deg, rgba(255,255,255,.025) 0%, rgba(255,255,255,.015) 100%);
+  border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;
+  transition:border-color 0.18s ease, background 0.18s ease
+}
+.collapse-section:hover{border-color:rgba(255,255,255,.12)}
+.collapse-section.open{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.025)}
+.collapse-header{
+  padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;user-select:none
+}
+.collapse-header:active{background:rgba(255,255,255,.03)}
+.collapse-title{
+  font-size:13px;color:#fff;letter-spacing:0.2px;font-weight:600;
+  display:flex;align-items:center;gap:7px
+}
+.collapse-arrow{
+  font-size:10px;color:#555;transition:transform 0.2s ease, color 0.2s ease
+}
+.collapse-section:hover .collapse-arrow{color:#888}
+.collapse-section.open .collapse-arrow{transform:rotate(180deg);color:#aaa}
+.collapse-detail{display:none;padding:12px 14px;border-top:1px solid rgba(255,255,255,.05)}
 .collapse-section.open .collapse-detail{display:block}
-.collapse-count{font-size:10px;color:#888;font-family:monospace;margin-left:auto;padding-right:8px}
+.collapse-count{
+  font-size:11px;color:#888;margin-left:auto;padding-right:8px;
+  font-weight:400;letter-spacing:0.1px
+}
 
 /* Splits summary detail enhancement */
 .splits-summary-detail{font-size:11px;color:#aaa;font-family:monospace;line-height:1.7;margin-top:6px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:5px}
@@ -417,20 +536,47 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 
 /* Bet Recommendation - prominent collapsible bar */
-.bet-rec-bar{margin-top:12px;background:rgba(78,204,163,.06);border:1.5px solid rgba(78,204,163,.4);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px rgba(78,204,163,.15)}
-.bet-rec-header{padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
-.bet-rec-header:active{background:rgba(78,204,163,.1)}
+.bet-rec-bar{
+  margin-top:12px;
+  background:linear-gradient(180deg, rgba(93,217,177,.07) 0%, rgba(93,217,177,.04) 100%);
+  border:1px solid rgba(93,217,177,.32);
+  border-radius:10px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(93,217,177,.06) inset, 0 4px 16px rgba(93,217,177,.05);
+  transition:border-color 0.18s ease, box-shadow 0.18s ease
+}
+.bet-rec-bar:hover{
+  border-color:rgba(93,217,177,.45);
+  box-shadow:0 1px 0 rgba(93,217,177,.08) inset, 0 4px 20px rgba(93,217,177,.08)
+}
+.bet-rec-bar.open{
+  border-color:rgba(93,217,177,.5);
+  box-shadow:0 1px 0 rgba(93,217,177,.1) inset, 0 4px 24px rgba(93,217,177,.1)
+}
+.bet-rec-header{padding:14px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.bet-rec-header:active{background:rgba(93,217,177,.06)}
 .bet-rec-header-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.bet-rec-label{font-size:10px;color:#4ecca3;letter-spacing:1.2px;font-weight:800;text-transform:uppercase;flex:1}
-.bet-rec-arrow{font-size:11px;color:#4ecca3;transition:transform 0.2s}
-.bet-rec-bar.open .bet-rec-arrow{transform:rotate(180deg)}
-.bet-rec-bar-line{font-size:13px;color:#fff;line-height:1.45;font-weight:500}
-.bet-rec-bar-line b{color:#4ecca3;font-weight:700}
-.bet-rec-detail{display:none;border-top:1px solid rgba(78,204,163,.2);padding:13px 14px;background:rgba(0,0,0,.15)}
+.bet-rec-label{
+  font-size:12px;color:#5dd9b1;letter-spacing:0.4px;font-weight:600;
+  flex:1
+}
+.bet-rec-arrow{font-size:10px;color:#5dd9b1;opacity:0.6;transition:transform 0.2s ease, opacity 0.2s ease}
+.bet-rec-bar:hover .bet-rec-arrow{opacity:0.85}
+.bet-rec-bar.open .bet-rec-arrow{transform:rotate(180deg);opacity:1}
+.bet-rec-bar-line{
+  font-size:14px;color:#fff;line-height:1.45;font-weight:400;letter-spacing:0.1px
+}
+.bet-rec-bar-line b{color:#5dd9b1;font-weight:600}
+.bet-rec-detail{
+  display:none;border-top:1px solid rgba(93,217,177,.12);
+  padding:14px 15px;background:rgba(0,0,0,.18)
+}
 .bet-rec-bar.open .bet-rec-detail{display:block}
-.bet-rec-reasons{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.06)}
-.bet-rec-reasons-title{font-size:10px;color:#aaa;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:8px}
-.bet-rec-reason-item{font-size:12px;color:#bbb;line-height:1.6;margin-bottom:7px}
+.bet-rec-reasons{margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05)}
+.bet-rec-reasons-title{
+  font-size:11px;color:#999;letter-spacing:0.3px;font-weight:600;
+  margin-bottom:9px
+}
+.bet-rec-reason-item{font-size:12.5px;color:#c4c4c4;line-height:1.65;margin-bottom:8px}
 
 /* Bet rec inline synopsis (replaces CTA line) */
 .bet-rec-synopsis{font-size:12px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:8px}
@@ -439,7 +585,7 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 /* Sharp tab splits divergence cards */
 .splits-sig{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;background:rgba(78,204,163,.15);color:#4ecca3;border:1px solid rgba(78,204,163,.35)}
 
-.juice-pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;display:inline-flex;align-items:center;gap:4px}
+.juice-pill{font-size:10px;font-weight:600;padding:3px 9px;border-radius:5px;display:inline-flex;align-items:center;gap:4px;letter-spacing:0.3px;text-transform:uppercase}
 .juice-low{background:rgba(78,204,163,.12);color:#4ecca3;border:1px solid rgba(78,204,163,.3)}
 .juice-neutral{background:rgba(255,200,50,.1);color:#ffc832;border:1px solid rgba(255,200,50,.25)}
 .juice-high{background:rgba(255,107,107,.12);color:#ff6b6b;border:1px solid rgba(255,107,107,.3)}
@@ -1175,31 +1321,31 @@ function renderExpand(game) {
   if (hasMl) {
     const isMlOpen = !!window.mlExpanded[game.id];
     // Build single-bar synopsis describing the edge
-    let synopsis = '', synopsisColor = '';
+    let synopsis = '', tierCls = '';
     if (mlEdge) {
       const evRounded = Math.round(mlEdge.ev * 10) / 10;
       const bkShort = mlEdge.bk.split(' ')[0];
       if (mlEdge.ev >= 5) {
         synopsis = 'Strong edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
-        synopsisColor = 'color:#4ecca3';
+        tierCls = 'tier-strong';
       } else if (mlEdge.ev >= 2) {
         synopsis = 'Edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
-        synopsisColor = 'color:#4ecca3';
+        tierCls = 'tier-strong';
       } else if (mlEdge.ev > 0) {
         synopsis = 'Slight edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
-        synopsisColor = 'color:#ffc832';
+        tierCls = 'tier-soft';
       } else {
-        synopsis = 'No edge — book has the advantage';
-        synopsisColor = 'color:#888';
+        synopsis = 'No edge available';
+        tierCls = '';
       }
     } else {
       synopsis = 'Pricing unavailable';
-      synopsisColor = 'color:#888';
+      tierCls = '';
     }
     h += '<div class="ml-bar' + (isMlOpen ? ' open' : '') + '">' +
       '<div class="ml-bar-header" onclick="toggleMl(\'' + game.id + '\')">' +
-        '<span class="ml-bar-title">💰 Moneyline</span>' +
-        '<span class="ml-bar-synopsis" style="' + synopsisColor + '">' + synopsis + '</span>' +
+        '<span class="ml-bar-title"><span class="ml-bar-title-icon">💰</span>Moneyline</span>' +
+        '<span class="ml-bar-synopsis ' + tierCls + '">' + synopsis + '</span>' +
         '<span class="ml-bar-arrow">▼</span>' +
       '</div>' +
       '<div class="ml-bar-detail">' + mlRows + '</div>' +
@@ -1275,7 +1421,7 @@ function renderExpand(game) {
     h += '<div class="bet-rec-bar' + (isBetOpen ? ' open' : '') + '">' +
       '<div class="bet-rec-header" onclick="toggleBetRec(\'' + game.id + '\')">' +
         '<div class="bet-rec-header-row">' +
-          '<span class="bet-rec-label">🎯 BET RECOMMENDATION</span>' +
+          '<span class="bet-rec-label">🎯 Bet Recommendation</span>' +
           (rec.sharpDiff >= 8 ? '<span class="sig">SHARP ⚡</span>' : '') +
           '<span class="bet-rec-arrow">▼</span>' +
         '</div>' +
@@ -2965,8 +3111,8 @@ function renderPropsUI(game) {
 
   let h = '<div class="props-row' + (isOpen ? ' open' : '') + '">';
   h += '<div class="props-header" onclick="toggleProps(\'' + game.id + '\')">' +
-    '<span class="props-title">🎯 Player Props' +
-    (strong.length ? ' <span class="splits-sig">⚡ ' + strong.length + ' STRONG</span>' : '') +
+    '<span class="props-title"><span class="ml-bar-title-icon">🎯</span>Player Props' +
+    (strong.length ? ' <span class="splits-sig">⚡ ' + strong.length + ' Strong</span>' : '') +
     '</span>' +
     '<span class="splits-bar-synopsis ' + barCls + '">' + barSynopsis + '</span>' +
     '<span class="props-arrow">▼</span>' +
@@ -3253,8 +3399,8 @@ function renderSplitsUI(game) {
   }
 
   h += '<div class="splits-header" onclick="toggleSplits(\'' + game.id + '\')">' +
-    '<span class="splits-title">📊 Public Splits' +
-    (summary && summary.tier === 'sharp' ? ' <span class="splits-sig">⚡ SHARP DIVERGENCE</span>' : '') +
+    '<span class="splits-title"><span class="ml-bar-title-icon">📊</span>Public Splits' +
+    (summary && summary.tier === 'sharp' ? ' <span class="splits-sig">⚡ Sharp Divergence</span>' : '') +
     '</span>' +
     '<span class="splits-bar-synopsis ' + barSynopsisCls + '">' + barSynopsis + '</span>' +
     '<span class="splits-arrow">▼</span>' +
