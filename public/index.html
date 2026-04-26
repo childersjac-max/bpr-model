@@ -1654,65 +1654,60 @@ function renderSharp() {
   // allGames is already filtered - no need to re-filter fight sports
   const eligibleGames = allGames;
   
-  // SHARP MONEY MOVEMENT - combines Pinnacle line movement + public splits divergence
-  // Scoring: pin diff (0-3 pts) + splits divergence (0-3 pts) + alignment bonus (+2 if both agree)
+  // SHARP MONEY MOVEMENT - PUBLIC SPLITS (tickets% vs money%) is the primary signal
+  // Scoring (max 10 pts):
+  //   Splits gap (0-6 pts):  18+ pts gap=6, 12-17=4, 7-11=2.5, 4-6=1
+  //   Pin support (0-2 pts): Pinnacle line ALSO favors the sharp side  
+  //   Pin gap bonus (0-2):   8+ pt gap=2, 4-7=1
+  // Cards only show when splits flag a sharp side (no splits = no card here)
   const sharpSignals = [];
   eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
     const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(g) : null;
     const splitsBest = splits ? findStrongestDivergence(splits) : null;
+    if (!splitsBest || !splitsBest.sharpShort) return; // Splits is required
 
-    [g.away_team, g.home_team].forEach(t => {
-      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (!pin || !pub) return;
-      const pinDiff = pub.o - pin.o;
-      const tShort = t.split(' ').pop();
+    // Find which team object matches the sharp side from splits
+    const sharpTeam = [g.away_team, g.home_team].find(t => t.split(' ').pop() === splitsBest.sharpShort);
+    if (!sharpTeam) return;
 
-      // Pin sub-score (0-3 points)
-      let pinPts = 0;
-      if (pinDiff >= 8) pinPts = 3;
-      else if (pinDiff >= 4) pinPts = 1.5;
+    const pin = bkOdds(bks, sharpTeam, SHP);
+    const pub = bkOdds(bks, sharpTeam, PUB);
+    if (!pub) return; // Need a public price for the bet
+    const pinDiff = pin ? (pub.o - pin.o) : 0;
+    const tShort = splitsBest.sharpShort;
 
-      // Splits sub-score (0-3 points) - check if THIS team is the sharp side in any market
-      let splitsPts = 0;
-      let splitsAgrees = false;
-      let splitsAgainst = false;
-      if (splitsBest && splitsBest.tier === 'sharp') {
-        if (splitsBest.sharpShort === tShort) {
-          splitsAgrees = true;
-          if (splitsBest.magnitude >= 18) splitsPts = 3;
-          else if (splitsBest.magnitude >= 12) splitsPts = 2;
-          else splitsPts = 1.5;
-        } else if (splitsBest.publicShort === tShort) {
-          splitsAgainst = true;
-        }
-      } else if (splitsBest && splitsBest.tier === 'public') {
-        if (splitsBest.sharpShort === tShort) {
-          splitsAgrees = true;
-          splitsPts = 1;
-        }
-      }
+    // Splits sub-score (0-6 pts) - PRIMARY SIGNAL
+    let splitsPts = 0;
+    if (splitsBest.magnitude >= 18) splitsPts = 6;
+    else if (splitsBest.magnitude >= 12) splitsPts = 4;
+    else if (splitsBest.magnitude >= 7) splitsPts = 2.5;
+    else if (splitsBest.magnitude >= 4) splitsPts = 1;
+    else return; // Below threshold
 
-      // Alignment bonus: pin AND splits both flag this team
-      let alignBonus = 0;
-      if (pinPts >= 1.5 && splitsAgrees) alignBonus = 2;
+    // Pinnacle support (0-2 pts) - secondary
+    let pinSupportPts = 0;
+    if (pin && pinDiff >= 4) pinSupportPts = 1; // Pinnacle ALSO has team shorter than public
 
-      const totalScore = pinPts + splitsPts + alignBonus;
-      if (totalScore < 1.5) return; // Threshold
+    // Pin gap bonus (0-2 pts) - extra weight when Pinnacle gap is large
+    let pinGapBonus = 0;
+    if (pinDiff >= 8) pinGapBonus = 2;
+    else if (pinDiff >= 4) pinGapBonus = 1;
 
-      sharpSignals.push({
-        score: totalScore,
-        pinDiff,
-        pinPts, splitsPts, alignBonus,
-        splitsAgrees, splitsAgainst,
-        splitsBest,
-        game: g, label: t, tShort,
-        pin: pin.o, pub: pub.o, bk: pub.bk
-      });
+    const totalScore = splitsPts + pinSupportPts + pinGapBonus;
+
+    sharpSignals.push({
+      score: totalScore,
+      pinDiff,
+      splitsPts, pinSupportPts, pinGapBonus,
+      pinSupports: pinSupportPts > 0,
+      splitsBest,
+      game: g, label: sharpTeam, tShort,
+      pin: pin ? pin.o : null, pub: pub.o, bk: pub.bk
     });
   });
   sharpSignals.sort((a, b) => b.score - a.score);
-  // Backwards-compat alias used by other functions like computeLocks
+  // Backwards-compat alias used by computeSharpSignals/computeLocks
   const pinSignals = sharpSignals.filter(s => s.pinDiff >= 8).map(s => ({ score: s.pinDiff, game: s.game, label: s.label, pin: s.pin, pub: s.pub, bk: s.bk }));
   
   const steamSignals = [];
@@ -1721,42 +1716,146 @@ function renderSharp() {
     if (steam) steamSignals.push({ game: g, signals: steam });
   });
   
+  // RLM - PUBLIC SPLITS PRIMARY: high tickets% on one side, but money% on the other = sharps fading public
+  // Uses traditional RLM (line moving against public) as confirmation when available
   const rlmSignals = [];
   eligibleGames.forEach(g => {
-    const rlm = detectRLM(g);
-    if (rlm) rlmSignals.push({ game: g, signals: rlm });
+    const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(g) : null;
+    const splitsBest = splits ? findStrongestDivergence(splits) : null;
+    if (!splitsBest || !splitsBest.sharpShort) return;
+
+    // RLM via splits = high tickets % on losing side + money % on winning side (= money/tix gap)
+    // Threshold: 12+ pts of money/bets divergence (the public/sharp tension is real RLM)
+    if (splitsBest.magnitude < 12) return;
+
+    const sharpTeam = [g.away_team, g.home_team].find(t => t.split(' ').pop() === splitsBest.sharpShort);
+    if (!sharpTeam) return;
+
+    const bks = g.bookmakers || [];
+    const pub = bkOdds(bks, sharpTeam, PUB);
+    const pin = bkOdds(bks, sharpTeam, SHP);
+    if (!pub) return;
+
+    // Traditional line-movement RLM as confirmation
+    const traditional = detectRLM(g);
+    const traditionalMatch = traditional ? traditional.find(t => t.team === sharpTeam) : null;
+
+    rlmSignals.push({
+      game: g,
+      signals: [{
+        team: sharpTeam,
+        tShort: splitsBest.sharpShort,
+        publicShort: splitsBest.publicShort,
+        pubOdds: pub.o,
+        pinOdds: pin ? pin.o : null,
+        bk: pub.bk,
+        splitsBest,
+        moneyPct: splitsBest.sharpMoney,
+        ticketsPct: splitsBest.publicTickets, // tickets % on the OTHER side (the public side)
+        sharpTickets: splitsBest.sharpTickets,
+        magnitude: splitsBest.magnitude,
+        market: splitsBest.market,
+        // Traditional confirmation - line ALSO moved against public
+        traditionalConfirms: !!traditionalMatch,
+        lineMovement: traditionalMatch ? traditionalMatch.movement : null
+      }]
+    });
   });
+  // Sort by splits magnitude (strongest divergence first)
+  rlmSignals.sort((a, b) => b.signals[0].magnitude - a.signals[0].magnitude);
   
+  // CLV - PUBLIC SPLITS PRIMARY: identify the sharp side via splits, then check public CLV available
+  // CLV signal: sharps are on a team AND the public book still has a longer price than Pinnacle
   const clvSignals = [];
   eligibleGames.forEach(g => {
-    const clv = calcCLV(g);
-    if (clv) clvSignals.push({ game: g, signals: clv });
+    const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(g) : null;
+    const splitsBest = splits ? findStrongestDivergence(splits) : null;
+    const bks = g.bookmakers || [];
+
+    // Compute traditional CLV for both teams
+    const traditional = calcCLV(g) || [];
+    const sigs = [];
+
+    if (splitsBest && splitsBest.sharpShort && splitsBest.magnitude >= 7) {
+      // Sharp side identified by splits
+      const sharpTeam = [g.away_team, g.home_team].find(t => t.split(' ').pop() === splitsBest.sharpShort);
+      if (sharpTeam) {
+        const trMatch = traditional.find(t => t.team === sharpTeam);
+        const pin = bkOdds(bks, sharpTeam, SHP);
+        const pub = bkOdds(bks, sharpTeam, PUB);
+        if (pub && pin) {
+          // Calculate CLV for the splits-favored team even if it's < 3% threshold
+          const pinProb = pin.o > 0 ? 100 / (pin.o + 100) : Math.abs(pin.o) / (Math.abs(pin.o) + 100);
+          const pubProb = pub.o > 0 ? 100 / (pub.o + 100) : Math.abs(pub.o) / (Math.abs(pub.o) + 100);
+          const clvPct = Math.round(((pinProb - pubProb) / pubProb) * 1000) / 10;
+          if (clvPct > 0) {
+            sigs.push({
+              team: sharpTeam,
+              tShort: splitsBest.sharpShort,
+              pubOdds: pub.o,
+              pinOdds: pin.o,
+              clvPct,
+              bk: pub.bk,
+              splitsBest,
+              moneyPct: splitsBest.sharpMoney,
+              ticketsPct: splitsBest.sharpTickets,
+              magnitude: splitsBest.magnitude,
+              splitsConfirms: true,
+              market: splitsBest.market
+            });
+          }
+        }
+      }
+    }
+
+    // Also include traditional CLV signals where splits don't apply (so we don't miss anything)
+    traditional.forEach(t => {
+      if (sigs.find(s => s.team === t.team)) return; // Already covered by splits
+      if (t.clvPct >= 3) {
+        const pubBk = bks.find(b => PUB.includes(b.key));
+        sigs.push({
+          team: t.team,
+          tShort: t.team.split(' ').pop(),
+          pubOdds: t.pubOdds,
+          pinOdds: t.pinOdds,
+          clvPct: t.clvPct,
+          bk: pubBk ? pubBk.title : 'Public',
+          splitsConfirms: false,
+          splitsBest: null
+        });
+      }
+    });
+
+    if (sigs.length) clvSignals.push({ game: g, signals: sigs });
   });
-  clvSignals.sort((a, b) => Math.max(...b.signals.map(s => s.clvPct)) - Math.max(...a.signals.map(s => s.clvPct)));
+  clvSignals.sort((a, b) => {
+    const aMax = Math.max(...a.signals.map(s => s.clvPct + (s.splitsConfirms ? 5 : 0)));
+    const bMax = Math.max(...b.signals.map(s => s.clvPct + (s.splitsConfirms ? 5 : 0)));
+    return bMax - aMax;
+  });
   
   let h = "";
   
   let pinBody = "";
   if (!sharpSignals.length) {
-    pinBody = '<div class="empty">No sharp money signals detected. Need either a Pinnacle/public gap of 4+ pts or a public splits divergence of 7+ pts.</div>';
+    pinBody = '<div class="empty">No sharp money signals detected. Public splits not yet flagging a divergence.</div>';
   } else {
     sharpSignals.slice(0, 15).forEach(s => {
-      const pEv = calcEV(s.pin, s.pub);
-      const pEvInfo = evLabel(pEv);
-      // Tier label
+      const pEv = s.pin ? calcEV(s.pin, s.pub) : null;
+      const pEvInfo = pEv ? evLabel(pEv) : null;
+      // Tier label - splits-primary
       let tierLbl, tierCls;
-      if (s.score >= 7) { tierLbl = 'STRONG SHARP'; tierCls = 'background:rgba(78,204,163,.18);color:#4ecca3;border:1px solid rgba(78,204,163,.4)'; }
-      else if (s.score >= 4) { tierLbl = 'SHARP MOVE'; tierCls = 'background:rgba(78,204,163,.1);color:#4ecca3'; }
-      else { tierLbl = 'EARLY LEAN'; tierCls = 'background:rgba(255,200,50,.1);color:#ffc832'; }
+      if (s.score >= 8) { tierLbl = 'STRONG SHARP'; tierCls = 'background:rgba(78,204,163,.18);color:#4ecca3;border:1px solid rgba(78,204,163,.4)'; }
+      else if (s.score >= 5) { tierLbl = 'SHARP MOVE'; tierCls = 'background:rgba(78,204,163,.1);color:#4ecca3'; }
+      else if (s.score >= 2.5) { tierLbl = 'SHARP LEAN'; tierCls = 'background:rgba(255,200,50,.12);color:#ffc832'; }
+      else { tierLbl = 'EARLY LEAN'; tierCls = 'background:rgba(255,200,50,.08);color:#ffc832'; }
 
-      // Build reasoning: combines pin movement and splits divergence
+      // Build reasoning - PRIMARY = splits, SECONDARY = pinnacle
       const reasonParts = [];
-      if (s.pinDiff >= 8) reasonParts.push('<b>Pinnacle</b> has ' + s.tShort + ' at ' + fmt(s.pin) + ', <b>' + Math.round(s.pinDiff) + ' pts shorter</b> than ' + s.bk.split(' ')[0] + ' (' + fmt(s.pub) + ')');
-      else if (s.pinDiff >= 4) reasonParts.push('Pinnacle has ' + s.tShort + ' ' + Math.round(s.pinDiff) + ' pts shorter than public books');
-      if (s.splitsAgrees && s.splitsBest) {
-        reasonParts.push('<b>Splits:</b> ' + s.tShort + ' has <b>' + s.splitsBest.sharpMoney + '% money / ' + s.splitsBest.sharpTickets + '% bets</b> on ' + s.splitsBest.market + ' (money +' + (s.splitsBest.sharpMoney - s.splitsBest.sharpTickets) + 'pts)');
-      }
-      if (s.alignBonus > 0) reasonParts.push('<b>Both signals agree</b> sharps are on ' + s.tShort);
+      const sb = s.splitsBest;
+      reasonParts.push('<b>Public splits</b> show ' + s.tShort + ' has <b>' + sb.sharpMoney + '% of money</b> but only <b>' + sb.sharpTickets + '% of bets</b> on ' + sb.market + ' (money +' + (sb.sharpMoney - sb.sharpTickets) + 'pts) — sharps are pounding this side');
+      if (s.pinDiff >= 8) reasonParts.push('<b>Pinnacle confirms</b>: ' + s.tShort + ' at ' + fmt(s.pin) + ', ' + Math.round(s.pinDiff) + ' pts shorter than ' + s.bk.split(' ')[0] + ' (' + fmt(s.pub) + ')');
+      else if (s.pinDiff >= 4) reasonParts.push('Pinnacle agrees: ' + s.tShort + ' is ' + Math.round(s.pinDiff) + ' pts shorter than public books');
 
       pinBody += '<div class="sc">' +
         '<div class="sh"><div class="sr">⚡</div>' +
@@ -1767,11 +1866,10 @@ function renderSharp() {
         '<div class="sbb"><div class="sbl">SHARP SIDE</div>' +
         '<div class="sbv">Take Moneyline · ' + s.label + ' · ' + fmt(s.pub) + '</div></div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
-        '<span class="pp pin">PIN ' + fmt(s.pin) + '</span>' +
+        '<span class="splits-sig">⚡ ' + s.splitsBest.sharpMoney + '% MONEY / ' + s.splitsBest.sharpTickets + '% BETS</span>' +
+        (s.pin ? '<span class="pp pin">PIN ' + fmt(s.pin) + '</span>' : '') +
         '<span class="pp pub">' + s.bk.split(' ')[0].toUpperCase() + ' ' + fmt(s.pub) + '</span>' +
-        (s.pinDiff >= 4 ? '<span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">PIN DIFF ' + Math.round(s.pinDiff) + 'pts</span>' : '') +
-        (s.splitsAgrees && s.splitsBest ? '<span class="splits-sig">⚡ ' + s.splitsBest.sharpMoney + '% MONEY ON ' + s.tShort.toUpperCase() + '</span>' : '') +
-        (s.alignBonus > 0 ? '<span class="pp" style="background:rgba(78,204,163,.18);color:#4ecca3;font-weight:700">⚡ ALIGNED</span>' : '') +
+        (s.pinDiff >= 4 ? '<span class="pp" style="background:rgba(78,204,163,.1);color:#4ecca3">PIN ALSO AGREES (' + Math.round(s.pinDiff) + 'pts)</span>' : '') +
         (pEvInfo ? '<span class="' + pEvInfo.cls + '">' + pEvInfo.lbl + '</span>' : '') +
         '</div>' +
         (reasonParts.length ? '<div style="font-size:11px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:6px"><b style="color:#4ecca3">Why:</b> ' + reasonParts.join('. ') + '.</div>' : '') +
@@ -1780,9 +1878,8 @@ function renderSharp() {
           const added = betCardHas(k);
           if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
           const reasonsArr = [];
-          if (s.pinDiff >= 4) reasonsArr.push('Pinnacle has '+s.label+' at '+fmt(s.pin)+', '+Math.round(s.pinDiff)+' pts shorter than '+s.bk.split(' ')[0]+'.');
-          if (s.splitsAgrees && s.splitsBest) reasonsArr.push('Public splits show '+s.splitsBest.sharpMoney+'% of money on '+s.tShort+' vs '+s.splitsBest.sharpTickets+'% of bets — sharps backing this side.');
-          if (s.alignBonus > 0) reasonsArr.push('Both Pinnacle line movement and public splits agree sharps are on '+s.label+'.');
+          reasonsArr.push('Public splits show '+s.splitsBest.sharpMoney+'% of money on '+s.tShort+' vs only '+s.splitsBest.sharpTickets+'% of tickets — sharps are pounding this side.');
+          if (s.pinDiff >= 4) reasonsArr.push('Pinnacle confirms: '+s.label+' is '+Math.round(s.pinDiff)+' pts shorter than '+s.bk.split(' ')[0]+'.');
           if (pEv && pEv > 0) reasonsArr.push('Pinnacle fair line implies +'+pEv+'% EV.');
           const obj = {key:k,team:s.label,matchup:s.game.away_team.split(' ').pop()+' vs '+s.game.home_team.split(' ').pop(),sport:s.game.sport_title,commence_time:s.game.commence_time,pub:s.pub,pin:s.pin,bk:s.bk,ev:pEv||0,units:1,source:"SHARP",reasons:reasonsArr,gameId:s.game.id};
           return '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip</button>';
@@ -1796,35 +1893,81 @@ function renderSharp() {
   
   let rlmBody = "";
   if (!rlmSignals.length) {
-    rlmBody = '<div class="empty">No reverse line movement detected yet.</div>';
+    rlmBody = '<div class="empty">No reverse line movement detected. Need a 12+ pt money/tickets divergence.</div>';
   } else {
-    rlmSignals.slice(0, 10).forEach(s => {
+    rlmSignals.slice(0, 12).forEach(s => {
       s.signals.forEach(sig => {
-        const rEv=calcEV(sig.pinOdds,sig.pubOdds);const rEvInfo=evLabel(rEv);
-        rlmBody += '<div class="sc"><div class="sh"><div class="sr">🎯</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">RLM TARGET</div><div class="sbv">Take Moneyline · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-rlm">LINE MOVED ' + Math.round(sig.movement) + 'pts</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span>' + (rEvInfo?'<span class="'+rEvInfo.cls+'">'+rEvInfo.lbl+'</span>':'') + '</div>' +
-        '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">PUBLIC BOOK · ' + fmt(sig.pubOdds) + (rEv&&rEv>0?' · +'+rEv+'% EV':'') + '</div></div><div class="sharp-cta-arrow">→</div></div>' +
-        '</div>';
+        const rEv = sig.pinOdds ? calcEV(sig.pinOdds, sig.pubOdds) : null;
+        const rEvInfo = rEv ? evLabel(rEv) : null;
+        const matchupStr = s.game.away_team.split(' ').pop() + ' vs ' + s.game.home_team.split(' ').pop();
+        rlmBody += '<div class="sc">' +
+          '<div class="sh"><div class="sr">🎯</div>' +
+          '<div style="flex:1"><div class="sm">' + matchupStr + '</div>' +
+          '<div class="smeta">' + s.game.sport_title + ' · ' + fmtT(s.game.commence_time) + '</div></div>' +
+          (sig.traditionalConfirms ? '<span class="pp" style="background:rgba(78,204,163,.18);color:#4ecca3;font-size:9px;font-weight:700">⚡ LINE CONFIRMS</span>' : '') +
+          '</div>' +
+          '<div class="sbb"><div class="sbl">RLM · FADE THE PUBLIC</div>' +
+          '<div class="sbv">Take ' + sig.market + ' · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<span class="splits-sig">⚡ ' + sig.moneyPct + '% MONEY / ' + sig.sharpTickets + '% BETS</span>' +
+          '<span class="pp pub">' + sig.publicShort + ' has ' + sig.ticketsPct + '% of tickets</span>' +
+          (sig.traditionalConfirms ? '<span class="sig-rlm">LINE MOVED ' + Math.round(sig.lineMovement) + 'pts</span>' : '') +
+          (sig.pinOdds ? '<span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span>' : '') +
+          '<span class="pp pub">' + sig.bk.split(' ')[0].toUpperCase() + ' ' + fmt(sig.pubOdds) + '</span>' +
+          (rEvInfo ? '<span class="' + rEvInfo.cls + '">' + rEvInfo.lbl + '</span>' : '') +
+          '</div>' +
+          '<div style="font-size:11px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:6px">' +
+          '<b style="color:#4ecca3">Why:</b> Public has <b>' + sig.ticketsPct + '% of tickets on ' + sig.publicShort + '</b>, but only <b>' + (100 - sig.moneyPct) + '% of money</b>. The big bettors are on <b>' + sig.tShort + '</b> (' + sig.moneyPct + '% of handle).' +
+          (sig.traditionalConfirms ? ' The line is also moving toward ' + sig.tShort + ' despite public bet count — clear sign sharps are overwhelming the public.' : '') +
+          '</div>' +
+          '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">' + sig.bk.split(' ')[0].toUpperCase() + ' · ' + fmt(sig.pubOdds) + (rEv && rEv > 0 ? ' · +' + rEv + '% EV' : '') + '</div></div><div class="sharp-cta-arrow">→</div></div>' +
+          '</div>';
       });
     });
   }
   h += buildSection("rlm", "🎯", "REVERSE LINE MOVEMENT", rlmSignals.length, rlmBody,
-    '<strong>What it means:</strong> When the public heavily bets one team but the line moves TOWARD the OTHER team. Sharp money is overwhelming public money.<br><br><strong>How to read it:</strong> A team has a line moving against them despite public support (Pinnacle longer than public books) = sharp money on the other side.<br><br><strong>When to bet:</strong> Bet the RLM team - sharps are taking this side.');
+    '<strong>What it means:</strong> Public splits show one team is getting the majority of tickets but the minority of money — meaning sharps are betting <i>against</i> the public consensus. Bet the side where the money is, not where the public tickets are.<br><br><strong>How to read it:</strong> A 12+ pt gap between money% and bets% is the threshold. <b>LINE CONFIRMS</b> tag appears when the actual line is also moving <i>away</i> from the public side, locking in the RLM signal.<br><br><strong>When to bet:</strong> Take the sharp side at the public book — fade the public majority before the line catches up.');
   
   let clvBody = "";
   if (!clvSignals.length) {
-    clvBody = '<div class="empty">No CLV opportunities ≥3% right now.</div>';
+    clvBody = '<div class="empty">No CLV opportunities right now. Looking for splits-confirmed sharp sides with positive CLV, or 3%+ raw CLV.</div>';
   } else {
     clvSignals.slice(0, 15).forEach(s => {
       s.signals.forEach(sig => {
-        const cEv=calcEV(sig.pinOdds,sig.pubOdds);const cBk=bkOdds(s.game.bookmakers||[],sig.team,PUB);
-        clvBody += '<div class="sc"><div class="sh"><div class="sr">💎</div><div style="flex:1"><div class="sm">' + s.game.away_team.split(" ").pop() + " vs " + s.game.home_team.split(" ").pop() + '</div><div class="smeta">' + s.game.sport_title + " - " + fmtT(s.game.commence_time) + '</div></div></div><div class="sbb"><div class="sbl">CLV OPPORTUNITY</div><div class="sbv">Take Moneyline · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="sig-clv">+' + sig.clvPct + '% CLV</span><span class="pp pub">PUB ' + fmt(sig.pubOdds) + '</span><span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span>' + (cEv&&cEv>0?'<span class="bet-ev-high">+'+cEv+'% EV</span>':'') + '</div>' +
-        '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">' + (cBk?cBk.bk.split(" ")[0].toUpperCase()+' · '+fmt(sig.pubOdds):'PUBLIC BOOK') + ' · +' + sig.clvPct + '% CLV</div></div><div class="sharp-cta-arrow">→</div></div>' +
-        '</div>';
+        const cEv = calcEV(sig.pinOdds, sig.pubOdds);
+        const matchupStr = s.game.away_team.split(' ').pop() + ' vs ' + s.game.home_team.split(' ').pop();
+        clvBody += '<div class="sc">' +
+          '<div class="sh"><div class="sr">💎</div>' +
+          '<div style="flex:1"><div class="sm">' + matchupStr + '</div>' +
+          '<div class="smeta">' + s.game.sport_title + ' · ' + fmtT(s.game.commence_time) + '</div></div>' +
+          (sig.splitsConfirms ? '<span class="pp" style="background:rgba(78,204,163,.18);color:#4ecca3;font-size:9px;font-weight:700">⚡ SPLITS CONFIRM</span>' : '') +
+          '</div>' +
+          '<div class="sbb"><div class="sbl">CLV OPPORTUNITY</div>' +
+          '<div class="sbv">Take Moneyline · ' + sig.team + ' · ' + fmt(sig.pubOdds) + '</div></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<span class="sig-clv">+' + sig.clvPct + '% CLV</span>' +
+          (sig.splitsConfirms ? '<span class="splits-sig">⚡ ' + sig.moneyPct + '% MONEY / ' + sig.ticketsPct + '% BETS</span>' : '') +
+          '<span class="pp pin">PIN ' + fmt(sig.pinOdds) + '</span>' +
+          '<span class="pp pub">' + sig.bk.split(' ')[0].toUpperCase() + ' ' + fmt(sig.pubOdds) + '</span>' +
+          (cEv && cEv > 0 ? '<span class="bet-ev-high">+' + cEv + '% EV</span>' : '') +
+          '</div>' +
+          (sig.splitsConfirms ?
+            '<div style="font-size:11px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:6px">' +
+            '<b style="color:#4ecca3">Why:</b> Public splits show <b>' + sig.moneyPct + '% of money on ' + sig.tShort + '</b> (only ' + sig.ticketsPct + '% of tickets) — sharps are on this side. ' +
+            'You can still get <b>' + fmt(sig.pubOdds) + '</b> at ' + sig.bk.split(' ')[0] + ' while Pinnacle has it at <b>' + fmt(sig.pinOdds) + '</b> — that\'s <b>+' + sig.clvPct + '% CLV</b> beating the sharpest book.' +
+            '</div>'
+            :
+            '<div style="font-size:11px;color:#aaa;line-height:1.5;padding:6px 9px;background:rgba(255,255,255,.02);border-radius:4px;margin-top:6px">' +
+            'You can get <b>' + fmt(sig.pubOdds) + '</b> at ' + sig.bk.split(' ')[0] + ' while Pinnacle has it at ' + fmt(sig.pinOdds) + ' — that\'s ' + sig.clvPct + '% better than the sharpest book.' +
+            '</div>'
+          ) +
+          '<div class="sharp-cta"><div class="sharp-cta-inner"><div class="sharp-cta-lbl">BET NOW</div><div class="sharp-cta-team">' + sig.team + '</div><div class="sharp-cta-ev">' + sig.bk.split(' ')[0].toUpperCase() + ' · ' + fmt(sig.pubOdds) + ' · +' + sig.clvPct + '% CLV</div></div><div class="sharp-cta-arrow">→</div></div>' +
+          '</div>';
       });
     });
   }
   h += buildSection("clv", "💎", "CLOSING LINE VALUE", clvSignals.length, clvBody,
-    '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). Beating Pinnacle consistently = profitable bettor.<br><br><strong>How to read it:</strong> 3%+ CLV is solid. 5%+ is strong. 8%+ is excellent.<br><br><strong>When to bet:</strong> Lock in CLV NOW - Pinnacle\'s line will likely move to match public books by game time.');
+    '<strong>What it means:</strong> CLV measures how much better your price is vs Pinnacle (the sharpest book). When public splits also flag the sharp side, the CLV signal is much stronger — you\'re grabbing a price that beats Pinnacle on a side sharps are actually pounding.<br><br><strong>How to read it:</strong> <b>SPLITS CONFIRM</b> tag = the strongest CLV setup. Even tiny CLV becomes valuable when sharps agree.<br><br><strong>When to bet:</strong> Lock in CLV NOW — Pinnacle\'s line will move to match public books by game time, erasing the edge.');
 
 
 
