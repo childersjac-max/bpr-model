@@ -337,14 +337,14 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 
 /* Splits bar inline synopsis */
-.splits-bar-synopsis{flex:1;font-size:11px;line-height:1.4;text-align:right;font-family:monospace;margin-right:8px}
+.splits-bar-synopsis{flex:1;font-size:12px;line-height:1.4;text-align:right;margin-right:8px}
 .splits-bar-synopsis b{font-weight:700}
 .splits-bar-synopsis.sharp{color:#4ecca3}
 .splits-bar-synopsis.public{color:#ffc832}
 .splits-bar-synopsis.balanced{color:#888}
 .splits-header{display:flex;align-items:center;gap:8px}
 @media (max-width: 480px) {
-  .splits-bar-synopsis{font-size:10px}
+  .splits-bar-synopsis{font-size:11px}
 }
 
 /* Player props styling */
@@ -388,14 +388,14 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .ml-bar-header{padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
 .ml-bar-header:active{background:rgba(255,255,255,.04)}
 .ml-bar-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;flex-shrink:0}
-.ml-bar-synopsis{flex:1;font-size:11px;line-height:1.4;text-align:right;font-family:monospace}
+.ml-bar-synopsis{flex:1;font-size:12px;line-height:1.4;text-align:right;color:#ccc}
 .ml-bar-synopsis b{font-weight:700}
 .ml-bar-arrow{font-size:10px;color:#666;transition:transform 0.2s;flex-shrink:0}
 .ml-bar.open .ml-bar-arrow{transform:rotate(180deg)}
 .ml-bar-detail{display:none;border-top:1px solid rgba(255,255,255,.06);padding:10px 12px}
 .ml-bar.open .ml-bar-detail{display:block}
 @media (max-width: 480px) {
-  .ml-bar-synopsis{font-size:10px}
+  .ml-bar-synopsis{font-size:11px}
 }
 
 /* Collapsible expansion sections inside game cards */
@@ -414,6 +414,23 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .splits-summary-detail b{color:#fff;font-weight:700}
 .splits-summary-detail .sharp-side{color:#4ecca3}
 .splits-summary-detail .public-side{color:#ffc832}
+
+
+/* Bet Recommendation - prominent collapsible bar */
+.bet-rec-bar{margin-top:12px;background:rgba(78,204,163,.06);border:1.5px solid rgba(78,204,163,.4);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px rgba(78,204,163,.15)}
+.bet-rec-header{padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.bet-rec-header:active{background:rgba(78,204,163,.1)}
+.bet-rec-header-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bet-rec-label{font-size:10px;color:#4ecca3;letter-spacing:1.2px;font-weight:800;text-transform:uppercase;flex:1}
+.bet-rec-arrow{font-size:11px;color:#4ecca3;transition:transform 0.2s}
+.bet-rec-bar.open .bet-rec-arrow{transform:rotate(180deg)}
+.bet-rec-bar-line{font-size:13px;color:#fff;line-height:1.45;font-weight:500}
+.bet-rec-bar-line b{color:#4ecca3;font-weight:700}
+.bet-rec-detail{display:none;border-top:1px solid rgba(78,204,163,.2);padding:13px 14px;background:rgba(0,0,0,.15)}
+.bet-rec-bar.open .bet-rec-detail{display:block}
+.bet-rec-reasons{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.06)}
+.bet-rec-reasons-title{font-size:10px;color:#aaa;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:8px}
+.bet-rec-reason-item{font-size:12px;color:#bbb;line-height:1.6;margin-bottom:7px}
 
 /* Bet rec inline synopsis (replaces CTA line) */
 .bet-rec-synopsis{font-size:12px;color:#bbb;line-height:1.55;padding:8px 10px;background:rgba(78,204,163,.04);border-left:2px solid #4ecca3;border-radius:4px;margin-top:8px}
@@ -731,6 +748,7 @@ window.propsExpanded = window.propsExpanded || {};
 window.sharpSigsExpanded = window.sharpSigsExpanded || {};
 window.whyBetExpanded = window.whyBetExpanded || {};
 window.mlExpanded = window.mlExpanded || {};
+window.betRecExpanded = window.betRecExpanded || {};
 
 // Bet Card state
 let betCard = [];
@@ -1162,13 +1180,13 @@ function renderExpand(game) {
       const evRounded = Math.round(mlEdge.ev * 10) / 10;
       const bkShort = mlEdge.bk.split(' ')[0];
       if (mlEdge.ev >= 5) {
-        synopsis = '<b>' + mlEdge.tShort + '</b> +' + evRounded + '% EV · PIN ' + fmt(mlEdge.pin) + ' vs ' + bkShort + ' ' + fmt(mlEdge.pub) + ' (' + Math.round(mlEdge.sharpDiff) + 'pt sharp gap)';
+        synopsis = 'Strong edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
         synopsisColor = 'color:#4ecca3';
       } else if (mlEdge.ev >= 2) {
-        synopsis = '<b>' + mlEdge.tShort + '</b> +' + evRounded + '% EV · PIN ' + fmt(mlEdge.pin) + ' vs ' + bkShort + ' ' + fmt(mlEdge.pub);
+        synopsis = 'Edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
         synopsisColor = 'color:#4ecca3';
       } else if (mlEdge.ev > 0) {
-        synopsis = '<b>' + mlEdge.tShort + '</b> slight +' + evRounded + '% edge at ' + bkShort;
+        synopsis = 'Slight edge on <b>' + mlEdge.tShort + '</b> · +' + evRounded + '% at ' + bkShort;
         synopsisColor = 'color:#ffc832';
       } else {
         synopsis = 'No edge — book has the advantage';
@@ -1240,30 +1258,44 @@ function renderExpand(game) {
     const evTxt = evInfo ? evInfo.lbl : '+'+rec.ev+'%';
     // Build a short synopsis (1 sentence) for inline display
     const synopsis = buildBetRecSynopsis(game, rec);
-    h += '<div class="bet-box">' +
-      '<div class="bet-box-lbl">🎯 BET RECOMMENDATION</div>' +
-      '<div class="bet-team-name">Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + '</div>' +
-      '<div class="bet-pills">' +
-      '<span class="' + evCls + '">' + evTxt + '</span>' +
-      '<span class="pp pin">PIN ' + fmt(rec.pin) + '</span>' +
-      '<span class="pp pub">' + rec.bk.split(' ')[0].toUpperCase() + ' ' + fmt(rec.pub) + '</span>' +
-      (rec.sharpDiff>=8?'<span class="sig">SHARP ⚡</span>':'') +
-      '</div>' +
-      '<div class="bet-rec-synopsis">' + synopsis + '</div>' +
-      '</div>';
-
-    // Reasoning collapsed by default - tap to expand
+    // BET RECOMMENDATION - single bar, expandable, visually prominent
+    const isBetOpen = !!window.betRecExpanded[game.id];
     const recReasons = buildBetRecReasoning(game, rec);
-    const isWhyOpen = !!window.whyBetExpanded[game.id];
-    h += '<div class="collapse-section' + (isWhyOpen ? ' open' : '') + '">' +
-      '<div class="collapse-header" onclick="toggleWhyBet(\'' + game.id + '\')">' +
-      '<span class="collapse-title">📖 Why This Bet</span>' +
-      '<span class="collapse-count">' + recReasons.length + ' point' + (recReasons.length === 1 ? '' : 's') + '</span>' +
-      '<span class="collapse-arrow">▼</span>' +
+    const bkShortRec = rec.bk.split(' ')[0].toUpperCase();
+    const evRoundedRec = Math.round(rec.ev * 10) / 10;
+    // Build a one-line summary for the bar
+    let barLine;
+    if (rec.ev >= 5) {
+      barLine = 'Take <b>' + rec.team.split(' ').pop() + ' ML</b> at ' + bkShortRec + ' ' + fmt(rec.pub) + ' · <b>+' + evRoundedRec + '% edge</b>';
+    } else if (rec.ev >= 2) {
+      barLine = 'Take <b>' + rec.team.split(' ').pop() + ' ML</b> at ' + bkShortRec + ' ' + fmt(rec.pub) + ' · +' + evRoundedRec + '% edge';
+    } else {
+      barLine = 'Take <b>' + rec.team.split(' ').pop() + ' ML</b> at ' + bkShortRec + ' ' + fmt(rec.pub) + ' · slight +' + evRoundedRec + '% edge';
+    }
+    h += '<div class="bet-rec-bar' + (isBetOpen ? ' open' : '') + '">' +
+      '<div class="bet-rec-header" onclick="toggleBetRec(\'' + game.id + '\')">' +
+        '<div class="bet-rec-header-row">' +
+          '<span class="bet-rec-label">🎯 BET RECOMMENDATION</span>' +
+          (rec.sharpDiff >= 8 ? '<span class="sig">SHARP ⚡</span>' : '') +
+          '<span class="bet-rec-arrow">▼</span>' +
+        '</div>' +
+        '<div class="bet-rec-bar-line">' + barLine + '</div>' +
       '</div>' +
-      '<div class="collapse-detail">' +
-      recReasons.map(r => '<div style="font-size:12px;color:#bbb;line-height:1.6;margin-bottom:7px">' + r + '</div>').join('') +
-      '</div></div>';
+      '<div class="bet-rec-detail">' +
+        '<div class="bet-team-name">Take Moneyline · ' + rec.team + ' · ' + fmt(rec.pub) + '</div>' +
+        '<div class="bet-pills">' +
+          '<span class="' + evCls + '">' + evTxt + '</span>' +
+          '<span class="pp pin">PIN ' + fmt(rec.pin) + '</span>' +
+          '<span class="pp pub">' + bkShortRec + ' ' + fmt(rec.pub) + '</span>' +
+          (rec.sharpDiff >= 8 ? '<span class="sig">SHARP ⚡</span>' : '') +
+        '</div>' +
+        '<div class="bet-rec-synopsis">' + synopsis + '</div>' +
+        '<div class="bet-rec-reasons">' +
+          '<div class="bet-rec-reasons-title">📖 Why This Bet</div>' +
+          recReasons.map(r => '<div class="bet-rec-reason-item">' + r + '</div>').join('') +
+        '</div>' +
+      '</div>' +
+    '</div>';
 
     // Add to Bet Card button
     const bcKey = "lines_" + game.id + "_" + rec.team;
@@ -2918,13 +2950,16 @@ function renderPropsUI(game) {
     barSynopsis = 'No high-edge prop bets found';
     barCls = 'balanced';
   } else if (strong.length > 0) {
-    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + strong.length + ' strong</b>' + (solid.length ? ', ' + solid.length + ' solid' : '') + (leans.length ? ', ' + leans.length + ' lean' : '');
+    const cnt = strong.length === 1 ? 'play' : 'plays';
+    barSynopsis = '<b>' + strong.length + ' strong ' + cnt + '</b> available' + (totalSignals > strong.length ? ' · ' + (totalSignals - strong.length) + ' more leans' : '');
     barCls = 'sharp';
   } else if (solid.length > 0) {
-    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + solid.length + ' solid</b>' + (leans.length ? ', ' + leans.length + ' lean' : '');
+    const cnt = solid.length === 1 ? 'play' : 'plays';
+    barSynopsis = '<b>' + solid.length + ' solid ' + cnt + '</b> available' + (leans.length ? ' · ' + leans.length + ' leans' : '');
     barCls = 'public';
   } else {
-    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + leans.length + ' lean</b>';
+    const cnt = leans.length === 1 ? 'play' : 'plays';
+    barSynopsis = '<b>' + leans.length + ' lean ' + cnt + '</b> available';
     barCls = 'public';
   }
 
@@ -3022,6 +3057,12 @@ function buildPropReasoning(p) {
     parts.push(p.bestBook + ' offers a better price (' + (p.bestPrice > 0 ? '+' + p.bestPrice : p.bestPrice) + ') than DK (' + (p.dkOdds > 0 ? '+' + p.dkOdds : p.dkOdds) + ')');
   }
   return parts.join('. ') + '.';
+}
+
+function toggleBetRec(gameId) {
+  event.stopPropagation();
+  window.betRecExpanded[gameId] = !window.betRecExpanded[gameId];
+  if (curTab === 0) renderGames();
 }
 
 function toggleMl(gameId) {
@@ -3196,12 +3237,11 @@ function renderSplitsUI(game) {
   let barSynopsis = '';
   let barSynopsisCls = '';
   if (summary && summary.sharpMoney != null) {
-    const gap = summary.sharpMoney - summary.sharpTickets;
     if (summary.tier === 'sharp') {
-      barSynopsis = '<b>' + summary.sharpShort + '</b> ' + summary.sharpMoney + '% money vs ' + summary.sharpTickets + '% bets (+' + gap + 'pts)';
+      barSynopsis = 'Sharp money on <b>' + summary.sharpShort + '</b> · ' + summary.sharpMoney + '% money / ' + summary.sharpTickets + '% tickets';
       barSynopsisCls = 'sharp';
     } else if (summary.tier === 'public') {
-      barSynopsis = '<b>' + summary.sharpShort + '</b> slight money lean ' + summary.sharpMoney + '/' + summary.sharpTickets + '%';
+      barSynopsis = 'Slight money lean to <b>' + summary.sharpShort + '</b> · ' + summary.sharpMoney + '% / ' + summary.sharpTickets + '%';
       barSynopsisCls = 'public';
     } else {
       barSynopsis = 'Tickets and money roughly balanced';
