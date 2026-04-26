@@ -265,6 +265,86 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .align-dot.on{background:#4ecca3}
 .align-dot.warn{background:#ffc832}
 .align-label{font-size:10px;color:#aaa;margin-left:6px;font-weight:700}
+
+/* === LOCKS TAB v2 — units-tier coloring + collapsible insight bars === */
+.lock-card-v2{
+  margin:0 16px 10px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color 0.18s ease, box-shadow 0.18s ease
+}
+.lock-card-v2.units-strong{
+  border-color:rgba(93,217,177,.4);
+  background:linear-gradient(180deg, rgba(93,217,177,.07), rgba(93,217,177,.02));
+  box-shadow:0 1px 0 rgba(93,217,177,.06) inset, 0 4px 16px rgba(93,217,177,.05)
+}
+.lock-card-v2.units-mid{
+  border-color:rgba(255,217,112,.32);
+  background:linear-gradient(180deg, rgba(255,217,112,.05), rgba(255,217,112,.02));
+  box-shadow:0 1px 0 rgba(255,217,112,.05) inset, 0 4px 16px rgba(255,217,112,.04)
+}
+.lock-card-v2.units-light{border-color:rgba(255,255,255,.1)}
+.lock-card-v2:hover.units-strong{border-color:rgba(93,217,177,.55);box-shadow:0 1px 0 rgba(93,217,177,.08) inset, 0 4px 20px rgba(93,217,177,.08)}
+.lock-card-v2:hover.units-mid{border-color:rgba(255,217,112,.45);box-shadow:0 1px 0 rgba(255,217,112,.07) inset, 0 4px 20px rgba(255,217,112,.06)}
+.lock-card-v2:hover.units-light{border-color:rgba(255,255,255,.15)}
+
+.lock-card-v2-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.lock-card-v2-info{flex:1;min-width:0}
+.lock-card-v2-matchup{font-size:11px;color:#888;letter-spacing:0.2px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lock-card-v2-team{font-size:17px;font-weight:600;color:#fff;line-height:1.25;margin-bottom:5px;letter-spacing:0.1px}
+.lock-card-v2-meta{font-size:11.5px;color:#aaa;letter-spacing:0.2px}
+.lock-card-v2-meta .tier-tag{font-weight:600;letter-spacing:0.5px;text-transform:uppercase;font-size:10px;padding:2px 7px;border-radius:4px}
+.lock-card-v2-meta .tier-tag.units-strong{background:rgba(93,217,177,.14);color:#5dd9b1;border:1px solid rgba(93,217,177,.28)}
+.lock-card-v2-meta .tier-tag.units-mid{background:rgba(255,217,112,.12);color:#ffd970;border:1px solid rgba(255,217,112,.26)}
+.lock-card-v2-meta .tier-tag.units-light{background:rgba(255,255,255,.06);color:#bbb;border:1px solid rgba(255,255,255,.1)}
+
+.lock-card-v2-units{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.lock-card-v2-units-num{font-size:24px;font-weight:700;line-height:1;letter-spacing:-0.3px}
+.lock-card-v2-units.units-strong .lock-card-v2-units-num{color:#5dd9b1}
+.lock-card-v2-units.units-mid .lock-card-v2-units-num{color:#ffd970}
+.lock-card-v2-units.units-light .lock-card-v2-units-num{color:#fff}
+.lock-card-v2-units-lbl{font-size:9px;color:#888;letter-spacing:1.2px;font-weight:600;text-transform:uppercase}
+.lock-card-v2-units-dollars{font-size:11px;color:#999;font-weight:500}
+
+.lock-card-v2-pick{margin:0 16px 10px;padding:12px 14px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lock-card-v2-pick-text{font-size:14px;color:#fff;font-weight:400;letter-spacing:0.1px}
+.lock-card-v2-pick-text b{font-weight:600}
+.lock-card-v2-pick-ev{font-size:13px;font-weight:700;flex-shrink:0}
+.lock-card-v2-pick-ev.pos{color:#5dd9b1}
+.lock-card-v2-pick-ev.zero{color:#ffd970}
+
+.lock-insights{padding:0 16px 14px;display:flex;flex-direction:column;gap:6px}
+.lock-insight-bar{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden;transition:border-color 0.18s ease}
+.lock-insight-bar:hover{border-color:rgba(255,255,255,.12)}
+.lock-insight-bar.open{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.025)}
+.lock-insight-header{padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.lock-insight-header:active{background:rgba(255,255,255,.03)}
+.lock-insight-icon{font-size:13px;flex-shrink:0;opacity:.85}
+.lock-insight-title{font-size:12px;color:#fff;font-weight:600;letter-spacing:0.1px;flex-shrink:0}
+.lock-insight-summary{flex:1;font-size:12px;color:#b8b8b8;line-height:1.4;text-align:right;letter-spacing:0.1px}
+.lock-insight-summary b{color:#fff;font-weight:600}
+.lock-insight-summary.tier-strong b{color:#5dd9b1}
+.lock-insight-summary.tier-soft b{color:#ffd970}
+.lock-insight-arrow{font-size:9px;color:#555;transition:transform 0.2s ease, color 0.2s ease}
+.lock-insight-bar:hover .lock-insight-arrow{color:#888}
+.lock-insight-bar.open .lock-insight-arrow{transform:rotate(180deg);color:#aaa}
+.lock-insight-detail{display:none;padding:10px 13px;border-top:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.15)}
+.lock-insight-bar.open .lock-insight-detail{display:block}
+.lock-insight-pills{display:flex;flex-wrap:wrap;gap:5px}
+.lock-insight-row{font-size:11.5px;color:#bbb;line-height:1.55;margin-bottom:7px;padding-left:10px;position:relative}
+.lock-insight-row:last-child{margin-bottom:0}
+.lock-insight-row::before{content:'';position:absolute;left:0;top:8px;width:3px;height:3px;border-radius:50%;background:#5dd9b1;opacity:.5}
+.lock-insight-row b{color:#ddd;font-weight:600}
+
+.lock-composite-mini{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;padding:6px 0}
+.lock-composite-mini-cell{text-align:center}
+.lock-composite-mini-num{font-size:16px;font-weight:700;color:#fff;line-height:1}
+.lock-composite-mini-lbl{font-size:9px;color:#888;letter-spacing:0.6px;font-weight:600;text-transform:uppercase;margin-top:4px}
+
+.lock-card-v2-actions{padding:0 16px 14px}
+.lock-card-v2-bottom-meta{padding:0 16px 12px;display:flex;justify-content:space-between;font-size:11px;color:#888;letter-spacing:0.1px}
+.lock-card-v2-bottom-meta b{color:#ccc;font-weight:500}
+
 .composite-breakdown{margin-top:6px;padding:9px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:6px;display:flex;gap:10px;justify-content:space-around;flex-wrap:wrap}
 .composite-item{text-align:center}
 .composite-num{font-size:14px;font-weight:800;color:#fff}
@@ -2808,6 +2888,13 @@ function buildLockReasoning(l) {
   return reasons;
 }
 
+window.lockExpanded = window.lockExpanded || {};
+function toggleLockInsight(key) {
+  event.stopPropagation();
+  window.lockExpanded[key] = !window.lockExpanded[key];
+  renderLocks();
+}
+
 function renderLocks() {
   const locks = computeLocks();
 
@@ -2836,71 +2923,144 @@ function renderLocks() {
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + tier1.length + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
     '</div>';
 
-  h += '<div class="locks-hdr"><span>GROUPED BY DAY · SORTED BY UNITS</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
+  h += '<div class="locks-hdr"><span>GROUPED BY DAY · SORTED BY UNIT SIZE</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
 
   function renderLockCard(l) {
-    const tierClass = 'tier' + l.tier;
-    const tierLabel = l.tier === 1 ? 'PREMIUM LOCK' : l.tier === 2 ? 'SOLID PLAY' : 'LEAN';
+    // Outline tier based on UNIT size, not composite score
+    let unitsClass, tierLabel;
+    if (l.units >= 3) { unitsClass = 'units-strong'; tierLabel = 'Premium Play'; }
+    else if (l.units >= 1.5) { unitsClass = 'units-mid'; tierLabel = 'Solid Play'; }
+    else { unitsClass = 'units-light'; tierLabel = 'Lean'; }
+
     const awayShort = l.game.away_team.split(' ').pop();
     const homeShort = l.game.home_team.split(' ').pop();
     const matchupStr = awayShort + ' @ ' + homeShort;
-
-    // Alignment dots (5 possible signals)
-    const sigKeys = ['ev','sharp','steam','rlm','clv'];
-    const foundKeys = l.signals.map(s => s.key);
-    const dots = sigKeys.map(k => '<div class="align-dot ' + (foundKeys.includes(k) ? (k==='steam'||k==='rlm'?'warn':'on') : '') + '"></div>').join('');
-
-    // Format units - whole or decimal
-    const unitsDisplay = Number.isInteger(l.units) ? l.units + 'u' : l.units + 'u';
+    const unitsDisplay = l.units + 'u';
     const dollarDisplay = formatUnitDollars(l.units);
+    const sigCount = l.signals.length;
+    const evCls = l.ev >= 3 ? 'pos' : 'zero';
 
-    // Reasoning
+    const cardKey = 'lock_' + l.game.id + '_' + l.team;
+    const sigKey = cardKey + '_signals';
+    const scoreKey = cardKey + '_score';
+    const analysisKey = cardKey + '_analysis';
+    const sigOpen = !!window.lockExpanded[sigKey];
+    const scoreOpen = !!window.lockExpanded[scoreKey];
+    const analysisOpen = !!window.lockExpanded[analysisKey];
+
+    // SIGNALS bar synopsis
+    const foundKeys = l.signals.map(s => s.key);
+    const sigParts = [];
+    if (foundKeys.includes('sharp')) sigParts.push('Sharp');
+    if (foundKeys.includes('rlm')) sigParts.push('RLM');
+    if (foundKeys.includes('clv')) sigParts.push('CLV');
+    if (foundKeys.includes('splits')) sigParts.push('Splits');
+    if (foundKeys.includes('steam')) sigParts.push('Steam');
+    const sigSynopsis = '<b>' + sigCount + '/5 aligned</b>' + (sigParts.length ? ' · ' + sigParts.join(', ') : '');
+    const sigTierCls = sigCount >= 4 ? 'tier-strong' : sigCount >= 2 ? 'tier-soft' : '';
+
+    // SCORE bar synopsis
+    const scoreSynopsis = '<b>' + l.compositeScore + '</b> composite · Sharp ' + l.sharpScore + ' · Model ' + l.modelScore + ' · Picks ' + l.picksScore;
+    const scoreTierCls = l.compositeScore >= 60 ? 'tier-strong' : l.compositeScore >= 35 ? 'tier-soft' : '';
+
+    // ANALYSIS bar synopsis
     const reasons = buildLockReasoning(l);
-    const reasoningHtml = '<div class="lock-reasoning">' +
-      '<div class="lock-reasoning-title">📖 ANALYSIS</div>' +
-      reasons.map(r => '<div class="lock-reasoning-item">' + r + '</div>').join('') +
-      '</div>';
+    const reasonCount = reasons.length;
+    const analysisSynopsis = reasonCount + ' supporting point' + (reasonCount === 1 ? '' : 's');
 
-    return '<div class="lock-card ' + tierClass + '">' +
-      '<div class="lock-tier-bar"></div>' +
-      '<div class="lock-header">' +
-        '<div>' +
-          '<div class="lock-matchup">' + matchupStr + ' · ' + l.game.sport_title + '</div>' +
-          '<div class="lock-team">' + l.team + '</div>' +
-          '<div class="lock-sport">' + tierLabel + ' · ' + fmtT(l.game.commence_time) + '</div>' +
-        '</div>' +
-        '<div class="lock-unit-box">' +
-          '<div class="lock-unit-num">' + unitsDisplay + '</div>' +
-          '<div class="lock-unit-lbl">UNITS</div>' +
-          (dollarDisplay ? '<div class="unit-value">' + dollarDisplay + '</div>' : '') +
-        '</div>' +
+    // === Build the card HTML ===
+    let h = '<div class="lock-card-v2 ' + unitsClass + '">';
+
+    // Header (matchup + team + tier tag + units block)
+    h += '<div class="lock-card-v2-header">' +
+      '<div class="lock-card-v2-info">' +
+        '<div class="lock-card-v2-matchup">' + matchupStr + ' · ' + l.game.sport_title + ' · ' + fmtT(l.game.commence_time) + '</div>' +
+        '<div class="lock-card-v2-team">' + l.team + '</div>' +
+        '<div class="lock-card-v2-meta"><span class="tier-tag ' + unitsClass + '">' + tierLabel + '</span></div>' +
       '</div>' +
-      '<div class="alignment-bar">' + dots + '<span class="align-label">' + l.signals.length + '/5 SIGNALS ALIGNED</span></div>' +
-      '<div class="composite-breakdown">' +
-        '<div class="composite-item"><div class="composite-num">' + l.compositeScore + '</div><div class="composite-lbl">COMPOSITE</div></div>' +
-        '<div class="composite-item"><div class="composite-num">' + l.sharpScore + '</div><div class="composite-lbl">SHARP (50%)</div></div>' +
-        '<div class="composite-item"><div class="composite-num">' + l.modelScore + '</div><div class="composite-lbl">MODEL (25%)</div></div>' +
-        '<div class="composite-item"><div class="composite-num">' + l.picksScore + '</div><div class="composite-lbl">PICKS (25%)</div></div>' +
+      '<div class="lock-card-v2-units ' + unitsClass + '">' +
+        '<div class="lock-card-v2-units-num">' + unitsDisplay + '</div>' +
+        '<div class="lock-card-v2-units-lbl">UNITS</div>' +
+        (dollarDisplay ? '<div class="lock-card-v2-units-dollars">' + dollarDisplay + '</div>' : '') +
       '</div>' +
-      '<div class="lock-pick-row">' +
-        '<div><div class="lock-pick-lbl">🎯 THE PICK</div><div class="lock-pick-team">Take Moneyline · ' + l.team + ' · ' + fmt(l.pub) + '</div></div>' +
-        '<div style="text-align:right"><div class="lock-pick-lbl">EV</div><div class="lock-pick-ev">+' + l.ev + '%</div></div>' +
-      '</div>' +
-      '<div class="lock-signals">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
-      reasoningHtml +
-      '<div class="lock-bottom">' +
-        '<div><div class="lock-odds">' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</div><div class="lock-book">PIN ' + fmt(l.pin) + ' · DIFF ' + (l.pub - l.pin > 0 ? '+' : '') + Math.round(l.pub - l.pin) + '</div></div>' +
-        '<div class="lock-ev-row"><span class="lock-time">' + fmtT(l.game.commence_time) + '</span></div>' +
-      '</div>' +
-      (function(){
-        const k = "lock_"+l.game.id+"_"+l.team;
-        const added = betCardHas(k);
-        if (added) return '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
-        const strippedReasons = reasons.map(r => r.replace(/<[^>]+>/g, ''));
-        const obj = {key:k,team:l.team,matchup:l.game.away_team.split(' ').pop()+' @ '+l.game.home_team.split(' ').pop(),sport:l.game.sport_title,commence_time:l.game.commence_time,pub:l.pub,pin:l.pin,bk:l.bk,ev:l.ev,units:l.units,source:"LOCK-"+tierLabel.split(' ')[0],reasons:strippedReasons,gameId:l.game.id};
-        return '<button class="add-to-bc-btn lock" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip · '+unitsDisplay+'</button>';
-      })() +
     '</div>';
+
+    // The pick (prominent CTA-style row)
+    h += '<div class="lock-card-v2-pick">' +
+      '<div class="lock-card-v2-pick-text">Take Moneyline · <b>' + l.team + '</b> · ' + fmt(l.pub) + ' at ' + l.bk.split(' ')[0].toUpperCase() + '</div>' +
+      '<div class="lock-card-v2-pick-ev ' + evCls + '">+' + l.ev + '% EV</div>' +
+    '</div>';
+
+    // Insight bars (collapsible)
+    h += '<div class="lock-insights">';
+
+    // Signals bar
+    h += '<div class="lock-insight-bar' + (sigOpen ? ' open' : '') + '">' +
+      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + sigKey + '\')">' +
+        '<span class="lock-insight-icon">⚡</span>' +
+        '<span class="lock-insight-title">Signals</span>' +
+        '<span class="lock-insight-summary ' + sigTierCls + '">' + sigSynopsis + '</span>' +
+        '<span class="lock-insight-arrow">▼</span>' +
+      '</div>' +
+      '<div class="lock-insight-detail">' +
+        '<div class="lock-insight-pills">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
+      '</div>' +
+    '</div>';
+
+    // Score Breakdown bar
+    h += '<div class="lock-insight-bar' + (scoreOpen ? ' open' : '') + '">' +
+      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + scoreKey + '\')">' +
+        '<span class="lock-insight-icon">📊</span>' +
+        '<span class="lock-insight-title">Score</span>' +
+        '<span class="lock-insight-summary ' + scoreTierCls + '">' + scoreSynopsis + '</span>' +
+        '<span class="lock-insight-arrow">▼</span>' +
+      '</div>' +
+      '<div class="lock-insight-detail">' +
+        '<div class="lock-composite-mini">' +
+          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.compositeScore + '</div><div class="lock-composite-mini-lbl">Composite</div></div>' +
+          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.sharpScore + '</div><div class="lock-composite-mini-lbl">Sharp 50%</div></div>' +
+          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.modelScore + '</div><div class="lock-composite-mini-lbl">Model 25%</div></div>' +
+          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.picksScore + '</div><div class="lock-composite-mini-lbl">Picks 25%</div></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    // Analysis bar
+    h += '<div class="lock-insight-bar' + (analysisOpen ? ' open' : '') + '">' +
+      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + analysisKey + '\')">' +
+        '<span class="lock-insight-icon">📖</span>' +
+        '<span class="lock-insight-title">Analysis</span>' +
+        '<span class="lock-insight-summary">' + analysisSynopsis + '</span>' +
+        '<span class="lock-insight-arrow">▼</span>' +
+      '</div>' +
+      '<div class="lock-insight-detail">' +
+        reasons.map(r => '<div class="lock-insight-row">' + r + '</div>').join('') +
+      '</div>' +
+    '</div>';
+
+    h += '</div>'; // /lock-insights
+
+    // Bottom meta row (book, pin diff, time)
+    h += '<div class="lock-card-v2-bottom-meta">' +
+      '<span><b>' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</b> · PIN ' + fmt(l.pin) + ' · DIFF ' + (l.pub - l.pin > 0 ? '+' : '') + Math.round(l.pub - l.pin) + '</span>' +
+      '<span>' + fmtT(l.game.commence_time) + '</span>' +
+    '</div>';
+
+    // Add to Betslip
+    h += '<div class="lock-card-v2-actions">';
+    const k = "lock_"+l.game.id+"_"+l.team;
+    const added = betCardHas(k);
+    if (added) {
+      h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
+    } else {
+      const strippedReasons = reasons.map(r => r.replace(/<[^>]+>/g, ''));
+      const obj = {key:k,team:l.team,matchup:l.game.away_team.split(' ').pop()+' @ '+l.game.home_team.split(' ').pop(),sport:l.game.sport_title,commence_time:l.game.commence_time,pub:l.pub,pin:l.pin,bk:l.bk,ev:l.ev,units:l.units,source:"LOCK-"+tierLabel.toUpperCase(),reasons:strippedReasons,gameId:l.game.id};
+      h += '<button class="add-to-bc-btn lock" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip · '+unitsDisplay+'</button>';
+    }
+    h += '</div>';
+
+    h += '</div>'; // /lock-card-v2
+    return h;
   }
 
   // Group locks by day
