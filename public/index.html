@@ -335,9 +335,21 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .split-mini-bar-fill{height:100%;background:#4ecca3}
 
 
+
+/* Splits bar inline synopsis */
+.splits-bar-synopsis{flex:1;font-size:11px;line-height:1.4;text-align:right;font-family:monospace;margin-right:8px}
+.splits-bar-synopsis b{font-weight:700}
+.splits-bar-synopsis.sharp{color:#4ecca3}
+.splits-bar-synopsis.public{color:#ffc832}
+.splits-bar-synopsis.balanced{color:#888}
+.splits-header{display:flex;align-items:center;gap:8px}
+@media (max-width: 480px) {
+  .splits-bar-synopsis{font-size:10px}
+}
+
 /* Player props styling */
 .props-row{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
-.props-header{padding:11px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.props-header{padding:11px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .props-header:active{background:rgba(255,255,255,.04)}
 .props-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:8px}
 .props-arrow{font-size:11px;color:#666;transition:transform 0.2s}
@@ -369,6 +381,22 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .props-section-header{font-size:10px;color:#888;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin:10px 4px 6px}
 .props-section-header:first-child{margin-top:4px}
 
+
+
+/* Collapsible Moneyline bar (yellow box) */
+.ml-bar{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden}
+.ml-bar-header{padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.ml-bar-header:active{background:rgba(255,255,255,.04)}
+.ml-bar-title{font-size:11px;color:#ccc;letter-spacing:1px;font-weight:700;text-transform:uppercase;flex-shrink:0}
+.ml-bar-synopsis{flex:1;font-size:11px;line-height:1.4;text-align:right;font-family:monospace}
+.ml-bar-synopsis b{font-weight:700}
+.ml-bar-arrow{font-size:10px;color:#666;transition:transform 0.2s;flex-shrink:0}
+.ml-bar.open .ml-bar-arrow{transform:rotate(180deg)}
+.ml-bar-detail{display:none;border-top:1px solid rgba(255,255,255,.06);padding:10px 12px}
+.ml-bar.open .ml-bar-detail{display:block}
+@media (max-width: 480px) {
+  .ml-bar-synopsis{font-size:10px}
+}
 
 /* Collapsible expansion sections inside game cards */
 .collapse-section{margin-top:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:8px;overflow:hidden}
@@ -702,6 +730,7 @@ let propsLoading = {};
 window.propsExpanded = window.propsExpanded || {};
 window.sharpSigsExpanded = window.sharpSigsExpanded || {};
 window.whyBetExpanded = window.whyBetExpanded || {};
+window.mlExpanded = window.mlExpanded || {};
 
 // Bet Card state
 let betCard = [];
@@ -1109,15 +1138,55 @@ function renderExpand(game) {
   let h = '<div class="xp">';
   const teams = [game.away_team, game.home_team];
   let mlRows = "", hasMl = false;
+  let mlEdge = null; // Track best edge across teams for the synopsis
   teams.forEach(t => {
     const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
     if (!pin && !pub) return;
     hasMl = true;
     const d = pin && pub ? pub.o - pin.o : 0;
     const sh = d >= 8 ? '<span class="sig">SHARP</span>' : "";
+    // Compute EV for this team to find the best edge for the bar synopsis
+    if (pin && pub) {
+      const evVal = calcEV(pin.o, pub.o);
+      if (evVal != null && (mlEdge == null || evVal > mlEdge.ev)) {
+        mlEdge = { team: t, tShort: t.split(' ').pop(), pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal, sharpDiff: d };
+      }
+    }
     mlRows += '<div class="xp-row"><span class="xp-team">' + t.split(" ").pop() + '</span><div class="xp-pills">' + (pin ? '<span class="pp pin">PIN ' + fmt(pin.o) + '</span>' : "") + (pub ? '<span class="pp pub">' + pub.bk.split(" ")[0].toUpperCase() + " " + fmt(pub.o) + '</span>' : "") + sh + '</div></div>';
   });
-  if (hasMl) h += '<div class="xp-title">MONEYLINE</div>' + mlRows;
+  if (hasMl) {
+    const isMlOpen = !!window.mlExpanded[game.id];
+    // Build single-bar synopsis describing the edge
+    let synopsis = '', synopsisColor = '';
+    if (mlEdge) {
+      const evRounded = Math.round(mlEdge.ev * 10) / 10;
+      const bkShort = mlEdge.bk.split(' ')[0];
+      if (mlEdge.ev >= 5) {
+        synopsis = '<b>' + mlEdge.tShort + '</b> +' + evRounded + '% EV · PIN ' + fmt(mlEdge.pin) + ' vs ' + bkShort + ' ' + fmt(mlEdge.pub) + ' (' + Math.round(mlEdge.sharpDiff) + 'pt sharp gap)';
+        synopsisColor = 'color:#4ecca3';
+      } else if (mlEdge.ev >= 2) {
+        synopsis = '<b>' + mlEdge.tShort + '</b> +' + evRounded + '% EV · PIN ' + fmt(mlEdge.pin) + ' vs ' + bkShort + ' ' + fmt(mlEdge.pub);
+        synopsisColor = 'color:#4ecca3';
+      } else if (mlEdge.ev > 0) {
+        synopsis = '<b>' + mlEdge.tShort + '</b> slight +' + evRounded + '% edge at ' + bkShort;
+        synopsisColor = 'color:#ffc832';
+      } else {
+        synopsis = 'No edge — book has the advantage';
+        synopsisColor = 'color:#888';
+      }
+    } else {
+      synopsis = 'Pricing unavailable';
+      synopsisColor = 'color:#888';
+    }
+    h += '<div class="ml-bar' + (isMlOpen ? ' open' : '') + '">' +
+      '<div class="ml-bar-header" onclick="toggleMl(\'' + game.id + '\')">' +
+        '<span class="ml-bar-title">💰 Moneyline</span>' +
+        '<span class="ml-bar-synopsis" style="' + synopsisColor + '">' + synopsis + '</span>' +
+        '<span class="ml-bar-arrow">▼</span>' +
+      '</div>' +
+      '<div class="ml-bar-detail">' + mlRows + '</div>' +
+    '</div>';
+  }
 
   // Public Splits (VSiN)
   h += renderSplitsUI(game);
@@ -2836,40 +2905,56 @@ function renderPropsUI(game) {
   }
 
   const ranked = getRankedPropsForGame(game);
-  if (!ranked.length) {
-    return '<div class="props-row"><div class="props-header"><span class="props-title">🎯 Player Props</span></div><div class="props-empty">No high-edge player props found for this game.</div></div>';
-  }
-
   const isOpen = !!window.propsExpanded[game.id];
   const strong = ranked.filter(p => p.tier === 'strong');
   const solid = ranked.filter(p => p.tier === 'solid');
   const leans = ranked.filter(p => p.tier === 'lean');
+  const totalSignals = strong.length + solid.length + leans.length;
+
+  // Build the bar synopsis
+  let barSynopsis = '';
+  let barCls = '';
+  if (totalSignals === 0) {
+    barSynopsis = 'No high-edge prop bets found';
+    barCls = 'balanced';
+  } else if (strong.length > 0) {
+    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + strong.length + ' strong</b>' + (solid.length ? ', ' + solid.length + ' solid' : '') + (leans.length ? ', ' + leans.length + ' lean' : '');
+    barCls = 'sharp';
+  } else if (solid.length > 0) {
+    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + solid.length + ' solid</b>' + (leans.length ? ', ' + leans.length + ' lean' : '');
+    barCls = 'public';
+  } else {
+    barSynopsis = '<b>' + totalSignals + '</b> bets to make · <b>' + leans.length + ' lean</b>';
+    barCls = 'public';
+  }
 
   let h = '<div class="props-row' + (isOpen ? ' open' : '') + '">';
   h += '<div class="props-header" onclick="toggleProps(\'' + game.id + '\')">' +
     '<span class="props-title">🎯 Player Props' +
     (strong.length ? ' <span class="splits-sig">⚡ ' + strong.length + ' STRONG</span>' : '') +
     '</span>' +
+    '<span class="splits-bar-synopsis ' + barCls + '">' + barSynopsis + '</span>' +
     '<span class="props-arrow">▼</span>' +
     '</div>';
 
-  // Summary
-  let summary = strong.length + ' strong, ' + solid.length + ' solid, ' + leans.length + ' leans';
-  h += '<div class="props-summary">' + summary + ' (sourced from VSiN historical hit rates)</div>';
-
-  // Detail (collapsed)
+  // Detail (only visible when expanded - including empty state)
   h += '<div class="props-detail">';
-  if (strong.length) {
-    h += '<div class="props-section-header">⚡ Strong plays</div>';
-    strong.slice(0, 5).forEach(p => h += renderPropCard(p, game));
-  }
-  if (solid.length) {
-    h += '<div class="props-section-header">📊 Solid plays</div>';
-    solid.slice(0, 5).forEach(p => h += renderPropCard(p, game));
-  }
-  if (leans.length) {
-    h += '<div class="props-section-header">🟡 Leans</div>';
-    leans.slice(0, 4).forEach(p => h += renderPropCard(p, game));
+  if (totalSignals === 0) {
+    h += '<div class="props-empty" style="padding:14px">No high-edge player props found for this game.</div>';
+  } else {
+    h += '<div style="font-size:11px;color:#888;margin-bottom:10px;font-style:italic">Sourced from VSiN historical hit rates</div>';
+    if (strong.length) {
+      h += '<div class="props-section-header">⚡ Strong plays</div>';
+      strong.slice(0, 5).forEach(p => h += renderPropCard(p, game));
+    }
+    if (solid.length) {
+      h += '<div class="props-section-header">📊 Solid plays</div>';
+      solid.slice(0, 5).forEach(p => h += renderPropCard(p, game));
+    }
+    if (leans.length) {
+      h += '<div class="props-section-header">🟡 Leans</div>';
+      leans.slice(0, 4).forEach(p => h += renderPropCard(p, game));
+    }
   }
   h += '</div>';
 
@@ -2937,6 +3022,12 @@ function buildPropReasoning(p) {
     parts.push(p.bestBook + ' offers a better price (' + (p.bestPrice > 0 ? '+' + p.bestPrice : p.bestPrice) + ') than DK (' + (p.dkOdds > 0 ? '+' + p.dkOdds : p.dkOdds) + ')');
   }
   return parts.join('. ') + '.';
+}
+
+function toggleMl(gameId) {
+  event.stopPropagation();
+  window.mlExpanded[gameId] = !window.mlExpanded[gameId];
+  if (curTab === 0) renderGames();
 }
 
 function toggleSharpSigs(gameId) {
@@ -3100,27 +3191,48 @@ function renderSplitsUI(game) {
   const summary = findStrongestDivergence(splits);
 
   let h = '<div class="splits-row' + (isOpen ? ' open' : '') + '">';
+
+  // Build a one-line bar synopsis: side + money% advantage
+  let barSynopsis = '';
+  let barSynopsisCls = '';
+  if (summary && summary.sharpMoney != null) {
+    const gap = summary.sharpMoney - summary.sharpTickets;
+    if (summary.tier === 'sharp') {
+      barSynopsis = '<b>' + summary.sharpShort + '</b> ' + summary.sharpMoney + '% money vs ' + summary.sharpTickets + '% bets (+' + gap + 'pts)';
+      barSynopsisCls = 'sharp';
+    } else if (summary.tier === 'public') {
+      barSynopsis = '<b>' + summary.sharpShort + '</b> slight money lean ' + summary.sharpMoney + '/' + summary.sharpTickets + '%';
+      barSynopsisCls = 'public';
+    } else {
+      barSynopsis = 'Tickets and money roughly balanced';
+      barSynopsisCls = 'balanced';
+    }
+  } else {
+    barSynopsis = 'No splits data available';
+    barSynopsisCls = 'balanced';
+  }
+
   h += '<div class="splits-header" onclick="toggleSplits(\'' + game.id + '\')">' +
     '<span class="splits-title">📊 Public Splits' +
     (summary && summary.tier === 'sharp' ? ' <span class="splits-sig">⚡ SHARP DIVERGENCE</span>' : '') +
     '</span>' +
+    '<span class="splits-bar-synopsis ' + barSynopsisCls + '">' + barSynopsis + '</span>' +
     '<span class="splits-arrow">▼</span>' +
     '</div>';
 
-  // Summary verdict (always visible) - now includes the public vs money details
+  // EVERYTHING ELSE (summary verdict, side-by-side detail, full table) only when expanded
+  h += '<div class="splits-detail">';
   if (summary) {
-    h += '<div class="splits-summary"><div class="splits-divergence ' + summary.tier + '">' + summary.text + '</div>';
+    h += '<div class="splits-divergence ' + summary.tier + '" style="margin-bottom:10px">' + summary.text + '</div>';
     if (summary.sharpMoney != null && summary.publicMoney != null) {
-      h += '<div class="splits-summary-detail">' +
+      h += '<div class="splits-summary-detail" style="margin-bottom:10px">' +
         '<div><span class="sharp-side">⚡ ' + summary.sharpShort + '</span>: <b>' + summary.sharpMoney + '%</b> money / <b>' + summary.sharpTickets + '%</b> bets <span style="color:#666">(money +' + (summary.sharpMoney - summary.sharpTickets) + 'pts)</span></div>' +
         '<div><span class="public-side">⚖ ' + summary.publicShort + '</span>: <b>' + summary.publicMoney + '%</b> money / <b>' + summary.publicTickets + '%</b> bets <span style="color:#666">(public +' + (summary.publicTickets - summary.publicMoney) + 'pts)</span></div>' +
         '</div>';
     }
-    h += '</div>';
   }
-
-  // Detailed table (only when expanded)
-  h += '<div class="splits-detail">' + renderSplitsTable(splits) + '</div>';
+  h += renderSplitsTable(splits);
+  h += '</div>';
 
   h += '</div>';
   return h;
