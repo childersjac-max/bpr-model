@@ -1578,7 +1578,9 @@ for (let i = 0; i < 6; i++) {
 document.getElementById(“t” + i).className = “tab” + (i === n ? “ on” : “”);
 document.getElementById(“v” + i).style.display = i === n ? “block” : “none”;
 }
-if (n === 5) renderMyBets();
+if (n === 5) {
+try { renderMyBets(); } catch(e) { console.error(“renderMyBets failed:”, e); }
+}
 }
 
 function fmt(p) { return p > 0 ? “+” + p : “” + p; }
@@ -2402,7 +2404,12 @@ return ‘<div class="sec' + (isOpen ? ' open' : '') + '">’ +
 
 function renderSharp() {
 // allGames is already filtered - no need to re-filter fight sports
-const eligibleGames = allGames;
+const allLiveGames = allGames.filter(g => isLiveGame(g));
+const eligibleGames = allGames.filter(g => !isLiveGame(g));
+let livePill = ‘’;
+if (allLiveGames.length) {
+livePill = ‘<div class="live-games-pill"><span class="live-dot"></span><b>’ + allLiveGames.length + ‘</b> live game’ + (allLiveGames.length === 1 ? ‘’ : ‘s’) + ’ hidden from sharp signals</div>’;
+}
 
 // SHARP MONEY MOVEMENT - one signal per diverging MARKET (ML, Spread, Total)
 // Splits gap is primary; Pinnacle line ML support adds bonus when applicable
@@ -4334,7 +4341,15 @@ document.getElementById(“hSub”).textContent = “UPDATED “ + new Date().to
 const sc = {}; results.forEach(g => sc[g.sport_title] = true);
 document.getElementById(“sL”).textContent = results.length + “ GAMES - “ + Object.keys(sc).length + “ SPORTS”;
 document.getElementById(“sR”).textContent = “ODDS + SHARP”;
-computeLocks(); renderFltrs(); renderGames(); renderSharp(); renderModel(); renderLocks(); renderBetCard(); fetchAllSplits().then(() => { renderGames(); renderSharp(); }); fetchAllProps().then(() => { renderGames(); renderSharp(); });
+try { computeLocks(); } catch(e) { console.error(“computeLocks failed:”, e); }
+try { renderFltrs(); } catch(e) { console.error(“renderFltrs failed:”, e); }
+try { renderGames(); } catch(e) { console.error(“renderGames failed:”, e); document.getElementById(“games”).innerHTML = ’<div class="empty">Render error: ’ + e.message + ‘</div>’; }
+try { renderSharp(); } catch(e) { console.error(“renderSharp failed:”, e); }
+try { renderModel(); } catch(e) { console.error(“renderModel failed:”, e); }
+try { renderLocks(); } catch(e) { console.error(“renderLocks failed:”, e); }
+try { renderBetCard(); } catch(e) { console.error(“renderBetCard failed:”, e); }
+fetchAllSplits().then(() => { try { renderGames(); renderSharp(); } catch(e) { console.error(e); } });
+fetchAllProps().then(() => { try { renderGames(); renderSharp(); } catch(e) { console.error(e); } });
 } catch (e) {
 document.getElementById(“games”).innerHTML = ’<div class="empty">Failed to load: ’ + e.message + ‘<br><br><span style="font-size:11px;color:#333">Tap ↻ to retry</span></div>’;
 document.getElementById(“hSub”).textContent = “ERROR - TAP ↻”;
@@ -4729,7 +4744,7 @@ h += ‘<div class="mybets-list">’;
 if (!filtered.length) {
 h += ‘<div class="empty">No bets match this filter.</div>’;
 } else {
-filtered.forEach(b => h += renderBetCard(b));
+filtered.forEach(b => h += renderMyBetCard(b));
 }
 h += ‘</div>’;
 
@@ -4801,7 +4816,7 @@ if (key === “win” || key === “loss” || key === “push”) return bets.f
 return bets.filter(b => b.bet_type === key);
 }
 
-function renderBetCard(b) {
+function renderMyBetCard(b) {
 const outcomeCls = “outcome-” + b.outcome;
 let resultAmount, resultLbl, resultCls;
 if (b.outcome === “win”) {
@@ -5223,52 +5238,49 @@ return h;
 // ============================================================
 const _origRenderMyBets = renderMyBets;
 renderMyBets = function() {
+try {
 const container = document.getElementById(“mybets”);
 if (!container) return;
 
-// Empty state - same as before
+```
+// Empty state - delegate to original
 if (!myBetsData.length) { _origRenderMyBets(); return; }
 
 const rangeBets = filterByRange(myBetsData, window.myBetsRange);
 
-// Mode toggle + range row at top
-let h = ‘’;
-h += ‘<div class="mybets-mode-toggle">’ +
-’<button class=“mybets-mode-btn ’ + (window.myBetsMode === “bets” ? “on” : “”) + ‘” onclick=“setMyBetsMode('bets')”>Bets</button>’ +
-’<button class=“mybets-mode-btn ’ + (window.myBetsMode === “breakdowns” ? “on” : “”) + ‘” onclick=“setMyBetsMode('breakdowns')”>Breakdowns</button>’ +
-‘</div>’;
-
-h += ‘<div class="mybets-range-row">’;
-[“week”,“month”,“year”,“all”].forEach(r => {
-h += ’<button class=“mybets-range-btn ’ + (window.myBetsRange === r ? “on” : “”) + ‘” onclick=“setMyBetsRange('’ + r + ‘')”>’ + r.charAt(0).toUpperCase() + r.slice(1) + ‘</button>’;
+// Build top toggles
+let topHtml = '<div class="mybets-mode-toggle">' +
+  '<button class="mybets-mode-btn ' + (window.myBetsMode === "bets" ? "on" : "") + '" onclick="setMyBetsMode(\'bets\')">Bets</button>' +
+  '<button class="mybets-mode-btn ' + (window.myBetsMode === "breakdowns" ? "on" : "") + '" onclick="setMyBetsMode(\'breakdowns\')">Breakdowns</button>' +
+'</div>';
+topHtml += '<div class="mybets-range-row">';
+["week","month","year","all"].forEach(r => {
+  topHtml += '<button class="mybets-range-btn ' + (window.myBetsRange === r ? "on" : "") + '" onclick="setMyBetsRange(\'' + r + '\')">' + r.charAt(0).toUpperCase() + r.slice(1) + '</button>';
 });
-h += ‘</div>’;
+topHtml += '</div>';
 
-if (window.myBetsMode === “breakdowns”) {
-// Pikkit-style breakdowns view
-h += renderPerfSummary(rangeBets);
-h += renderCalendar(rangeBets);
-h += renderCLVCard(rangeBets);
-h += renderSportsBreakdown(rangeBets);
-h += renderMarketTypesBreakdown(rangeBets);
-h += renderBetCategoriesBreakdown(rangeBets);
-h += renderTeamsBreakdown(rangeBets);
-h += ‘<div style="height:80px"></div>’; // bottom padding for tab bar
-container.innerHTML = h;
+if (window.myBetsMode === "breakdowns") {
+  let h = topHtml;
+  h += renderPerfSummary(rangeBets);
+  h += renderCalendar(rangeBets);
+  h += renderCLVCard(rangeBets);
+  h += renderSportsBreakdown(rangeBets);
+  h += renderMarketTypesBreakdown(rangeBets);
+  h += renderBetCategoriesBreakdown(rangeBets);
+  h += renderTeamsBreakdown(rangeBets);
+  h += '<div style="height:80px"></div>';
+  container.innerHTML = h;
 } else {
-// Default Bets list view (existing renderer)
-container.innerHTML = h + ‘<div id="mybets-list-anchor"></div>’;
-// Now run the existing list render below the toggle
-const tmpDiv = document.createElement(“div”);
-container.appendChild(tmpDiv);
-// Simulate by calling _origRenderMyBets but redirect output
-const realContainer = document.getElementById(“mybets”);
-const realInner = realContainer.innerHTML;
-// Easier path: temporarily swap container, render, then prepend our header
-realContainer.innerHTML = “”;
-_origRenderMyBets();
-const listOutput = realContainer.innerHTML;
-realContainer.innerHTML = h + listOutput;
+  // Bets list mode: render original first, then prepend toggles
+  _origRenderMyBets();
+  container.innerHTML = topHtml + container.innerHTML;
+}
+```
+
+} catch(e) {
+console.error(“renderMyBets failed:”, e);
+const container = document.getElementById(“mybets”);
+if (container) container.innerHTML = ’<div class="empty">My Bets render error: ’ + e.message + ‘</div>’;
 }
 };
 
