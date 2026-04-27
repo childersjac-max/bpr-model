@@ -131,7 +131,8 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 /* TABS — fixed at bottom */
 .tabs{position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.1);display:flex;z-index:100;padding:6px 0 8px;backdrop-filter:blur(10px)}
-.tab{flex:1;background:transparent;border:none;color:#666;padding:8px 4px;font-weight:500;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;letter-spacing:0.3px}
+.tab{flex:1;background:transparent;border:none;color:#666;padding:8px 2px;font-weight:500;font-size:10.5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;letter-spacing:0.2px;min-width:0}
+.tab span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .tab-icon{font-size:20px;line-height:1}
 .tab.on{color:#5ba3ff}
 .tab.on .tab-icon{filter:drop-shadow(0 0 6px rgba(91,163,255,.5))}
@@ -684,6 +685,161 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 
 .cnt{font-size:11px;color:#888;margin:8px 16px}
 .footer{margin-top:24px;text-align:center;font-size:11px;color:#666;padding:0 20px 20px;line-height:1.7}
+
+/* === MY BETS TAB === */
+.mybets-empty{
+  padding:60px 24px;text-align:center;color:#888
+}
+.mybets-empty-icon{font-size:48px;margin-bottom:14px;opacity:.5}
+.mybets-empty-title{font-size:18px;color:#fff;font-weight:600;margin-bottom:8px}
+.mybets-empty-desc{font-size:13px;line-height:1.6;color:#aaa;max-width:380px;margin:0 auto 18px}
+.mybets-empty-steps{
+  text-align:left;font-size:12px;color:#aaa;line-height:1.7;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:14px 18px;max-width:420px;margin:0 auto 18px
+}
+.mybets-empty-steps b{color:#fff}
+
+/* Drop zone */
+.mybets-drop{
+  margin:12px 16px;padding:30px 16px;border-radius:12px;
+  border:2px dashed rgba(93,217,177,.3);background:rgba(93,217,177,.04);
+  text-align:center;transition:all 0.2s ease;cursor:pointer;-webkit-tap-highlight-color:transparent
+}
+.mybets-drop:hover{border-color:rgba(93,217,177,.5);background:rgba(93,217,177,.07)}
+.mybets-drop.dragover{
+  border-color:#5dd9b1;background:rgba(93,217,177,.12);
+  box-shadow:0 0 0 4px rgba(93,217,177,.1)
+}
+.mybets-drop-icon{font-size:32px;margin-bottom:8px;opacity:.7}
+.mybets-drop-title{font-size:14px;color:#fff;font-weight:600;margin-bottom:4px}
+.mybets-drop-desc{font-size:11.5px;color:#999;line-height:1.5}
+.mybets-drop-btn{
+  display:inline-block;margin-top:10px;padding:8px 16px;
+  background:rgba(93,217,177,.12);border:1px solid rgba(93,217,177,.3);
+  color:#5dd9b1;border-radius:7px;font-size:12px;font-weight:600;
+  letter-spacing:0.2px;cursor:pointer
+}
+.mybets-drop-btn:hover{background:rgba(93,217,177,.18)}
+
+/* Performance dashboard */
+.mybets-dash{margin:8px 16px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dash-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px;
+  transition:border-color 0.18s ease
+}
+.dash-card:hover{border-color:rgba(255,255,255,.12)}
+.dash-card-lbl{font-size:10px;color:#888;letter-spacing:0.6px;font-weight:600;text-transform:uppercase;margin-bottom:8px}
+.dash-card-val{font-size:22px;font-weight:700;color:#fff;line-height:1;letter-spacing:-0.3px}
+.dash-card-val.pos{color:#5dd9b1}
+.dash-card-val.neg{color:#ff6b8a}
+.dash-card-sub{font-size:11px;color:#999;margin-top:6px;letter-spacing:0.1px}
+
+/* Filter pills row */
+.mybets-filters{margin:10px 16px;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mybets-filters::-webkit-scrollbar{display:none}
+.mybets-filter-pill{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  color:#aaa;padding:7px 13px;border-radius:7px;font-size:11.5px;
+  font-weight:500;cursor:pointer;white-space:nowrap;
+  transition:all 0.15s ease;-webkit-tap-highlight-color:transparent
+}
+.mybets-filter-pill.on{
+  background:rgba(93,217,177,.12);border-color:rgba(93,217,177,.3);color:#5dd9b1
+}
+
+/* Bet cards */
+.mybets-list{padding:0 16px 80px}
+.bet-card{
+  margin-bottom:10px;border-radius:11px;overflow:hidden;
+  background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color 0.18s ease
+}
+.bet-card.outcome-win{
+  border-color:rgba(93,217,177,.32);
+  background:linear-gradient(180deg, rgba(93,217,177,.05), rgba(93,217,177,.015))
+}
+.bet-card.outcome-loss{
+  border-color:rgba(255,107,138,.25);
+  background:linear-gradient(180deg, rgba(255,107,138,.04), rgba(255,107,138,.01))
+}
+.bet-card.outcome-pending{border-color:rgba(255,217,112,.25)}
+.bet-card.outcome-push{border-color:rgba(255,255,255,.1)}
+.bet-card:hover{border-color:rgba(255,255,255,.18)}
+
+.bet-card-header{padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.bet-card-info{flex:1;min-width:0}
+.bet-card-meta{font-size:10.5px;color:#888;letter-spacing:0.2px;margin-bottom:4px}
+.bet-card-meta b{color:#bbb;font-weight:500}
+.bet-card-event{font-size:13.5px;color:#fff;font-weight:500;margin-bottom:3px;line-height:1.3}
+.bet-card-selection{font-size:12px;color:#aaa;line-height:1.4}
+
+.bet-card-result{flex-shrink:0;text-align:right}
+.bet-card-result-amount{font-size:18px;font-weight:700;line-height:1;letter-spacing:-0.2px}
+.bet-card-result-amount.pos{color:#5dd9b1}
+.bet-card-result-amount.neg{color:#ff6b8a}
+.bet-card-result-amount.neutral{color:#999}
+.bet-card-result-amount.pending{color:#ffd970}
+.bet-card-result-lbl{font-size:9px;color:#888;letter-spacing:0.8px;text-transform:uppercase;font-weight:600;margin-top:4px}
+
+.bet-card-pills{padding:0 14px 12px;display:flex;flex-wrap:wrap;gap:5px}
+.bet-pill{
+  font-size:10px;padding:3px 8px;border-radius:5px;letter-spacing:0.2px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#aaa
+}
+.bet-pill.book{background:rgba(91,163,255,.08);border-color:rgba(91,163,255,.2);color:#85b9ff}
+.bet-pill.type{background:rgba(255,255,255,.05);color:#bbb}
+.bet-pill.odds{background:rgba(255,255,255,.05);font-family:inherit;font-weight:600;color:#fff}
+.bet-pill.stake{background:rgba(255,255,255,.04);color:#aaa}
+.bet-pill.clv-pos{background:rgba(93,217,177,.1);border-color:rgba(93,217,177,.25);color:#5dd9b1}
+.bet-pill.clv-neg{background:rgba(255,107,138,.08);border-color:rgba(255,107,138,.2);color:#ff8fa3}
+.bet-pill.signal-with{background:rgba(93,217,177,.12);border-color:rgba(93,217,177,.3);color:#5dd9b1}
+.bet-pill.signal-against{background:rgba(255,107,138,.08);border-color:rgba(255,107,138,.2);color:#ff8fa3}
+.bet-pill.free-bet{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.25);color:#c4a8ff}
+
+/* Sharp signal cross-reference row */
+.bet-card-signals{
+  margin:0 14px 12px;padding:9px 11px;
+  background:rgba(0,0,0,.18);border-radius:7px;
+  font-size:11px;line-height:1.5;color:#bbb
+}
+.bet-card-signals b{color:#fff;font-weight:600}
+.bet-card-signals.with-sharps{
+  background:rgba(93,217,177,.05);border:1px solid rgba(93,217,177,.18)
+}
+.bet-card-signals.against-sharps{
+  background:rgba(255,107,138,.04);border:1px solid rgba(255,107,138,.18)
+}
+
+/* Section headers */
+.mybets-section-hdr{
+  padding:14px 16px 8px;font-size:10px;color:#888;
+  letter-spacing:1px;font-weight:700;text-transform:uppercase
+}
+
+/* Re-import / Manage row */
+.mybets-actions-bar{
+  margin:0 16px 14px;padding:11px 14px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;display:flex;justify-content:space-between;align-items:center;
+  font-size:11.5px;color:#aaa
+}
+.mybets-actions-bar b{color:#fff;font-weight:600}
+.mybets-actions-bar-btns{display:flex;gap:8px}
+.mybets-actions-btn{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  color:#bbb;padding:6px 11px;border-radius:6px;font-size:11px;
+  font-weight:500;cursor:pointer;transition:all 0.15s ease
+}
+.mybets-actions-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.mybets-actions-btn.danger{color:#ff8fa3}
+.mybets-actions-btn.danger:hover{background:rgba(255,107,138,.1);border-color:rgba(255,107,138,.25)}
+
+/* Hidden file input */
+#mybets-file-input{display:none}
+
 </style>
 </head>
 <body>
@@ -745,6 +901,9 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 </div>
 <div id="v4" style="display:none">
 <div id="locks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING LOCKS</div></div></div>
+</div>
+<div id="v5" style="display:none">
+<div id="mybets"></div>
 </div>
 <div class="settings-modal" id="settingsModal">
   <div class="settings-content">
@@ -1038,6 +1197,7 @@ function rerenderCurrentTab() {
   else if (curTab === 1) renderSharp();
   else if (curTab === 2) renderModel();
   else if (curTab === 4) renderLocks();
+  else if (curTab === 5) renderMyBets();
 }
 
 function americanToDecimal(o) {
@@ -1197,10 +1357,11 @@ function captureSnapshot(game) {
 
 function goTab(n) {
   curTab = n;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     document.getElementById("t" + i).className = "tab" + (i === n ? " on" : "");
     document.getElementById("v" + i).style.display = i === n ? "block" : "none";
   }
+  if (n === 5) renderMyBets();
 }
 
 function fmt(p) { return p > 0 ? "+" + p : "" + p; }
@@ -3881,6 +4042,535 @@ async function init() {
   btn.classList.remove("spin");
 }
 init();
+
+// ============================================================
+// MY BETS TAB - Pikkit CSV import + bet history tracking
+// ============================================================
+
+// Pikkit CSV column mapping (fuzzy header match)
+const PIKKIT_FIELD_MAP = {
+  bet_id:           ["bet id", "betid", "id", "wager id"],
+  placed_at:        ["placed", "bet placed", "date", "timestamp", "time placed"],
+  settled_at:       ["settled", "settlement", "result date"],
+  sportsbook:       ["sportsbook", "book", "site"],
+  sport:            ["sport", "league"],
+  event:            ["event", "matchup", "game", "teams"],
+  bet_type:         ["bet type", "market", "type"],
+  selection:        ["selection", "pick", "wager", "bet"],
+  line:             ["line", "point"],
+  odds_american:    ["odds", "price", "american odds"],
+  stake:            ["stake", "wager amount", "risk", "bet amount", "amount"],
+  potential_payout: ["potential payout", "to win", "return"],
+  actual_payout:    ["actual payout", "payout", "won", "winnings"],
+  profit:           ["profit", "p/l", "net", "result amount"],
+  outcome:          ["outcome", "result", "status"],
+  is_free_bet:      ["free bet", "freebet", "promo bet"],
+  clv_pct:          ["clv", "closing line value", "clv %"],
+  closing_odds:     ["closing odds", "close odds", "closing price"],
+  tags:             ["tags", "label"]
+};
+
+let myBetsData = []; // Stored bets array
+let myBetsFilter = "all"; // Current filter
+
+// Load saved bets from localStorage on app start
+function loadMyBetsFromStorage() {
+  try {
+    const raw = localStorage.getItem("jlab_mybets");
+    if (raw) myBetsData = JSON.parse(raw);
+  } catch(e) { myBetsData = []; }
+}
+
+function saveMyBetsToStorage() {
+  try { localStorage.setItem("jlab_mybets", JSON.stringify(myBetsData)); } catch(e) {}
+}
+
+// CSV parser - handles quoted fields, commas inside quotes, etc.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuote = false, i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuote = false; i++; continue;
+      }
+      field += c; i++;
+    } else {
+      if (c === '"') { inQuote = true; i++; continue; }
+      if (c === ",") { row.push(field); field = ""; i++; continue; }
+      if (c === "\n" || c === "\r") {
+        if (field !== "" || row.length > 0) { row.push(field); rows.push(row); row = []; field = ""; }
+        if (c === "\r" && text[i+1] === "\n") i++;
+        i++; continue;
+      }
+      field += c; i++;
+    }
+  }
+  if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// Detect which columns map to which fields
+function detectColumns(headers) {
+  const map = {};
+  const lower = headers.map(h => (h || "").toLowerCase().trim());
+  for (const field in PIKKIT_FIELD_MAP) {
+    for (const pat of PIKKIT_FIELD_MAP[field]) {
+      const idx = lower.findIndex(h => h.includes(pat));
+      if (idx >= 0) { map[field] = idx; break; }
+    }
+  }
+  return map;
+}
+
+function parseMoney(s) {
+  if (!s) return null;
+  const cleaned = String(s).replace(/[$,\s]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "—" || cleaned.toLowerCase() === "n/a") return null;
+  const v = parseFloat(cleaned);
+  return isNaN(v) ? null : v;
+}
+
+function parseOdds(s) {
+  if (!s) return null;
+  const cleaned = String(s).trim().replace(/,/g, "");
+  if (!cleaned) return null;
+  const v = parseFloat(cleaned);
+  if (isNaN(v)) return null;
+  // Decimal odds detection (1.x to 99.x with a dot, no sign)
+  if (v >= 1.0 && v < 100 && cleaned.includes(".") && !cleaned.startsWith("+") && !cleaned.startsWith("-")) {
+    if (v >= 2.0) return Math.round((v - 1) * 100);
+    return Math.round(-100 / (v - 1));
+  }
+  return Math.round(v);
+}
+
+function parseDateTime(s) {
+  if (!s) return null;
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString();
+  return null;
+}
+
+function parseBoolField(s) {
+  return ["true", "yes", "y", "1", "free bet", "free"].includes(String(s).trim().toLowerCase());
+}
+
+function normalizeBetType(s) {
+  if (!s) return "unknown";
+  const low = s.toLowerCase();
+  if (low.includes("parlay")) return "parlay";
+  if (low.includes("moneyline") || low.trim() === "ml" || low === "money line") return "moneyline";
+  if (low.includes("spread") || low.includes("handicap")) return "spread";
+  if (low.includes("total") || low.includes("over") || low.includes("under") || low.includes("o/u")) return "total";
+  if (low.includes("prop") || low.includes("player")) return "prop";
+  if (low.includes("future")) return "future";
+  if (low.includes("sgp") || low.includes("same game")) return "sgp";
+  return low.trim();
+}
+
+function normalizeOutcome(s) {
+  if (!s) return "pending";
+  const low = s.toLowerCase().trim();
+  if (["win", "won", "w"].includes(low)) return "win";
+  if (["loss", "lose", "lost", "l"].includes(low)) return "loss";
+  if (["push", "void", "tie"].includes(low)) return "push";
+  if (["pending", "open", "unsettled", "live"].includes(low)) return "pending";
+  if (["cashed out", "cashout"].includes(low)) return "cashout";
+  return low;
+}
+
+function normalizeRow(row, colMap) {
+  function get(field) {
+    const i = colMap[field];
+    if (i === undefined || i >= row.length) return null;
+    const v = row[i];
+    return typeof v === "string" ? v.trim() : v;
+  }
+  const bet = {
+    bet_id: get("bet_id"),
+    placed_at: parseDateTime(get("placed_at")),
+    settled_at: parseDateTime(get("settled_at")),
+    sportsbook: get("sportsbook"),
+    sport: get("sport"),
+    event: get("event"),
+    bet_type: normalizeBetType(get("bet_type") || ""),
+    selection: get("selection"),
+    line: parseMoney(get("line")),
+    odds_american: parseOdds(get("odds_american") || ""),
+    stake: parseMoney(get("stake")),
+    potential_payout: parseMoney(get("potential_payout")),
+    actual_payout: parseMoney(get("actual_payout")),
+    profit: parseMoney(get("profit")),
+    outcome: normalizeOutcome(get("outcome") || ""),
+    is_free_bet: parseBoolField(get("is_free_bet") || ""),
+    clv_pct: parseMoney(get("clv_pct")),
+    closing_odds: parseOdds(get("closing_odds") || ""),
+    tags: get("tags")
+  };
+  // Compute profit if missing
+  if (bet.profit === null && bet.stake !== null && bet.actual_payout !== null) {
+    bet.profit = Math.round((bet.actual_payout - bet.stake) * 100) / 100;
+  }
+  // Implied probability
+  if (bet.odds_american !== null) {
+    if (bet.odds_american > 0) bet.implied_prob = 100 / (bet.odds_american + 100);
+    else bet.implied_prob = -bet.odds_american / (-bet.odds_american + 100);
+  }
+  return bet;
+}
+
+// Parse the dropped CSV and merge with existing bets
+function importPikkitCSV(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) {
+    alert("CSV appears empty or invalid.");
+    return { added: 0, skipped: 0 };
+  }
+  const headers = rows[0];
+  const colMap = detectColumns(headers);
+  if (Object.keys(colMap).length === 0) {
+    alert("Could not detect any Pikkit columns in CSV. Check the file format.");
+    return { added: 0, skipped: 0 };
+  }
+  const newBets = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.some(c => c && c.trim())) continue;
+    newBets.push(normalizeRow(row, colMap));
+  }
+
+  // Dedup by bet_id (or composite key if no bet_id)
+  const existingKeys = new Set(myBetsData.map(b => b.bet_id || (b.placed_at + "|" + b.event + "|" + b.selection + "|" + b.stake)));
+  let added = 0, skipped = 0;
+  for (const b of newBets) {
+    const key = b.bet_id || (b.placed_at + "|" + b.event + "|" + b.selection + "|" + b.stake);
+    if (existingKeys.has(key)) { skipped++; continue; }
+    existingKeys.add(key);
+    myBetsData.push(b);
+    added++;
+  }
+  // Sort by placed_at desc
+  myBetsData.sort((a, b) => (b.placed_at || "").localeCompare(a.placed_at || ""));
+  saveMyBetsToStorage();
+  return { added, skipped };
+}
+
+// Compute summary statistics
+function computeMyBetsSummary(bets) {
+  const settled = bets.filter(b => ["win", "loss", "push", "cashout"].includes(b.outcome));
+  const wins = settled.filter(b => b.outcome === "win").length;
+  const losses = settled.filter(b => b.outcome === "loss").length;
+  const pushes = settled.filter(b => b.outcome === "push").length;
+  const totalStaked = settled.reduce((a, b) => a + (b.stake || 0), 0);
+  const totalProfit = settled.reduce((a, b) => a + (b.profit || 0), 0);
+  const winPct = (wins + losses) > 0 ? (wins / (wins + losses) * 100) : 0;
+  const roi = totalStaked > 0 ? (totalProfit / totalStaked * 100) : 0;
+  // CLV
+  const clvBets = settled.filter(b => b.clv_pct !== null && b.clv_pct !== undefined);
+  const avgClv = clvBets.length ? (clvBets.reduce((a, b) => a + b.clv_pct, 0) / clvBets.length) : null;
+  const posClvCount = clvBets.filter(b => b.clv_pct > 0).length;
+  const posClvPct = clvBets.length ? (posClvCount / clvBets.length * 100) : null;
+  // Pending
+  const pending = bets.filter(b => b.outcome === "pending").length;
+  const pendingStake = bets.filter(b => b.outcome === "pending").reduce((a, b) => a + (b.stake || 0), 0);
+
+  return {
+    totalBets: bets.length,
+    settled: settled.length,
+    pending,
+    pendingStake,
+    wins, losses, pushes,
+    winPct,
+    totalStaked,
+    totalProfit,
+    roi,
+    avgClv,
+    posClvPct,
+    clvSampleSize: clvBets.length
+  };
+}
+
+// Cross-reference a bet to current sharp signals for that game
+function crossReferenceBet(bet) {
+  if (!bet.event || !allGames || !allGames.length) return null;
+  // Find the matching game by team names (fuzzy)
+  const eventLow = bet.event.toLowerCase();
+  for (const g of allGames) {
+    const away = (g.away_team || "").toLowerCase();
+    const home = (g.home_team || "").toLowerCase();
+    const awayShort = away.split(" ").pop();
+    const homeShort = home.split(" ").pop();
+    if ((eventLow.includes(awayShort) || eventLow.includes(away)) &&
+        (eventLow.includes(homeShort) || eventLow.includes(home))) {
+      // Found the game - check splits for sharp side
+      const splits = (typeof getSplitsForGame === "function") ? getSplitsForGame(g) : null;
+      if (!splits) return null;
+      const summary = (typeof findStrongestDivergence === "function") ? findStrongestDivergence(splits) : null;
+      if (!summary || summary.tier === "balanced") return null;
+
+      // Determine if the bet was WITH or AGAINST the sharp side
+      const sel = (bet.selection || "").toLowerCase();
+      const sharpShort = (summary.sharpShort || "").toLowerCase();
+      const publicShort = (summary.publicShort || "").toLowerCase();
+      let alignment = null;
+      if (sel.includes(sharpShort)) alignment = "with";
+      else if (sel.includes(publicShort)) alignment = "against";
+      // For totals
+      if (bet.bet_type === "total") {
+        if (sel.includes("over") && summary.market === "Total" && summary.sharpShort === "Over") alignment = "with";
+        else if (sel.includes("under") && summary.market === "Total" && summary.sharpShort === "Under") alignment = "with";
+        else if (sel.includes("over") && summary.market === "Total" && summary.publicShort === "Over") alignment = "against";
+        else if (sel.includes("under") && summary.market === "Total" && summary.publicShort === "Under") alignment = "against";
+      }
+      return { game: g, summary, alignment };
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderMyBets() {
+  const container = document.getElementById("mybets");
+  if (!container) return;
+
+  // Empty state
+  if (!myBetsData.length) {
+    container.innerHTML =
+      '<div class="mybets-empty">' +
+        '<div class="mybets-empty-icon">📋</div>' +
+        '<div class="mybets-empty-title">Track your betting history</div>' +
+        '<div class="mybets-empty-desc">Import your bets from Pikkit (or any compatible CSV export) to see your performance, ROI, and CLV trends — cross-referenced against J LAB sharp signals.</div>' +
+        '<div class="mybets-empty-steps">' +
+          '<b>Setup (one-time):</b><br>' +
+          '1. Sign up at <b>pikkit.com</b> (free)<br>' +
+          '2. Connect Fanatics (and any other books) via BookSync<br>' +
+          '3. Subscribe to Pikkit Pro for CSV export<br>' +
+          '<br><b>Daily sync (30 sec):</b><br>' +
+          '1. In Pikkit web → Settings → Export Bets → CSV<br>' +
+          '2. Drop the file in the box below<br>' +
+        '</div>' +
+        renderDropZone() +
+      '</div>';
+    attachDropHandlers();
+    return;
+  }
+
+  // Filtered bets
+  const filtered = filterMyBets(myBetsData, myBetsFilter);
+  const summary = computeMyBetsSummary(filtered);
+
+  let h = "";
+
+  // Performance dashboard
+  const profitCls = summary.totalProfit > 0 ? "pos" : summary.totalProfit < 0 ? "neg" : "";
+  const roiCls = summary.roi > 0 ? "pos" : summary.roi < 0 ? "neg" : "";
+  const clvCls = summary.avgClv && summary.avgClv > 0 ? "pos" : summary.avgClv && summary.avgClv < 0 ? "neg" : "";
+  h += '<div class="mybets-dash">' +
+    '<div class="dash-card">' +
+      '<div class="dash-card-lbl">Profit / Loss</div>' +
+      '<div class="dash-card-val ' + profitCls + '">' + (summary.totalProfit >= 0 ? "+" : "") + "$" + summary.totalProfit.toFixed(2) + '</div>' +
+      '<div class="dash-card-sub">Across ' + summary.settled + ' settled bets</div>' +
+    '</div>' +
+    '<div class="dash-card">' +
+      '<div class="dash-card-lbl">ROI</div>' +
+      '<div class="dash-card-val ' + roiCls + '">' + (summary.roi >= 0 ? "+" : "") + summary.roi.toFixed(1) + "%" + '</div>' +
+      '<div class="dash-card-sub">$' + summary.totalStaked.toFixed(0) + ' staked' + (summary.pending ? " · " + summary.pending + " pending" : "") + '</div>' +
+    '</div>' +
+    '<div class="dash-card">' +
+      '<div class="dash-card-lbl">Win Rate</div>' +
+      '<div class="dash-card-val">' + summary.winPct.toFixed(1) + "%" + '</div>' +
+      '<div class="dash-card-sub">' + summary.wins + '-' + summary.losses + (summary.pushes ? "-" + summary.pushes : "") + ' record' + '</div>' +
+    '</div>' +
+    '<div class="dash-card">' +
+      '<div class="dash-card-lbl">Avg CLV</div>' +
+      '<div class="dash-card-val ' + clvCls + '">' + (summary.avgClv === null ? "—" : (summary.avgClv >= 0 ? "+" : "") + summary.avgClv.toFixed(2) + "%") + '</div>' +
+      '<div class="dash-card-sub">' + (summary.clvSampleSize ? summary.clvSampleSize + " bets · " + summary.posClvPct.toFixed(0) + "% positive" : "Pikkit Pro required") + '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Filter pills
+  const filters = [
+    { key: "all", label: "All" },
+    { key: "pending", label: "Pending" },
+    { key: "win", label: "Wins" },
+    { key: "loss", label: "Losses" },
+    { key: "moneyline", label: "ML" },
+    { key: "spread", label: "Spread" },
+    { key: "total", label: "Total" },
+    { key: "prop", label: "Props" },
+    { key: "parlay", label: "Parlays" }
+  ];
+  h += '<div class="mybets-filters">';
+  filters.forEach(f => {
+    h += '<div class="mybets-filter-pill ' + (myBetsFilter === f.key ? "on" : "") + '" onclick="setMyBetsFilter(\'' + f.key + '\')">' + f.label + '</div>';
+  });
+  h += '</div>';
+
+  // Actions bar
+  const lastImportTime = myBetsData[0] ? new Date(myBetsData[0].placed_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "";
+  h += '<div class="mybets-actions-bar">' +
+    '<span><b>' + myBetsData.length + '</b> total bets · last bet ' + lastImportTime + '</span>' +
+    '<div class="mybets-actions-bar-btns">' +
+      '<button class="mybets-actions-btn" onclick="document.getElementById(\'mybets-file-input\').click()">+ Import</button>' +
+      '<button class="mybets-actions-btn danger" onclick="clearMyBets()">Clear All</button>' +
+    '</div>' +
+  '</div>';
+
+  // Bet list
+  h += '<div class="mybets-list">';
+  if (!filtered.length) {
+    h += '<div class="empty">No bets match this filter.</div>';
+  } else {
+    filtered.forEach(b => h += renderBetCard(b));
+  }
+  h += '</div>';
+
+  // Hidden file input for re-import
+  h += '<input type="file" id="mybets-file-input" accept=".csv" onchange="handleFileSelect(event)">';
+
+  container.innerHTML = h;
+}
+
+function renderDropZone() {
+  return '<div class="mybets-drop" id="mybets-drop-zone">' +
+    '<div class="mybets-drop-icon">📥</div>' +
+    '<div class="mybets-drop-title">Drop your Pikkit CSV here</div>' +
+    '<div class="mybets-drop-desc">Or click to browse · CSV files only</div>' +
+    '<button class="mybets-drop-btn" onclick="document.getElementById(\'mybets-file-input\').click()">Choose File</button>' +
+    '<input type="file" id="mybets-file-input" accept=".csv" onchange="handleFileSelect(event)">' +
+  '</div>';
+}
+
+function attachDropHandlers() {
+  const zone = document.getElementById("mybets-drop-zone");
+  if (!zone) return;
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", e => { e.preventDefault(); zone.classList.remove("dragover"); });
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    zone.classList.remove("dragover");
+    const f = e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+}
+
+function handleFileSelect(e) {
+  const f = e.target.files[0];
+  if (f) loadFile(f);
+}
+
+function loadFile(file) {
+  if (!file.name.toLowerCase().endsWith(".csv")) {
+    alert("Please drop a CSV file.");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const result = importPikkitCSV(e.target.result);
+    if (result.added === 0 && result.skipped === 0) return;
+    alert("Imported " + result.added + " new bet" + (result.added === 1 ? "" : "s") + (result.skipped ? " · " + result.skipped + " duplicate" + (result.skipped === 1 ? "" : "s") + " skipped" : ""));
+    renderMyBets();
+  };
+  reader.readAsText(file);
+}
+
+function setMyBetsFilter(key) {
+  myBetsFilter = key;
+  renderMyBets();
+}
+
+function clearMyBets() {
+  if (!confirm("Delete all " + myBetsData.length + " imported bets? This cannot be undone.")) return;
+  myBetsData = [];
+  saveMyBetsToStorage();
+  renderMyBets();
+}
+
+function filterMyBets(bets, key) {
+  if (key === "all") return bets;
+  if (key === "pending") return bets.filter(b => b.outcome === "pending");
+  if (key === "win" || key === "loss" || key === "push") return bets.filter(b => b.outcome === key);
+  return bets.filter(b => b.bet_type === key);
+}
+
+function renderBetCard(b) {
+  const outcomeCls = "outcome-" + b.outcome;
+  let resultAmount, resultLbl, resultCls;
+  if (b.outcome === "win") {
+    resultAmount = "+$" + (b.profit || 0).toFixed(2);
+    resultLbl = "Won";
+    resultCls = "pos";
+  } else if (b.outcome === "loss") {
+    resultAmount = "-$" + Math.abs(b.profit || b.stake || 0).toFixed(2);
+    resultLbl = "Lost";
+    resultCls = "neg";
+  } else if (b.outcome === "push") {
+    resultAmount = "$0.00";
+    resultLbl = "Push";
+    resultCls = "neutral";
+  } else if (b.outcome === "pending") {
+    resultAmount = "+$" + ((b.potential_payout || 0) - (b.stake || 0)).toFixed(2);
+    resultLbl = "To Win";
+    resultCls = "pending";
+  } else {
+    resultAmount = "$" + (b.profit || 0).toFixed(2);
+    resultLbl = b.outcome.toUpperCase();
+    resultCls = "neutral";
+  }
+
+  const oddsStr = b.odds_american !== null ? (b.odds_american > 0 ? "+" + b.odds_american : b.odds_american) : "—";
+  const placedStr = b.placed_at ? new Date(b.placed_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "";
+  const stakeStr = b.stake !== null ? "$" + b.stake.toFixed(2) : "—";
+
+  // Cross-reference to sharp signals
+  const xref = crossReferenceBet(b);
+
+  let h = '<div class="bet-card ' + outcomeCls + '">' +
+    '<div class="bet-card-header">' +
+      '<div class="bet-card-info">' +
+        '<div class="bet-card-meta"><b>' + (b.sportsbook || "—") + '</b> · ' + (b.sport || "—") + ' · ' + placedStr + '</div>' +
+        '<div class="bet-card-event">' + (b.event || "—") + '</div>' +
+        '<div class="bet-card-selection">' + (b.selection || "—") + '</div>' +
+      '</div>' +
+      '<div class="bet-card-result">' +
+        '<div class="bet-card-result-amount ' + resultCls + '">' + resultAmount + '</div>' +
+        '<div class="bet-card-result-lbl">' + resultLbl + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="bet-card-pills">' +
+      '<span class="bet-pill type">' + (b.bet_type || "?").toUpperCase() + '</span>' +
+      '<span class="bet-pill odds">' + oddsStr + '</span>' +
+      '<span class="bet-pill stake">' + stakeStr + ' stake</span>' +
+      (b.is_free_bet ? '<span class="bet-pill free-bet">Free Bet</span>' : "") +
+      (b.clv_pct !== null && b.clv_pct !== undefined
+        ? '<span class="bet-pill ' + (b.clv_pct > 0 ? "clv-pos" : "clv-neg") + '">CLV ' + (b.clv_pct >= 0 ? "+" : "") + b.clv_pct.toFixed(1) + "%</span>"
+        : "") +
+      (xref && xref.alignment === "with" ? '<span class="bet-pill signal-with">⚡ With Sharps</span>' : "") +
+      (xref && xref.alignment === "against" ? '<span class="bet-pill signal-against">⚠ Against Sharps</span>' : "") +
+    '</div>';
+
+  // Sharp signal cross-reference detail (only for pending bets where it actionable)
+  if (xref && b.outcome === "pending" && xref.alignment) {
+    const cls = xref.alignment === "with" ? "with-sharps" : "against-sharps";
+    const sb = xref.summary;
+    const msg = xref.alignment === "with"
+      ? "<b>You're with the sharps.</b> Public splits show " + sb.sharpMoney + "% money / " + sb.sharpTickets + "% tickets on " + sb.sharpShort + " (" + sb.market + ")."
+      : "<b>You're fading the sharps.</b> Public splits show " + sb.sharpMoney + "% money / " + sb.sharpTickets + "% tickets on " + sb.sharpShort + " (" + sb.market + "), but you took " + sb.publicShort + ".";
+    h += '<div class="bet-card-signals ' + cls + '">' + msg + '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// Initialize on load
+loadMyBetsFromStorage();
+
 </script>
 <div class="tabs">
 <button class="tab on" id="t0" onclick="goTab(0)"><span class="tab-icon">📊</span><span>Lines</span></button>
@@ -3888,6 +4578,7 @@ init();
 <button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">🧠</span><span>Model</span></button>
 <button class="tab" id="t3" onclick="goTab(3)"><span class="tab-icon">📰</span><span>Picks</span></button>
 <button class="tab" id="t4" onclick="goTab(4)"><span class="tab-icon">🔒</span><span>Locks</span></button>
+<button class="tab" id="t5" onclick="goTab(5)"><span class="tab-icon">📋</span><span>My Bets</span></button>
 </div>
 </body>
 </html>
