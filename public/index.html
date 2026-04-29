@@ -289,6 +289,169 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
 .live-compact-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 
 
+
+
+/* === LOCKS TAB v3 — single collapsible bar per pick === */
+.lock-bar{
+  margin:0 16px 8px;border-radius:11px;overflow:hidden;
+  background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color 0.18s ease, box-shadow 0.18s ease
+}
+.lock-bar.units-strong{
+  border-color:rgba(93,217,177,.4);
+  background:linear-gradient(180deg, rgba(93,217,177,.07), rgba(93,217,177,.02));
+  box-shadow:0 1px 0 rgba(93,217,177,.06) inset, 0 4px 16px rgba(93,217,177,.04)
+}
+.lock-bar.units-mid{
+  border-color:rgba(255,217,112,.32);
+  background:linear-gradient(180deg, rgba(255,217,112,.05), rgba(255,217,112,.02));
+  box-shadow:0 1px 0 rgba(255,217,112,.05) inset, 0 4px 16px rgba(255,217,112,.03)
+}
+.lock-bar.units-light{border-color:rgba(255,255,255,.1)}
+.lock-bar:hover.units-strong{border-color:rgba(93,217,177,.55)}
+.lock-bar:hover.units-mid{border-color:rgba(255,217,112,.45)}
+.lock-bar:hover.units-light{border-color:rgba(255,255,255,.15)}
+
+.lock-bar-header{
+  padding:13px 14px;display:flex;align-items:center;gap:11px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none
+}
+.lock-bar-header:active{background:rgba(255,255,255,.03)}
+
+.lock-bar-icon{
+  font-size:20px;flex-shrink:0;line-height:1;width:30px;text-align:center
+}
+.lock-bar-info{flex:1;min-width:0}
+.lock-bar-meta{
+  font-size:10.5px;color:#888;letter-spacing:0.2px;margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.lock-bar-pick{
+  font-size:14px;color:#fff;font-weight:500;line-height:1.3;letter-spacing:0.1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.lock-bar-pick b{font-weight:700;letter-spacing:0.3px}
+
+.lock-bar-units{
+  flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:1px
+}
+.lock-bar-units-num{
+  font-size:18px;font-weight:700;line-height:1;letter-spacing:-0.3px;color:#fff
+}
+.lock-bar-units.units-strong .lock-bar-units-num{color:#5dd9b1}
+.lock-bar-units.units-mid .lock-bar-units-num{color:#ffd970}
+.lock-bar-units-lbl{
+  font-size:8.5px;color:#888;letter-spacing:1px;font-weight:600;text-transform:uppercase
+}
+
+.lock-bar-arrow{
+  font-size:10px;color:#555;transition:transform 0.2s ease, color 0.2s ease;flex-shrink:0
+}
+.lock-bar:hover .lock-bar-arrow{color:#888}
+.lock-bar.open .lock-bar-arrow{transform:rotate(180deg);color:#aaa}
+
+.lock-bar-detail{
+  display:none;padding:13px 14px;
+  border-top:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.18)
+}
+.lock-bar.open .lock-bar-detail{display:block}
+
+.lock-detail-summary{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:11px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.05)
+}
+.lock-detail-ev{font-size:14px;font-weight:700;letter-spacing:-0.2px}
+.lock-detail-ev.pos{color:#5dd9b1}
+.lock-detail-ev.zero{color:#ffd970}
+
+.locks-day-header{
+  padding:14px 16px 8px;font-size:11px;color:#888;
+  letter-spacing:1.2px;font-weight:700;text-transform:uppercase
+}
+
+/* === MARKET BARS (Lines tab — 3 bars per game: ML / Spread / Total) === */
+.market-bar{
+  margin:8px 0;border-radius:10px;overflow:hidden;
+  background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color 0.18s ease, box-shadow 0.18s ease
+}
+.market-bar.tier-strong{
+  border-color:rgba(93,217,177,.35);
+  background:linear-gradient(180deg, rgba(93,217,177,.06), rgba(93,217,177,.02))
+}
+.market-bar.tier-soft{
+  border-color:rgba(255,217,112,.3);
+  background:linear-gradient(180deg, rgba(255,217,112,.05), rgba(255,217,112,.02))
+}
+.market-bar:hover{border-color:rgba(255,255,255,.15)}
+.market-bar:hover.tier-strong{border-color:rgba(93,217,177,.5)}
+.market-bar:hover.tier-soft{border-color:rgba(255,217,112,.45)}
+.market-bar-header{
+  padding:13px 14px;display:flex;align-items:center;gap:10px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none
+}
+.market-bar-header:active{background:rgba(255,255,255,.03)}
+.market-bar-title{
+  font-size:13px;color:#fff;letter-spacing:0.2px;font-weight:600;
+  display:flex;align-items:center;gap:7px;flex-shrink:0
+}
+.market-tier-pill{
+  font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;
+  padding:3px 7px;border-radius:4px;flex-shrink:0
+}
+.market-tier-pill.premium{background:rgba(93,217,177,.15);color:#5dd9b1;border:1px solid rgba(93,217,177,.3)}
+.market-tier-pill.solid{background:rgba(255,217,112,.13);color:#ffd970;border:1px solid rgba(255,217,112,.28)}
+.market-tier-pill.lean{background:rgba(255,255,255,.06);color:#bbb;border:1px solid rgba(255,255,255,.1)}
+.market-bar-summary{
+  flex:1;font-size:12px;color:#b8b8b8;text-align:right;letter-spacing:0.1px;line-height:1.4
+}
+.market-bar-summary b{color:#fff;font-weight:600}
+.market-bar-summary.tier-strong b{color:#5dd9b1}
+.market-bar-summary.tier-soft b{color:#ffd970}
+.market-bar-arrow{font-size:10px;color:#555;transition:transform 0.2s ease, color 0.2s ease;flex-shrink:0}
+.market-bar:hover .market-bar-arrow{color:#888}
+.market-bar.open .market-bar-arrow{transform:rotate(180deg);color:#aaa}
+.market-bar-detail{
+  display:none;border-top:1px solid rgba(255,255,255,.05);padding:12px 14px;
+  background:rgba(0,0,0,.15)
+}
+.market-bar.open .market-bar-detail{display:block}
+
+.market-pick-row{
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  padding:11px 13px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.04);
+  border-radius:8px;margin-bottom:10px
+}
+.market-pick-lbl{font-size:9px;color:#888;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:4px}
+.market-pick-text{font-size:13.5px;color:#fff;font-weight:500;line-height:1.3}
+.market-pick-text b{font-weight:700}
+.market-pick-units{font-size:20px;font-weight:700;color:#fff;line-height:1;letter-spacing:-0.3px}
+.market-pick-units.tier-strong{color:#5dd9b1}
+.market-pick-units.tier-soft{color:#ffd970}
+
+.market-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+.market-signals-title, .market-reasons-title{
+  font-size:10.5px;color:#888;letter-spacing:0.4px;font-weight:600;
+  margin:8px 0 5px;text-transform:uppercase
+}
+.market-signal-row{
+  font-size:11.5px;color:#5dd9b1;line-height:1.5;
+  padding:5px 8px;background:rgba(93,217,177,.05);
+  border-left:2px solid #5dd9b1;border-radius:4px;margin-bottom:4px
+}
+.market-reasons{margin-top:11px;padding-top:11px;border-top:1px solid rgba(255,255,255,.05)}
+.market-reason-item{
+  font-size:12px;color:#bbb;line-height:1.6;margin-bottom:7px;
+  padding-left:10px;position:relative
+}
+.market-reason-item::before{
+  content:"";position:absolute;left:0;top:8px;width:3px;height:3px;
+  border-radius:50%;background:#5dd9b1;opacity:.5
+}
+.market-reason-item b{color:#fff;font-weight:600}
+
 /* === MY BETS BREAKDOWNS (Pikkit-style) === */
 
 /* Mode toggle: Bets | Breakdowns */
@@ -1795,13 +1958,450 @@ function getBetRec(game){
   return best;
 }
 
+
+// ============================================================
+// PER-MARKET ANALYSIS (used by Lines tab + Locks tab)
+// Each analyzeXxx() returns: {
+//   bestSide: "Team" | "Over" | "Under",
+//   bestLine: number | null,
+//   bestPubOdds: number,
+//   bestPubBook: string,
+//   sharpOdds: number | null,  // pinnacle's pricing
+//   ev: number,                // EV %
+//   sharpSignals: [{key, label}],  // signals supporting bestSide
+//   splitsDiv: divergence object | null,
+//   units: number,             // half-Kelly mapped to discrete units
+//   tier: "premium" | "solid" | "lean" | null,
+//   reasons: [string],         // narrative bullets
+//   summary: string,           // one-line synopsis for collapsed bar
+//   tierCls: "tier-strong" | "tier-soft" | ""
+// }
+// ============================================================
+
+function _bestPriceForOutcome(bks, marketKey, outcomeName, books) {
+  // Find best price (most positive = best for bettor) for a given outcome across the given book list
+  let best = null;
+  bks.forEach(bk => {
+    if (!books.includes(bk.key)) return;
+    const market = (bk.markets || []).find(m => m.key === marketKey);
+    if (!market) return;
+    const outcome = market.outcomes.find(o => o.name === outcomeName);
+    if (!outcome) return;
+    if (best == null || outcome.price > best.price) {
+      best = { price: outcome.price, book: bk.title, bookKey: bk.key, point: outcome.point };
+    }
+  });
+  return best;
+}
+
+function _firstPriceForOutcome(bks, marketKey, outcomeName, books) {
+  for (const bkKey of books) {
+    const bk = bks.find(b => b.key === bkKey);
+    if (!bk) continue;
+    const market = (bk.markets || []).find(m => m.key === marketKey);
+    if (!market) continue;
+    const outcome = market.outcomes.find(o => o.name === outcomeName);
+    if (!outcome) continue;
+    return { price: outcome.price, book: bk.title, bookKey: bk.key, point: outcome.point };
+  }
+  return null;
+}
+
+// Half-Kelly fractional bet sizing → discrete units
+function unitsFromEdge(pubProb, pinProb) {
+  if (!pubProb || !pinProb) return 0;
+  const edge = pinProb - pubProb;
+  if (edge <= 0) return 0;
+  const halfKelly = (edge / pubProb) * 0.5;
+  if (halfKelly >= 0.08) return 5;
+  if (halfKelly >= 0.05) return 4;
+  if (halfKelly >= 0.03) return 3;
+  if (halfKelly >= 0.015) return 2;
+  if (halfKelly >= 0.01) return 1;
+  if (halfKelly >= 0.005) return 0.5;
+  if (halfKelly >= 0.0025) return 0.25;
+  return 0.1;
+}
+
+function impliedProb(americanOdds) {
+  if (americanOdds == null) return null;
+  if (americanOdds > 0) return 100 / (americanOdds + 100);
+  return -americanOdds / (-americanOdds + 100);
+}
+
+function _tierFromUnits(units) {
+  if (units >= 3) return { tier: 'premium', cls: 'tier-strong' };
+  if (units >= 1.5) return { tier: 'solid', cls: 'tier-soft' };
+  if (units >= 0.5) return { tier: 'lean', cls: '' };
+  return { tier: null, cls: '' };
+}
+
+// === ANALYZE MONEYLINE ===
+function analyzeMoneyline(game) {
+  const bks = game.bookmakers || [];
+  const teams = [game.away_team, game.home_team];
+  let best = null;
+  teams.forEach(t => {
+    const pin = bkOdds(bks, t, SHP);
+    const pub = bkOdds(bks, t, PUB);
+    if (!pin || !pub) return;
+    const ev = calcEV(pin.o, pub.o);
+    if (ev == null || ev <= 0) return;
+    if (!best || ev > best.ev) {
+      const pubProb = impliedProb(pub.o);
+      const pinProb = impliedProb(pin.o);
+      const units = unitsFromEdge(pubProb, pinProb);
+      best = { team: t, tShort: t.split(' ').pop(), pin: pin.o, pub: pub.o, bk: pub.bk, ev, sharpDiff: pub.o - pin.o, units, pinProb, pubProb };
+    }
+  });
+  if (!best) return null;
+
+  // Sharp signals supporting this side
+  const sharpSignals = [];
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
+  // Steam
+  const steam = (typeof detectSteamMove === 'function') ? detectSteamMove(game) : null;
+  if (steam && steam.find(s => s.team === best.team)) sharpSignals.push({ key:'steam', label:'Steam move toward '+best.tShort });
+  // RLM
+  const rlm = (typeof detectRLM === 'function') ? detectRLM(game) : null;
+  if (rlm && rlm.find(s => s.team === best.team)) sharpSignals.push({ key:'rlm', label:'Reverse line movement on '+best.tShort });
+  // CLV
+  const clv = (typeof calcCLV === 'function') ? calcCLV(game) : null;
+  if (clv && clv.find(c => c.team === best.team && c.clvPct >= 3)) {
+    const c = clv.find(cc => cc.team === best.team);
+    sharpSignals.push({ key:'clv', label:'+'+c.clvPct+'% CLV beating Pinnacle' });
+  }
+
+  // Splits agreement
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
+  let splitsDiv = null;
+  if (splits) {
+    const all = findAllDivergences(splits);
+    splitsDiv = all.find(d => d.market === 'ML' && d.sharpShort === best.tShort) || null;
+    if (splitsDiv) {
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+      // Boost units when splits agree strongly
+      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
+      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+    }
+  }
+
+  const reasons = [];
+  reasons.push('<b>Pinnacle</b> has '+best.tShort+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp gap is <b>'+Math.round(best.sharpDiff)+' points</b>, indicating sharp money has already moved Pinnacle.');
+  if (splitsDiv) reasons.push('Public splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets — sharps pounding this side.');
+  if (sharpSignals.find(s => s.key==='clv')) reasons.push('You\'re grabbing a price that beats Pinnacle by 3%+ — strong CLV.');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+
+  const tInfo = _tierFromUnits(best.units);
+  let summary;
+  if (best.units >= 3) summary = 'Strong edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units > 0) summary = 'Lean on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'%';
+  else summary = 'No clear edge';
+
+  return {
+    market: 'Moneyline',
+    bestSide: best.team,
+    bestSideShort: best.tShort,
+    bestLine: null,
+    bestPubOdds: best.pub,
+    bestPubBook: best.bk,
+    sharpOdds: best.pin,
+    ev: best.ev,
+    sharpDiff: best.sharpDiff,
+    sharpSignals,
+    splitsDiv,
+    units: best.units,
+    tier: tInfo.tier,
+    tierCls: tInfo.cls,
+    reasons,
+    summary
+  };
+}
+
+// === ANALYZE SPREAD ===
+function analyzeSpread(game) {
+  const bks = game.bookmakers || [];
+  const teams = [game.away_team, game.home_team];
+  let best = null;
+  teams.forEach(t => {
+    const pin = _firstPriceForOutcome(bks, 'spreads', t, SHP);
+    const pub = _bestPriceForOutcome(bks, 'spreads', t, PUB);
+    if (!pin || !pub) return;
+    // Match by point - if lines differ, no apples-to-apples comparison
+    if (Math.abs((pin.point||0) - (pub.point||0)) > 0.01) return;
+    const ev = calcEV(pin.price, pub.price);
+    if (ev == null || ev <= 0) return;
+    if (!best || ev > best.ev) {
+      const pubProb = impliedProb(pub.price);
+      const pinProb = impliedProb(pin.price);
+      const units = unitsFromEdge(pubProb, pinProb);
+      best = { team: t, tShort: t.split(' ').pop(), pin: pin.price, pub: pub.price, line: pub.point, bk: pub.book, ev, sharpDiff: pub.price - pin.price, units, pinProb, pubProb };
+    }
+  });
+  if (!best) return null;
+
+  const sharpSignals = [];
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
+
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
+  let splitsDiv = null;
+  if (splits) {
+    const all = findAllDivergences(splits);
+    splitsDiv = all.find(d => d.market === 'Spread' && d.sharpShort === best.tShort) || null;
+    if (splitsDiv) {
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
+      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+    }
+  }
+
+  const lineStr = (best.line >= 0 ? '+' : '') + best.line;
+  const reasons = [];
+  reasons.push('<b>Pinnacle</b> prices '+best.tShort+' '+lineStr+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp gap of <b>'+Math.round(best.sharpDiff)+' points</b> indicates sharp money has moved Pinnacle.');
+  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' '+lineStr+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+
+  const tInfo = _tierFromUnits(best.units);
+  let summary;
+  if (best.units >= 3) summary = 'Strong edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units > 0) summary = 'Lean on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'%';
+  else summary = 'No clear edge';
+
+  return {
+    market: 'Spread',
+    bestSide: best.team,
+    bestSideShort: best.tShort,
+    bestLine: best.line,
+    bestPubOdds: best.pub,
+    bestPubBook: best.bk,
+    sharpOdds: best.pin,
+    ev: best.ev,
+    sharpDiff: best.sharpDiff,
+    sharpSignals,
+    splitsDiv,
+    units: best.units,
+    tier: tInfo.tier,
+    tierCls: tInfo.cls,
+    reasons,
+    summary
+  };
+}
+
+// === ANALYZE TOTAL ===
+function analyzeTotal(game) {
+  const bks = game.bookmakers || [];
+  let best = null;
+  ['Over', 'Under'].forEach(side => {
+    const pin = _firstPriceForOutcome(bks, 'totals', side, SHP);
+    const pub = _bestPriceForOutcome(bks, 'totals', side, PUB);
+    if (!pin || !pub) return;
+    if (Math.abs((pin.point||0) - (pub.point||0)) > 0.01) return;
+    const ev = calcEV(pin.price, pub.price);
+    if (ev == null || ev <= 0) return;
+    if (!best || ev > best.ev) {
+      const pubProb = impliedProb(pub.price);
+      const pinProb = impliedProb(pin.price);
+      const units = unitsFromEdge(pubProb, pinProb);
+      best = { side, pin: pin.price, pub: pub.price, line: pub.point, bk: pub.book, ev, sharpDiff: pub.price - pin.price, units, pinProb, pubProb };
+    }
+  });
+  if (!best) return null;
+
+  const sharpSignals = [];
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
+
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
+  let splitsDiv = null;
+  if (splits) {
+    const all = findAllDivergences(splits);
+    splitsDiv = all.find(d => d.market === 'Total' && d.sharpShort === best.side) || null;
+    if (splitsDiv) {
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
+      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+    }
+  }
+
+  const reasons = [];
+  reasons.push('<b>Pinnacle</b> prices '+best.side+' '+best.line+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp gap of <b>'+Math.round(best.sharpDiff)+' points</b> indicates sharp money has moved Pinnacle.');
+  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' '+best.line+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+
+  const tInfo = _tierFromUnits(best.units);
+  let summary;
+  if (best.units >= 3) summary = 'Strong edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units > 0) summary = 'Lean on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'%';
+  else summary = 'No clear edge';
+
+  return {
+    market: 'Total',
+    bestSide: best.side,
+    bestSideShort: best.side,
+    bestLine: best.line,
+    bestPubOdds: best.pub,
+    bestPubBook: best.bk,
+    sharpOdds: best.pin,
+    ev: best.ev,
+    sharpDiff: best.sharpDiff,
+    sharpSignals,
+    splitsDiv,
+    units: best.units,
+    tier: tInfo.tier,
+    tierCls: tInfo.cls,
+    reasons,
+    summary
+  };
+}
+
+// Render a single market bar (collapsed by default)
+window.marketBarOpen = window.marketBarOpen || {};
+function toggleMarketBar(key) {
+  event.stopPropagation();
+  window.marketBarOpen[key] = !window.marketBarOpen[key];
+  if (curTab === 0) renderGames();
+}
+
+function renderMarketBar(game, analysis, marketKey, icon, marketLabel) {
+  if (!analysis) {
+    return '<div class="market-bar"><div class="market-bar-header" style="cursor:default">' +
+      '<span class="market-bar-title"><span class="ml-bar-title-icon">'+icon+'</span>'+marketLabel+'</span>' +
+      '<span class="market-bar-summary" style="color:#666">No edge available</span>' +
+      '</div></div>';
+  }
+  const key = game.id + '_' + marketKey;
+  const isOpen = !!window.marketBarOpen[key];
+  const tCls = analysis.tierCls || '';
+  const tierBadge = analysis.tier === 'premium'
+    ? '<span class="market-tier-pill premium">PREMIUM</span>'
+    : analysis.tier === 'solid'
+    ? '<span class="market-tier-pill solid">SOLID</span>'
+    : analysis.tier === 'lean'
+    ? '<span class="market-tier-pill lean">LEAN</span>'
+    : '';
+
+  let h = '<div class="market-bar' + (isOpen ? ' open' : '') + ' '+tCls+'">';
+  h += '<div class="market-bar-header" onclick="toggleMarketBar(\''+key+'\')">';
+  h += '<span class="market-bar-title"><span class="ml-bar-title-icon">'+icon+'</span>'+marketLabel+'</span>';
+  h += tierBadge;
+  h += '<span class="market-bar-summary '+tCls+'">' + analysis.summary + '</span>';
+  h += '<span class="market-bar-arrow">▼</span>';
+  h += '</div>';
+  h += '<div class="market-bar-detail">';
+  // The pick line
+  let pickStr;
+  if (analysis.market === 'Moneyline') pickStr = analysis.bestSide + ' ML';
+  else if (analysis.market === 'Spread') pickStr = analysis.bestSide + ' ' + (analysis.bestLine >= 0 ? '+' : '') + analysis.bestLine;
+  else pickStr = analysis.bestSide + ' ' + analysis.bestLine;
+
+  h += '<div class="market-pick-row">';
+  h += '<div><div class="market-pick-lbl">THE PICK</div>';
+  h += '<div class="market-pick-text">Take <b>'+pickStr+'</b> at '+analysis.bestPubBook.split(' ')[0].toUpperCase()+' '+fmt(analysis.bestPubOdds)+'</div></div>';
+  h += '<div style="text-align:right"><div class="market-pick-lbl">UNITS</div>';
+  h += '<div class="market-pick-units '+tCls+'">'+analysis.units+'u</div></div>';
+  h += '</div>';
+
+  // Pills
+  h += '<div class="market-pills">';
+  h += '<span class="pp pin">PIN '+fmt(analysis.sharpOdds)+'</span>';
+  h += '<span class="pp pub">'+analysis.bestPubBook.split(' ')[0].toUpperCase()+' '+fmt(analysis.bestPubOdds)+'</span>';
+  h += '<span class="bet-ev-high">+'+analysis.ev+'% EV</span>';
+  if (analysis.sharpDiff >= 8) h += '<span class="sig">SHARP ⚡</span>';
+  h += '</div>';
+
+  // Sharp signals
+  if (analysis.sharpSignals.length) {
+    h += '<div class="market-signals-title">Signals supporting this pick</div>';
+    h += '<div class="market-signals-list">';
+    analysis.sharpSignals.forEach(s => {
+      h += '<div class="market-signal-row">⚡ '+s.label+'</div>';
+    });
+    h += '</div>';
+  }
+
+  // Reasons
+  h += '<div class="market-reasons">';
+  h += '<div class="market-reasons-title">Analysis</div>';
+  analysis.reasons.forEach(r => {
+    h += '<div class="market-reason-item">'+r+'</div>';
+  });
+  h += '</div>';
+
+  // Add to betslip
+  const bcKey = 'lines_'+game.id+'_'+marketKey+'_'+analysis.bestSideShort;
+  const isAdded = betCardHas(bcKey);
+  if (isAdded) {
+    h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+bcKey+'\')">✓ In Betslip · Tap to remove</button>';
+  } else {
+    const strippedReasons = analysis.reasons.map(r => r.replace(/<[^>]+>/g, ''));
+    const itemObj = {
+      key: bcKey, team: analysis.bestSide, matchup: game.away_team.split(' ').pop()+' vs '+game.home_team.split(' ').pop(),
+      sport: game.sport_title, commence_time: game.commence_time,
+      pub: analysis.bestPubOdds, pin: analysis.sharpOdds, bk: analysis.bestPubBook,
+      ev: analysis.ev, units: analysis.units, source: 'LINES-'+marketKey.toUpperCase(),
+      market: analysis.market, line: analysis.bestLine,
+      reasons: strippedReasons, gameId: game.id, bet: pickStr
+    };
+    h += '<button class="add-to-bc-btn" onclick=\'addToBetCard('+JSON.stringify(itemObj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip · '+analysis.units+'u</button>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+
 function renderExpand(game) {
+  const bks = game.bookmakers || [];
+  if (!bks.length) return "";
+  let h = '<div class="xp">';
+
+  // Three market bars: Moneyline, Spread, Total
+  const mlAnalysis = analyzeMoneyline(game);
+  const spreadAnalysis = analyzeSpread(game);
+  const totalAnalysis = analyzeTotal(game);
+  h += renderMarketBar(game, mlAnalysis, 'ml', '💰', 'Moneyline');
+  h += renderMarketBar(game, spreadAnalysis, 'sp', '📊', 'Spread');
+  h += renderMarketBar(game, totalAnalysis, 'tt', '🎯', 'Total');
+
+  // Public Splits (overall divergence summary)
+  h += renderSplitsUI(game);
+
+  // Player Props (VSiN + Odds API)
+  h += renderPropsUI(game);
+
+  // Juice detail
+  const juiceDetail = calcJuice(game);
+  if (juiceDetail) {
+    const juiceDesc = juiceDetail.tier === 'low' ? 'Better than -110/-110 standard — favorable pricing.'
+                    : juiceDetail.tier === 'neutral' ? 'Standard -110-ish market pricing.'
+                    : 'Higher than standard vig — book is taking extra margin.';
+    h += '<div class="juice-row">' +
+      '<span class="juice-pill juice-' + juiceDetail.tier + '">' + juiceDetail.label + '</span>' +
+      '<span class="juice-row-lbl">' + juiceDesc + '</span>' +
+      '<span class="juice-row-val">' + juiceDetail.vigPct + '%</span>' +
+      '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// Old renderExpand kept for reference, replaced below
+function _oldRenderExpand_unused(game) {
   const bks = game.bookmakers || [];
   if (!bks.length) return "";
   let h = '<div class="xp">';
   const teams = [game.away_team, game.home_team];
   let mlRows = "", hasMl = false;
-  let mlEdge = null; // Track best edge across teams for the synopsis
+  let mlEdge = null;
   teams.forEach(t => {
     const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
     if (!pin && !pub) return;
@@ -3123,169 +3723,62 @@ async function loadPicks() {
 
 
 function computeLocks() {
-  // (live games are filtered out — they cannot be bet on)
-
-  // COMPOSITE LOCK SCORING:
-  //   50% weight: Sharp tab signals (⚡ Pinnacle-vs-Public, 🔥 Steam, 🎯 RLM, 💎 CLV)
-  //   25% weight: Model tab score (sharpDiff * 0.5 + EV * 2)
-  //   25% weight: Picks tab (expert coverage)
-  // Unit sizing uses Half-Kelly.
+  // Pulls qualifying picks from ML / Spread / Total markets via analyze* helpers.
+  // Each market that produces a positive-EV pick with units >= 0.5 becomes a lock.
+  // Unit-tier (>= 3 / >= 1.5 / < 1.5) drives the card outline color.
   const lockCands = [];
-  const eligibleGames = allGames;
+  const eligibleGames = (allGames || []).filter(g => !isLiveGame(g));
 
   eligibleGames.forEach(g => {
-    const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(team => {
-      const pin = bkOdds(bks, team, SHP);
-      const pub = bkOdds(bks, team, PUB);
-      if (!pin || !pub) return;
+    // Try each market type
+    [
+      { fn: analyzeMoneyline, marketKey: 'ml', icon: '💰' },
+      { fn: analyzeSpread,    marketKey: 'spread', icon: '📊' },
+      { fn: analyzeTotal,     marketKey: 'total', icon: '🎯' }
+    ].forEach(({ fn, marketKey, icon }) => {
+      const a = fn(g);
+      if (!a) return;
+      if (a.units < 0.5) return; // Below threshold
 
-      const evVal = calcEV(pin.o, pub.o);
-      if (!evVal || evVal <= 0) return;
+      // Build a lock candidate from the analysis
+      const sideShort = a.bestSideShort;
+      const lockKey = g.id + '_' + marketKey + '_' + sideShort;
 
-      const sharpDiff = pub.o - pin.o;
-      const signals = [];
-      let alignScore = 0;
-
-      // ---- SHARP TAB SIGNALS (for 50% weight) ----
-      // Build sharpSubScore on a 0-100 scale based on sharp-tab indicators.
-      // Max points: Sharp(3) + Steam(3) + RLM(2) + CLV(2) + Splits(3) = 13 - normalized to 100.
-      let sharpPoints = 0;
-      const sharpMax = 13;
-
-      // Signal: Sharp (Pinnacle vs Public)
-      if (sharpDiff >= 8) { signals.push({ key: 'sharp', lbl: '⚡ SHARP', cls: 'lock-sig-sharp' }); alignScore += 3; sharpPoints += 3; }
-      else if (sharpDiff >= 4) { signals.push({ key: 'sharp', lbl: '⚡ SHARP (SOFT)', cls: 'lock-sig-sharp' }); alignScore += 1; sharpPoints += 1; }
-
-      // Signal: EV (used for alignment/context, NOT in sharpSubScore)
-      if (evVal >= 5) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 3; }
-      else if (evVal >= 2) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 2; }
-      else if (evVal > 0) { signals.push({ key: 'ev', lbl: '+' + evVal + '% EV', cls: 'lock-sig-ev' }); alignScore += 1; }
-
-      // Signal: Steam
-      const steam = detectSteamMove(g);
-      if (steam && steam.find(s => s.team === team)) {
-        signals.push({ key: 'steam', lbl: '🔥 STEAM', cls: 'lock-sig-steam' }); alignScore += 3; sharpPoints += 3;
-      }
-
-      // Signal: RLM
-      const rlm = detectRLM(g);
-      if (rlm && rlm.find(r => r.team === team)) {
-        signals.push({ key: 'rlm', lbl: '🎯 RLM', cls: 'lock-sig-rlm' }); alignScore += 2; sharpPoints += 2;
-      }
-
-      // Signal: CLV
-      const clv = calcCLV(g);
-      if (clv && clv.find(c => c.team === team)) {
-        const c = clv.find(c => c.team === team);
-        signals.push({ key: 'clv', lbl: '💎 CLV +' + c.clvPct + '%', cls: 'lock-sig-clv' }); alignScore += 2; sharpPoints += 2;
-      }
-
-      // Signal: Public splits agree across ANY market (ML/Spread/Total)
-      // Locks is moneyline-focused so we check whether sharps are on this team in any market
-      if (typeof getSplitsForGame === 'function') {
-        const splits = getSplitsForGame(g);
-        if (splits && typeof findAllDivergences === 'function') {
-          const all = findAllDivergences(splits);
-          const teamShort = team.split(' ').pop();
-          // Find any market where sharps are on this team
-          const splitsForTeam = all.filter(d => d.market !== 'Total' && d.sharpShort === teamShort && d.magnitude >= 7);
-          if (splitsForTeam.length) {
-            const strongest = splitsForTeam.reduce((a, b) => a.magnitude > b.magnitude ? a : b);
-            const lbl = '⚡ SPLITS ' + strongest.market.toUpperCase() + ' ' + strongest.sharpMoney + '/' + strongest.sharpTickets;
-            const pts = strongest.magnitude >= 18 ? 3 : strongest.magnitude >= 12 ? 2 : 1;
-            signals.push({ key: 'splits', lbl, cls: 'lock-sig-sharp' });
-            alignScore += pts;
-            sharpPoints += pts;
-          }
-        }
-      }
-
-      // Must have EV + at least one other signal to qualify
-      const hasEV = signals.find(s => s.key === 'ev');
-      if (!hasEV || signals.length < 2) return;
-
-      // ---- SHARP SUB-SCORE (0-100) ----
-      const sharpScore = Math.min(100, (sharpPoints / sharpMax) * 100);
-
-      // ---- MODEL SUB-SCORE (0-100) ----
-      // Mirrors renderModel() scoring: sharpDiff * 0.5 + evVal * 2
-      const modelRaw = sharpDiff * 0.5 + evVal * 2;
-      // Normalize: 30 = exceptional
-      const modelScore = Math.min(100, Math.max(0, (modelRaw / 30) * 100));
-
-      // ---- PICKS SUB-SCORE (0-100) ----
-      // Check if any expert in Picks tab has this game/team.
-      // Score depends on how many experts cover it.
-      let picksCount = 0;
-      const teamWords = [team.split(' ').pop().toLowerCase(), (team === g.away_team ? g.home_team : g.away_team).split(' ').pop().toLowerCase()];
-      if (allPicks && allPicks.length) {
-        for (const p of allPicks) {
-          const haystack = ((p.bet || '') + ' ' + (p.detail || '')).toLowerCase();
-          const teamMatch = teamWords[0] && haystack.includes(teamWords[0]);
-          if (teamMatch) picksCount++;
-        }
-      }
-      // 3+ expert mentions = 100. 1 mention = ~33.
-      const picksScore = Math.min(100, picksCount * 33);
-
-      // ---- COMPOSITE SCORE ----
-      const compositeScore = (sharpScore * 0.5) + (modelScore * 0.25) + (picksScore * 0.25);
-
-      // Determine tier based on composite score
-      let tier;
-      if (compositeScore >= 60) tier = 1;      // Premium
-      else if (compositeScore >= 35) tier = 2; // Solid
-      else tier = 3;                           // Lean
-
-      // ---- UNIT SIZING based on Half-Kelly ----
-      const p = Math.min(iProb(pin.o) * 1.02, 0.99);
-      const q = 1 - p;
-      const dec = pub.o > 0 ? (pub.o / 100) + 1 : (100 / Math.abs(pub.o)) + 1;
-      const b = dec - 1;
-      const kelly = (p * b - q) / b;
-      const halfKelly = Math.max(0, kelly / 2);
-
-      let units;
-      if (tier === 3) {
-        // Leans: decimal units based on Half-Kelly, capped at 1u
-        if (halfKelly >= 0.015) units = 1;
-        else if (halfKelly >= 0.01) units = 0.5;
-        else if (halfKelly >= 0.005) units = 0.25;
-        else units = 0.1;
-      } else {
-        if (halfKelly >= 0.08) units = 5;
-        else if (halfKelly >= 0.05) units = 4;
-        else if (halfKelly >= 0.03) units = 3;
-        else if (halfKelly >= 0.015) units = 2;
-        else units = 1;
-        // Bump up if composite score is exceptional
-        if (compositeScore >= 75 && units < 5) units = Math.min(units + 1, 5);
-      }
-
-      // Line movement direction for THIS team
-      const movement = detectLineMovement(g);
-      const teamMovement = movement && movement[team] ? movement[team] : null;
-      const opponent = team === g.away_team ? g.home_team : g.away_team;
-      const oppMovement = movement && movement[opponent] ? movement[opponent] : null;
+      // Build a clear pick string
+      let pickText;
+      if (a.market === 'Moneyline') pickText = 'Moneyline · ' + a.bestSide;
+      else if (a.market === 'Spread') pickText = 'Spread · ' + a.bestSide + ' ' + (a.bestLine >= 0 ? '+' : '') + a.bestLine;
+      else pickText = 'Total · ' + a.bestSide + ' ' + a.bestLine;
 
       lockCands.push({
-        game: g, team, opponent, pin: pin.o, pub: pub.o, bk: pub.bk, ev: evVal,
-        signals, alignScore, units, tier, teamMovement, oppMovement,
-        // Composite scoring breakdown
-        sharpScore: Math.round(sharpScore),
-        modelScore: Math.round(modelScore),
-        picksScore: Math.round(picksScore),
-        picksCount,
-        compositeScore: Math.round(compositeScore),
-        halfKelly: Math.round(halfKelly * 10000) / 100 // as percentage
+        key: lockKey,
+        game: g,
+        market: a.market,
+        marketKey,
+        icon,
+        bestSide: a.bestSide,
+        bestSideShort: sideShort,
+        bestLine: a.bestLine,
+        pickText,
+        pub: a.bestPubOdds,
+        pin: a.sharpOdds,
+        bk: a.bestPubBook,
+        ev: a.ev,
+        sharpDiff: a.sharpDiff,
+        units: a.units,
+        tier: a.tier,
+        tierCls: a.tierCls,
+        sharpSignals: a.sharpSignals,
+        splitsDiv: a.splitsDiv,
+        reasons: a.reasons,
+        summary: a.summary
       });
     });
   });
 
-  // Sort: by composite score (desc), then tier, then ev
-  lockCands.sort((a, b) => b.compositeScore - a.compositeScore || a.tier - b.tier || b.ev - a.ev);
-  window._cachedLocks = lockCands;
+  // Sort by units desc within day grouping happens in renderLocks
+  lockCands.sort((a, b) => b.units - a.units || b.ev - a.ev);
+  window._cachedLocks = lockCands; // legacy hook
   return lockCands;
 }
 
@@ -3373,244 +3866,147 @@ function toggleLockInsight(key) {
 
 function renderLocks() {
   const locks = computeLocks();
-  const _liveCount = allGames.filter(g => isLiveGame(g)).length;
+  const _liveCount = (allGames || []).filter(g => isLiveGame(g)).length;
   const livePill = _liveCount ? '<div class="live-games-pill"><span class="live-dot"></span><b>' + _liveCount + '</b> live game' + (_liveCount === 1 ? '' : 's') + ' hidden from locks</div>' : '';
 
   if (!locks.length) {
-    document.getElementById("locks").innerHTML =
-      '<div class="locks-empty">🔒 No aligned picks right now.<br><span style="font-size:11px;color:#333">Locks appear when EV + sharp signals align.<br>Refresh to update data.</span></div>';
+    document.getElementById("locks").innerHTML = livePill +
+      '<div class="locks-empty">🔒 No qualifying picks right now.<br><span style="font-size:11px;color:#333">Locks appear when ML / Spread / Total markets show positive EV with sharp confirmation.<br>Refresh to update data.</span></div>';
     return;
   }
 
-  const tier1 = locks.filter(l => l.tier === 1);
-  const tier2 = locks.filter(l => l.tier === 2);
-  const tier3 = locks.filter(l => l.tier === 3);
-  const totalUnits = locks.reduce((a, l) => a + l.units, 0);
-  const avgEV = (locks.reduce((a, l) => a + l.ev, 0) / locks.length).toFixed(1);
-
-  let h = '';
-  h = livePill + h;
-
-  // Summary bar
-  const coreLocks = locks.filter(l => l.tier !== 3);
-  const coreUnits = coreLocks.reduce((a, l) => a + l.units, 0);
-  const coreDollars = formatUnitDollars(coreUnits);
-  h += '<div class="locks-summary">' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + coreLocks.length + '</div><div class="locks-summary-lbl">LOCKS</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(coreUnits) + 'u</div><div class="locks-summary-lbl">' + (coreDollars ? coreDollars : 'CORE UNITS') + '</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">+' + avgEV + '%</div><div class="locks-summary-lbl">AVG EV</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + tier1.length + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
-    '</div>';
-
-  h += '<div class="locks-hdr"><span>GROUPED BY DAY · SORTED BY UNIT SIZE</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
-
-  function renderLockCard(l) {
-    // Outline tier based on UNIT size, not composite score
-    let unitsClass, tierLabel;
-    if (l.units >= 3) { unitsClass = 'units-strong'; tierLabel = 'Premium Play'; }
-    else if (l.units >= 1.5) { unitsClass = 'units-mid'; tierLabel = 'Solid Play'; }
-    else { unitsClass = 'units-light'; tierLabel = 'Lean'; }
-
-    const awayShort = l.game.away_team.split(' ').pop();
-    const homeShort = l.game.home_team.split(' ').pop();
-    const matchupStr = awayShort + ' @ ' + homeShort;
-    const unitsDisplay = l.units + 'u';
-    const dollarDisplay = formatUnitDollars(l.units);
-    const sigCount = l.signals.length;
-    const evCls = l.ev >= 3 ? 'pos' : 'zero';
-
-    const cardKey = 'lock_' + l.game.id + '_' + l.team;
-    const sigKey = cardKey + '_signals';
-    const scoreKey = cardKey + '_score';
-    const analysisKey = cardKey + '_analysis';
-    const sigOpen = !!window.lockExpanded[sigKey];
-    const scoreOpen = !!window.lockExpanded[scoreKey];
-    const analysisOpen = !!window.lockExpanded[analysisKey];
-
-    // SIGNALS bar synopsis
-    const foundKeys = l.signals.map(s => s.key);
-    const sigParts = [];
-    if (foundKeys.includes('sharp')) sigParts.push('Sharp');
-    if (foundKeys.includes('rlm')) sigParts.push('RLM');
-    if (foundKeys.includes('clv')) sigParts.push('CLV');
-    if (foundKeys.includes('splits')) sigParts.push('Splits');
-    if (foundKeys.includes('steam')) sigParts.push('Steam');
-    const sigSynopsis = '<b>' + sigCount + '/5 aligned</b>' + (sigParts.length ? ' · ' + sigParts.join(', ') : '');
-    const sigTierCls = sigCount >= 4 ? 'tier-strong' : sigCount >= 2 ? 'tier-soft' : '';
-
-    // SCORE bar synopsis
-    const scoreSynopsis = '<b>' + l.compositeScore + '</b> composite · Sharp ' + l.sharpScore + ' · Model ' + l.modelScore + ' · Picks ' + l.picksScore;
-    const scoreTierCls = l.compositeScore >= 60 ? 'tier-strong' : l.compositeScore >= 35 ? 'tier-soft' : '';
-
-    // ANALYSIS bar synopsis
-    const reasons = buildLockReasoning(l);
-    const reasonCount = reasons.length;
-    const analysisSynopsis = reasonCount + ' supporting point' + (reasonCount === 1 ? '' : 's');
-
-    // === Build the card HTML ===
-    let h = '<div class="lock-card-v2 ' + unitsClass + '">';
-
-    // Header (matchup + team + tier tag + units block)
-    h += '<div class="lock-card-v2-header">' +
-      '<div class="lock-card-v2-info">' +
-        '<div class="lock-card-v2-matchup">' + matchupStr + ' · ' + l.game.sport_title + ' · ' + fmtT(l.game.commence_time) + '</div>' +
-        '<div class="lock-card-v2-team">' + l.team + '</div>' +
-        '<div class="lock-card-v2-meta"><span class="tier-tag ' + unitsClass + '">' + tierLabel + '</span></div>' +
-      '</div>' +
-      '<div class="lock-card-v2-units ' + unitsClass + '">' +
-        '<div class="lock-card-v2-units-num">' + unitsDisplay + '</div>' +
-        '<div class="lock-card-v2-units-lbl">UNITS</div>' +
-        (dollarDisplay ? '<div class="lock-card-v2-units-dollars">' + dollarDisplay + '</div>' : '') +
-      '</div>' +
-    '</div>';
-
-    // The pick (prominent CTA-style row)
-    h += '<div class="lock-card-v2-pick">' +
-      '<div class="lock-card-v2-pick-text">Take Moneyline · <b>' + l.team + '</b> · ' + fmt(l.pub) + ' at ' + l.bk.split(' ')[0].toUpperCase() + '</div>' +
-      '<div class="lock-card-v2-pick-ev ' + evCls + '">+' + l.ev + '% EV</div>' +
-    '</div>';
-
-    // Insight bars (collapsible)
-    h += '<div class="lock-insights">';
-
-    // Signals bar
-    h += '<div class="lock-insight-bar' + (sigOpen ? ' open' : '') + '">' +
-      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + sigKey + '\')">' +
-        '<span class="lock-insight-icon">⚡</span>' +
-        '<span class="lock-insight-title">Signals</span>' +
-        '<span class="lock-insight-summary ' + sigTierCls + '">' + sigSynopsis + '</span>' +
-        '<span class="lock-insight-arrow">▼</span>' +
-      '</div>' +
-      '<div class="lock-insight-detail">' +
-        '<div class="lock-insight-pills">' + l.signals.map(s => '<span class="lock-sig ' + s.cls + '">' + s.lbl + '</span>').join('') + '</div>' +
-      '</div>' +
-    '</div>';
-
-    // Score Breakdown bar
-    h += '<div class="lock-insight-bar' + (scoreOpen ? ' open' : '') + '">' +
-      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + scoreKey + '\')">' +
-        '<span class="lock-insight-icon">📊</span>' +
-        '<span class="lock-insight-title">Score</span>' +
-        '<span class="lock-insight-summary ' + scoreTierCls + '">' + scoreSynopsis + '</span>' +
-        '<span class="lock-insight-arrow">▼</span>' +
-      '</div>' +
-      '<div class="lock-insight-detail">' +
-        '<div class="lock-composite-mini">' +
-          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.compositeScore + '</div><div class="lock-composite-mini-lbl">Composite</div></div>' +
-          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.sharpScore + '</div><div class="lock-composite-mini-lbl">Sharp 50%</div></div>' +
-          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.modelScore + '</div><div class="lock-composite-mini-lbl">Model 25%</div></div>' +
-          '<div class="lock-composite-mini-cell"><div class="lock-composite-mini-num">' + l.picksScore + '</div><div class="lock-composite-mini-lbl">Picks 25%</div></div>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-
-    // Analysis bar
-    h += '<div class="lock-insight-bar' + (analysisOpen ? ' open' : '') + '">' +
-      '<div class="lock-insight-header" onclick="toggleLockInsight(\'' + analysisKey + '\')">' +
-        '<span class="lock-insight-icon">📖</span>' +
-        '<span class="lock-insight-title">Analysis</span>' +
-        '<span class="lock-insight-summary">' + analysisSynopsis + '</span>' +
-        '<span class="lock-insight-arrow">▼</span>' +
-      '</div>' +
-      '<div class="lock-insight-detail">' +
-        reasons.map(r => '<div class="lock-insight-row">' + r + '</div>').join('') +
-      '</div>' +
-    '</div>';
-
-    h += '</div>'; // /lock-insights
-
-    // Bottom meta row (book, pin diff, time)
-    h += '<div class="lock-card-v2-bottom-meta">' +
-      '<span><b>' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</b> · PIN ' + fmt(l.pin) + ' · DIFF ' + (l.pub - l.pin > 0 ? '+' : '') + Math.round(l.pub - l.pin) + '</span>' +
-      '<span>' + fmtT(l.game.commence_time) + '</span>' +
-    '</div>';
-
-    // Add to Betslip
-    h += '<div class="lock-card-v2-actions">';
-    const k = "lock_"+l.game.id+"_"+l.team;
-    const added = betCardHas(k);
-    if (added) {
-      h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\''+k+'\')">✓ In Betslip · Tap to remove</button>';
-    } else {
-      const strippedReasons = reasons.map(r => r.replace(/<[^>]+>/g, ''));
-      const obj = {key:k,team:l.team,matchup:l.game.away_team.split(' ').pop()+' @ '+l.game.home_team.split(' ').pop(),sport:l.game.sport_title,commence_time:l.game.commence_time,pub:l.pub,pin:l.pin,bk:l.bk,ev:l.ev,units:l.units,source:"LOCK-"+tierLabel.toUpperCase(),reasons:strippedReasons,gameId:l.game.id};
-      h += '<button class="add-to-bc-btn lock" onclick=\'addToBetCard('+JSON.stringify(obj).replace(/\'/g,"&apos;")+')\'><span class="bc-btn-plus">+</span> Add to Betslip · '+unitsDisplay+'</button>';
-    }
-    h += '</div>';
-
-    h += '</div>'; // /lock-card-v2
-    return h;
-  }
-
-  // Group locks by day
+  // Group by day
   const byDay = {};
   const dayOrder = [];
   locks.forEach(l => {
-    const dayKey = new Date(l.game.commence_time).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    const d = new Date(l.game.commence_time);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tom = new Date(today); tom.setDate(today.getDate() + 1);
+    let dayKey;
+    if (d.toDateString() === today.toDateString()) dayKey = 'Today';
+    else if (d.toDateString() === tom.toDateString()) dayKey = 'Tomorrow';
+    else dayKey = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     if (!byDay[dayKey]) { byDay[dayKey] = []; dayOrder.push(dayKey); }
     byDay[dayKey].push(l);
   });
-  // Sort days chronologically
-  dayOrder.sort((a, b) => new Date(byDay[a][0].game.commence_time) - new Date(byDay[b][0].game.commence_time));
-  // Within each day, sort locks by units (desc), then by alignment score (desc), then by EV (desc)
-  dayOrder.forEach(day => {
-    // Sort by units (largest first), then composite score, then EV
-    byDay[day].sort((a, b) => b.units - a.units || b.compositeScore - a.compositeScore || b.ev - a.ev);
+
+  // Within each day, sort by units desc
+  dayOrder.forEach(dk => {
+    byDay[dk].sort((a, b) => b.units - a.units || b.ev - a.ev);
   });
 
-  // Split out leans from core locks per day
-  const allLeans = [];
-  dayOrder.forEach(day => {
-    const dayLocks = byDay[day].filter(l => l.tier !== 3);
-    const dayLeans = byDay[day].filter(l => l.tier === 3);
-    const dayUnits = dayLocks.reduce((a, l) => a + l.units, 0);
+  // Summary stats
+  const totalUnits = locks.reduce((a, l) => a + l.units, 0);
+  const avgEV = (locks.reduce((a, l) => a + l.ev, 0) / locks.length).toFixed(1);
+  const premiumCount = locks.filter(l => l.units >= 3).length;
+  const totalDollars = formatUnitDollars(totalUnits);
 
-    if (dayLocks.length) {
-      h += '<div class="dl">' + day + ' · ' + dayLocks.length + ' lock' + (dayLocks.length !== 1 ? 's' : '') + ' · ' + formatUnits(dayUnits) + 'u</div>';
-      dayLocks.forEach(l => { h += renderLockCard(l); });
-    }
-    dayLeans.forEach(l => allLeans.push({ ...l, day }));
-  });
-
-  // Collapsible leans section at the bottom
-  if (allLeans.length) {
-    const leansUnits = allLeans.reduce((a, l) => a + l.units, 0);
-    h += '<div class="leans-section' + (leansOpen ? ' open' : '') + '" id="leansSec">' +
-      '<div class="leans-toggle" onclick="toggleLeans()">' +
-        '<div class="leans-toggle-left">' +
-          '<span class="leans-toggle-icon">📊</span>' +
-          '<div><div class="leans-toggle-title">LEANS (' + allLeans.length + ')</div>' +
-          '<div class="leans-toggle-meta">' + formatUnits(leansUnits) + 'u total · tap to expand</div></div>' +
-        '</div>' +
-        '<span class="leans-toggle-arrow">▼</span>' +
-      '</div>' +
-      '<div class="leans-body">';
-
-    // Group leans by day internally
-    const leanDays = {};
-    const leanDayOrder = [];
-    allLeans.forEach(l => {
-      if (!leanDays[l.day]) { leanDays[l.day] = []; leanDayOrder.push(l.day); }
-      leanDays[l.day].push(l);
-    });
-    leanDayOrder.forEach(day => {
-      const dl = leanDays[day];
-      h += '<div class="dl">' + day + ' · ' + dl.length + ' lean' + (dl.length !== 1 ? 's' : '') + '</div>';
-      dl.forEach(l => { h += renderLockCard(l); });
-    });
-
-    h += '</div></div>';
-  }
-
-  h += '<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:10px;font-size:12px;color:#bbb;line-height:1.8;font-family:monospace">' +
-    '📐 COMPOSITE SCORING: 50% Sharp Signals · 25% Model · 25% Expert Picks<br>' +
-    '💰 UNIT SIZING: Half-Kelly criterion based on Pinnacle fair line<br>' +
-    '🔒 PREMIUM (60+) · ✅ SOLID (35-59) · 📊 LEAN (<35)<br>' +
-    (userSettings.unitSize > 0 ? '1 unit = $' + userSettings.unitSize + ' · ' : 'Tap ⚙ to set unit $ value · ') +
-    'Never bet more than you can afford to lose.' +
+  let h = livePill;
+  h += '<div class="locks-summary">' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + locks.length + '</div><div class="locks-summary-lbl">PICKS</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(totalUnits) + 'u</div><div class="locks-summary-lbl">' + (totalDollars ? totalDollars : 'TOTAL UNITS') + '</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">+' + avgEV + '%</div><div class="locks-summary-lbl">AVG EV</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + premiumCount + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
     '</div>';
 
+  h += '<div class="locks-hdr"><span>GROUPED BY DAY · UNITS DESCENDING</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
+
+  // Render day sections
+  dayOrder.forEach(dk => {
+    h += '<div class="locks-day-header">' + dk + '</div>';
+    byDay[dk].forEach(l => { h += renderLockCard(l); });
+  });
+
   document.getElementById("locks").innerHTML = h;
+
+  function renderLockCard(l) {
+    // Single collapsed bar showing: bet type · side · units
+    // Tap to expand → full analysis (signals, pills, reasons, add to betslip)
+    const unitsClass = l.units >= 3 ? 'units-strong' : l.units >= 1.5 ? 'units-mid' : 'units-light';
+    const tierLabel = l.units >= 3 ? 'Premium Play' : l.units >= 1.5 ? 'Solid Play' : 'Lean';
+    const awayShort = l.game.away_team.split(' ').pop();
+    const homeShort = l.game.home_team.split(' ').pop();
+    const matchupStr = awayShort + ' @ ' + homeShort;
+    const isOpen = !!window.lockExpanded[l.key];
+    const evCls = l.ev >= 3 ? 'pos' : 'zero';
+
+    // === Collapsed bar header ===
+    let h = '<div class="lock-bar ' + unitsClass + (isOpen ? ' open' : '') + '">';
+    h += '<div class="lock-bar-header" onclick="toggleLockInsight(\'' + l.key + '\')">';
+
+    h += '<div class="lock-bar-icon">' + l.icon + '</div>';
+    h += '<div class="lock-bar-info">';
+    h += '<div class="lock-bar-meta">' + matchupStr + ' · ' + l.game.sport_title + ' · ' + fmtT(l.game.commence_time) + '</div>';
+    h += '<div class="lock-bar-pick"><b>' + l.market + '</b> · ' + l.bestSide;
+    if (l.market === 'Spread') h += ' ' + (l.bestLine >= 0 ? '+' : '') + l.bestLine;
+    else if (l.market === 'Total') h += ' ' + l.bestLine;
+    h += ' · ' + fmt(l.pub) + '</div>';
+    h += '</div>';
+
+    h += '<div class="lock-bar-units ' + unitsClass + '">';
+    h += '<div class="lock-bar-units-num">' + l.units + 'u</div>';
+    h += '<div class="lock-bar-units-lbl">UNITS</div>';
+    h += '</div>';
+
+    h += '<div class="lock-bar-arrow">▼</div>';
+    h += '</div>'; // /lock-bar-header
+
+    // === Expanded detail ===
+    h += '<div class="lock-bar-detail">';
+    h += '<div class="lock-detail-summary">';
+    h += '<span class="tier-tag ' + unitsClass + '">' + tierLabel + '</span>';
+    h += '<span class="lock-detail-ev ' + evCls + '">+' + l.ev + '% EV</span>';
+    h += '</div>';
+
+    h += '<div class="market-pills" style="margin-bottom:11px">';
+    h += '<span class="pp pin">PIN ' + fmt(l.pin) + '</span>';
+    h += '<span class="pp pub">' + l.bk.split(' ')[0].toUpperCase() + ' ' + fmt(l.pub) + '</span>';
+    h += '<span class="bet-ev-high">+' + l.ev + '% EV</span>';
+    if (l.sharpDiff >= 8) h += '<span class="sig">SHARP ⚡</span>';
+    h += '</div>';
+
+    if (l.sharpSignals && l.sharpSignals.length) {
+      h += '<div class="market-signals-title">Signals supporting this pick</div>';
+      h += '<div class="market-signals-list">';
+      l.sharpSignals.forEach(s => {
+        h += '<div class="market-signal-row">⚡ ' + s.label + '</div>';
+      });
+      h += '</div>';
+    }
+
+    if (l.reasons && l.reasons.length) {
+      h += '<div class="market-reasons">';
+      h += '<div class="market-reasons-title">Analysis</div>';
+      l.reasons.forEach(r => {
+        h += '<div class="market-reason-item">' + r + '</div>';
+      });
+      h += '</div>';
+    }
+
+    const bcKey = 'lock_' + l.game.id + '_' + l.marketKey + '_' + l.bestSideShort;
+    const isAdded = betCardHas(bcKey);
+    if (isAdded) {
+      h += '<button class="add-to-bc-btn added" onclick="removeFromBetCard(\'' + bcKey + '\')">✓ In Betslip · Tap to remove</button>';
+    } else {
+      const strippedReasons = (l.reasons || []).map(r => r.replace(/<[^>]+>/g, ''));
+      const itemObj = {
+        key: bcKey, team: l.bestSide,
+        matchup: l.game.away_team.split(' ').pop() + ' @ ' + l.game.home_team.split(' ').pop(),
+        sport: l.game.sport_title, commence_time: l.game.commence_time,
+        pub: l.pub, pin: l.pin, bk: l.bk,
+        ev: l.ev, units: l.units,
+        source: 'LOCK-' + l.market.toUpperCase(),
+        market: l.market, line: l.bestLine,
+        reasons: strippedReasons, gameId: l.game.id,
+        bet: l.pickText
+      };
+      h += '<button class="add-to-bc-btn lock" onclick=\'addToBetCard(' + JSON.stringify(itemObj).replace(/\'/g, "&apos;") + ')\'><span class="bc-btn-plus">+</span> Add to Betslip · ' + l.units + 'u</button>';
+    }
+
+    h += '</div>'; // /lock-bar-detail
+    h += '</div>'; // /lock-bar
+    return h;
+  }
 }
 
 function fetchWithTimeout(url, ms) {
@@ -4069,23 +4465,39 @@ function findAllDivergences(splits) {
   const out = [];
   function makeEntry(t1, m1, t2, m2, side1Name, side2Name, market) {
     if (t1 == null || m1 == null || t2 == null || m2 == null) return null;
-    const diff1 = m1 - t1;
-    const diff2 = m2 - t2;
-    const mag = Math.max(Math.abs(diff1), Math.abs(diff2));
-    const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-    const publicSide = diff1 > diff2 ? side2Name : side1Name;
+    // NEW SHARP-SIDE CRITERION:
+    //   Sharp side = the side where money% > 50% AND money% > tickets% on that side
+    //   (i.e. majority of MONEY is on it, AND money outpaces tickets)
+    // Magnitude = (money% - tickets%) gap on the qualifying side. Bigger gap = stronger signal.
+    let sharpIdx = null; // 1 or 2
+    const side1Qualifies = (m1 > 50) && (m1 > t1);
+    const side2Qualifies = (m2 > 50) && (m2 > t2);
+    if (side1Qualifies && !side2Qualifies) sharpIdx = 1;
+    else if (side2Qualifies && !side1Qualifies) sharpIdx = 2;
+    else if (side1Qualifies && side2Qualifies) {
+      // Both sides "qualify" (rare with rounding) — pick the bigger gap
+      sharpIdx = (m1 - t1) > (m2 - t2) ? 1 : 2;
+    } else {
+      // Neither side has money-majority that beats its ticket-share. No sharp lean.
+      return null;
+    }
+    const sharpSide = sharpIdx === 1 ? side1Name : side2Name;
+    const publicSide = sharpIdx === 1 ? side2Name : side1Name;
     const sharpShort = sharpSide.split(' ').pop();
     const publicShort = publicSide.split(' ').pop();
-    const sharpTickets = diff1 > diff2 ? t1 : t2;
-    const sharpMoney = diff1 > diff2 ? m1 : m2;
-    const publicTickets = diff1 > diff2 ? t2 : t1;
-    const publicMoney = diff1 > diff2 ? m2 : m1;
+    const sharpTickets = sharpIdx === 1 ? t1 : t2;
+    const sharpMoney = sharpIdx === 1 ? m1 : m2;
+    const publicTickets = sharpIdx === 1 ? t2 : t1;
+    const publicMoney = sharpIdx === 1 ? m2 : m1;
+    const magnitude = sharpMoney - sharpTickets; // The qualifying gap
+
     let tier;
-    if (mag >= 12) tier = 'sharp';
-    else if (mag >= 7) tier = 'public';
+    if (magnitude >= 18) tier = 'strong';
+    else if (magnitude >= 12) tier = 'sharp';
+    else if (magnitude >= 7) tier = 'public';
     else tier = 'balanced';
     return {
-      market, magnitude: mag, tier,
+      market, magnitude, tier,
       sharpSide, publicSide, sharpShort, publicShort,
       sharpTickets: Math.round(sharpTickets),
       sharpMoney: Math.round(sharpMoney),
@@ -4119,69 +4531,23 @@ function findAllDivergences(splits) {
 }
 
 function findStrongestDivergence(splits) {
-  // Look across moneyline, spread, total — return the largest gap with full details
-  let best = null;
-  let bestMagnitude = 0;
-
-  function evalDivergence(t1, m1, t2, m2, side1Name, side2Name, market) {
-    if (t1 == null || m1 == null || t2 == null || m2 == null) return;
-    const diff1 = m1 - t1;
-    const diff2 = m2 - t2;
-    const mag = Math.max(Math.abs(diff1), Math.abs(diff2));
-    if (mag <= bestMagnitude && best) return;
-    bestMagnitude = mag;
-
-    const threshold = 12;
-    const moderate = 7;
-    const sharpSide = diff1 > diff2 ? side1Name : side2Name;
-    const publicSide = diff1 > diff2 ? side2Name : side1Name;
-    const sharpShort = sharpSide.split(' ').pop();
-    const publicShort = publicSide.split(' ').pop();
-    const sharpTickets = diff1 > diff2 ? t1 : t2;
-    const sharpMoney = diff1 > diff2 ? m1 : m2;
-    const publicTickets = diff1 > diff2 ? t2 : t1;
-    const publicMoney = diff1 > diff2 ? m2 : m1;
-
-    let tier;
-    if (mag >= threshold) tier = 'sharp';
-    else if (mag >= moderate) tier = 'public';
-    else tier = 'balanced';
-
-    let text;
-    if (tier === 'sharp') text = '⚡ Sharp money on ' + sharpShort + ' (' + market + ') · Public on ' + publicShort;
-    else if (tier === 'public') text = '↗ Slight ' + market + ' money lean toward ' + sharpShort;
-    else text = '⚖ ' + market + ' tickets and money roughly balanced';
-
-    best = {
-      tier, text, market, magnitude: mag,
-      sharpSide, publicSide, sharpShort, publicShort,
-      sharpTickets: Math.round(sharpTickets),
-      sharpMoney: Math.round(sharpMoney),
-      publicTickets: Math.round(publicTickets),
-      publicMoney: Math.round(publicMoney)
-    };
+  // Returns the single divergence with the highest magnitude (per new criterion)
+  const all = findAllDivergences(splits);
+  if (!all.length) {
+    return { tier: 'balanced', text: 'Tickets and money roughly balanced', magnitude: 0 };
   }
-
-  if (splits.moneyline) {
-    evalDivergence(
-      splits.moneyline.ticketsAway, splits.moneyline.moneyAway,
-      splits.moneyline.ticketsHome, splits.moneyline.moneyHome,
-      splits.awayTeam, splits.homeTeam, 'ML');
+  // Pick the strongest
+  all.sort((a, b) => b.magnitude - a.magnitude);
+  const best = all[0];
+  let text;
+  if (best.tier === 'strong' || best.tier === 'sharp') {
+    text = '⚡ Sharp money on ' + best.sharpShort + ' (' + best.market + ') · Public on ' + best.publicShort;
+  } else if (best.tier === 'public') {
+    text = '↗ Slight ' + best.market + ' money lean toward ' + best.sharpShort;
+  } else {
+    text = '⚖ Tickets and money roughly balanced';
   }
-  if (splits.spread) {
-    evalDivergence(
-      splits.spread.ticketsAway, splits.spread.moneyAway,
-      splits.spread.ticketsHome, splits.spread.moneyHome,
-      splits.awayTeam, splits.homeTeam, 'Spread');
-  }
-  if (splits.total) {
-    evalDivergence(
-      splits.total.ticketsOver, splits.total.moneyOver,
-      splits.total.ticketsUnder, splits.total.moneyUnder,
-      'Over', 'Under', 'Total');
-  }
-
-  return best;
+  return { ...best, text };
 }
 
 // Build a VSiN-style table: rows for away/home teams, columns for spread/total/ml each with line/handle/bets
