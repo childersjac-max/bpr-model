@@ -5078,7 +5078,7 @@ return null;
 // ============================================================
 // RENDER
 // ============================================================
-function renderMyBets() {
+function _renderMyBetsList() {
 const container = document.getElementById(“mybets”);
 if (!container) return;
 
@@ -5662,19 +5662,17 @@ return h;
 // ============================================================
 // Updated renderMyBets — supports Bets | Breakdowns toggle
 // ============================================================
-const _origRenderMyBets = renderMyBets;
-renderMyBets = function() {
+// Wrapper renderMyBets dispatches between Bets list and Breakdowns
+function renderMyBets() {
 try {
 const container = document.getElementById(“mybets”);
 if (!container) return;
 
 ```
-// Empty state - delegate to original
-if (!myBetsData.length) { _origRenderMyBets(); return; }
+if (!myBetsData.length) { _renderMyBetsList(); return; }
 
 const rangeBets = filterByRange(myBetsData, window.myBetsRange);
 
-// Build top toggles
 let topHtml = '<div class="mybets-mode-toggle">' +
   '<button class="mybets-mode-btn ' + (window.myBetsMode === "bets" ? "on" : "") + '" onclick="setMyBetsMode(\'bets\')">Bets</button>' +
   '<button class="mybets-mode-btn ' + (window.myBetsMode === "breakdowns" ? "on" : "") + '" onclick="setMyBetsMode(\'breakdowns\')">Breakdowns</button>' +
@@ -5697,8 +5695,7 @@ if (window.myBetsMode === "breakdowns") {
   h += '<div style="height:80px"></div>';
   container.innerHTML = h;
 } else {
-  // Bets list mode: render original first, then prepend toggles
-  _origRenderMyBets();
+  _renderMyBetsList();
   container.innerHTML = topHtml + container.innerHTML;
 }
 ```
@@ -5708,13 +5705,7 @@ console.error(“renderMyBets failed:”, e);
 const container = document.getElementById(“mybets”);
 if (container) container.innerHTML = ’<div class="empty">My Bets render error: ’ + e.message + ‘</div>’;
 }
-};
-
-// ============================================================
-// OUTSIDE SOURCES TAB - combines Sharp / Model / Picks / My Bets
-// Each section is a collapsible bar
-// ============================================================
-window.outsideExpanded = window.outsideExpanded || { sharp: false, model: false, picks: false, mybets: false };
+}
 
 function toggleOutsideSection(key) {
 event.stopPropagation();
@@ -5859,6 +5850,47 @@ return h;
 
 // Initialize on load
 loadMyBetsFromStorage();
+
+// Explicit window exposures - defends against Safari edge cases with inline onclick
+try {
+window.init = init;
+window.goTab = goTab;
+window.renderOutside = renderOutside;
+window.renderGames = renderGames;
+window.renderLocks = renderLocks;
+window.renderSharp = renderSharp;
+window.renderModel = renderModel;
+window.renderPicks = renderPicks;
+window.renderMyBets = renderMyBets;
+window.toggleOutsideSection = toggleOutsideSection;
+window.toggleLiveGames = toggleLiveGames;
+window.toggleMl = toggleMl;
+window.toggleBetRec = toggleBetRec;
+window.toggleSplits = toggleSplits;
+window.toggleProps = toggleProps;
+window.toggleSharpSigs = toggleSharpSigs;
+window.toggleMarketBar = toggleMarketBar;
+window.toggleLockInsight = toggleLockInsight;
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+window.saveSettings = saveSettings;
+window.toggleBetCard = toggleBetCard;
+window.clearBetCard = clearBetCard;
+window.removeFromBetCard = removeFromBetCard;
+window.addToBetCard = addToBetCard;
+window.setMyBetsMode = setMyBetsMode;
+window.setMyBetsRange = setMyBetsRange;
+window.setMyBetsFilter = setMyBetsFilter;
+window.clearMyBets = clearMyBets;
+window.handleFileSelect = handleFileSelect;
+window.setActiveDate = setActiveDate;
+window.setFilter = setFilter;
+window.toggle = toggle;
+window.selectModelSport = selectModelSport;
+window.backToModelSports = backToModelSports;
+window.selectSource = selectSource;
+window.backToSources = backToSources;
+} catch(e) { console.error(“Window exposure failed:”, e); }
 
 </script>
 <div class="tabs">
