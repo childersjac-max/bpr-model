@@ -1,0 +1,12 @@
+{
+  "name": "bpr-model",
+  "version": "1.0.0",
+  "private": true,
+  "description": "J LAB sports betting model and odds dashboard",
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}
