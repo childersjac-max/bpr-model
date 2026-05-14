@@ -3612,10 +3612,11 @@ function renderGames() {
   // Add legend at the bottom
   h += '<div class="legend">' +
     '<div class="legend-title">📖 LINES LEGEND</div>' +
-    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Sharp Signal</div><div class="legend-desc">Pinnacle differs sharply from public books (8+ pts).</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ public sportsbooks shifted lines in sync — syndicate action.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moved against the public — sharps overwhelming.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Public price beats Pinnacle fair line by 3%+.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Sharp vs Public</div><div class="legend-desc">Sharp consensus (Pinnacle / Circa) is priced 6+ cents shorter than your public book. Sharps have already moved the sharp number.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">💰</div><div class="legend-text"><div class="legend-name">Positive EV</div><div class="legend-desc">At least one market (ML / spread / total) has a positive de-vigged EV play available. Tap the card to see which side.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🔥</div><div class="legend-text"><div class="legend-name">Steam Move</div><div class="legend-desc">3+ public sportsbooks shifted lines in the same direction in a short window. Requires line-history snapshots — accuracy improves with server-side storage.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moved against the public majority. Sharp money on the unpopular side. Requires line-history snapshots.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Current CLV Proxy</div><div class="legend-desc">Your public book price beats the de-vigged sharp consensus by 3%+ in implied probability. NOT true closing-line value — real CLV needs the closing line.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🧠</div><div class="legend-text"><div class="legend-name">Model Pick</div><div class="legend-desc">Featured in the Model tab — quantitative edge detected.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">📰</div><div class="legend-text"><div class="legend-name">Expert Pick</div><div class="legend-desc">Featured in the Picks tab — covered by at least one expert.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Player Prop Plays</div><div class="legend-desc">Player props ranked by historical hit rate vs current DK line. STRONG = 65%+ hit + 15%+ ROI. SOLID = 58%+ hit. LEAN = 55%+.</div></div></div>' +'<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% — favorable pricing.</div></div></div>' +
@@ -3770,23 +3771,52 @@ function calcCLV(game) {
 function computeSharpSignals() {
   sharpSignalMap = {};
   const eligibleGames = allGames;
-  
+
   function addBadge(gameId, emoji, name) {
     if (!sharpSignalMap[gameId]) sharpSignalMap[gameId] = [];
     if (!sharpSignalMap[gameId].find(b => b.emoji === emoji)) {
       sharpSignalMap[gameId].push({ emoji, name });
     }
   }
-  
+
   eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(t => {
+    const teams = [g.away_team, g.home_team];
+
+    // ⚡ Sharp vs Public: at least one side priced 6+ cents longer on the public
+    // book than on the sharp consensus. Threshold dropped from 8c to 6c because
+    // the proper de-vig means smaller gaps are still meaningful sharp signals.
+    for (let i = 0; i < 2; i++) {
+      const t = teams[i];
       const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (pin && pub) { const d = pub.o - pin.o; if (d >= 8) addBadge(g.id, "⚡", "Pinnacle vs Public"); }
-    });
+      if (pin && pub) {
+        const d = pub.o - pin.o;
+        if (d >= 6) addBadge(g.id, "⚡", "Sharp vs Public");
+      }
+    }
+
+    // 🔥 Steam — requires history (browser localStorage or server-side KV)
     if (detectSteamMove(g)) addBadge(g.id, "🔥", "Steam Move");
+
+    // 🎯 RLM — requires history
     if (detectRLM(g)) addBadge(g.id, "🎯", "Reverse Line Movement");
-    if (calcCLV(g)) addBadge(g.id, "💎", "Closing Line Value");
+
+    // 💎 Current CLV proxy — works on a single snapshot (no history needed)
+    if (calcCLV(g)) addBadge(g.id, "💎", "Current CLV Proxy");
+
+    // 💰 Positive de-vigged EV available on any market — new badge that
+    // surfaces edges from the corrected math even when sharpDiff/steam/CLV miss.
+    // This is the badge that should populate most often after the v3 fix.
+    let bestEv = 0;
+    for (let i = 0; i < 2; i++) {
+      const t = teams[i], other = teams[1 - i];
+      const sharpPair = (typeof _sharpH2HPair === 'function') ? _sharpH2HPair(bks, t, other, SHP) : null;
+      const pub = bkOdds(bks, t, PUB);
+      if (!sharpPair || !pub) continue;
+      const ev = calcEVDevig(sharpPair.sidePrice, sharpPair.otherPrice, pub.o);
+      if (ev != null && ev > bestEv) bestEv = ev;
+    }
+    if (bestEv >= 1) addBadge(g.id, "💰", "Positive EV on a market (" + bestEv.toFixed(1) + "%)");
   });
 }
 
