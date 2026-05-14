@@ -474,6 +474,11 @@ function dedupPicks(picks) {
 
 // ============================================================
 // Transform to display format - matches the Locks/Sharp tab card style
+//
+// IMPORTANT: We do NOT capture which side an expert is on, and we do NOT
+// track each expert's hit rate. So we deliberately do not display a
+// confidence or EV rating here — that would be misleading. The cards are
+// "this game has expert coverage" pointers, not pick recommendations.
 // ============================================================
 function transformPicks(rawPicks) {
   return rawPicks.map(p => {
@@ -487,15 +492,17 @@ function transformPicks(rawPicks) {
       sportKey: p.sportKey,
       expert: p.expert + (p.show ? ' · ' + p.show : ''),
       bet: matchup,
-      betType: p.sport ? p.sport + ' PREVIEW' : 'PREVIEW',
-      detail: (p.gameDate ? p.gameDate + ' · ' : '') + 'See full breakdown on ' + p.source,
-      confidence: 3,
-      ev: 'MEDIUM',
+      betType: p.sport ? p.sport + ' COVERAGE' : 'COVERAGE',
+      detail: (p.gameDate ? p.gameDate + ' · ' : '') + 'Read full pick at ' + p.source,
+      // No confidence/EV: side is not captured and hit rate is not tracked.
+      confidence: null,
+      ev: null,
       day,
       awayTeam: p.awayTeam,
       homeTeam: p.homeTeam,
       url: p.url,
-      title: p.title
+      title: p.title,
+      tracked: false // Flag for the UI: do not treat as a model pick
     };
   });
 }
