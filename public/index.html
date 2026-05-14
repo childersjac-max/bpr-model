@@ -1575,9 +1575,17 @@ try {
 let splitsCache = {};
 let splitsLoading = {};
 
-// Player props state - cache by sport key  
+// Player props state - cache by sport key (bulk VSiN scrape)
+// Per-event props (with full alt ladder + live odds) cached by event id.
 let propsCache = {};
 let propsLoading = {};
+let propsByEvent = {};      // eventId -> { props: [...] }
+let propsByEventLoading = {}; // eventId -> true while in flight
+
+// Alt-lines state — full spread + total ladder including alternates.
+// Loaded lazily per event when the user expands a card.
+let altLinesByEvent = {};   // eventId -> normalized response
+let altLinesLoading = {};   // eventId -> true while in flight
 window.propsExpanded = window.propsExpanded || {};
 window.sharpSigsExpanded = window.sharpSigsExpanded || {};
 window.whyBetExpanded = window.whyBetExpanded || {};
@@ -1799,7 +1807,10 @@ function saveHistory() {
 
 function captureSnapshot(game) {
   const bks = game.bookmakers || [];
-  const snapshot = { ts: Date.now(), books: {} };
+  // Use the server's _fetched_at if available so all snapshots from one fetch
+  // share a coherent timestamp (essential for proper steam-window detection).
+  const ts = game._fetched_at ? new Date(game._fetched_at).getTime() : Date.now();
+  const snapshot = { ts, books: {} };
   bks.forEach(b => {
     const h2h = (b.markets || []).find(m => m.key === "h2h");
     if (h2h) {
@@ -1813,6 +1824,60 @@ function captureSnapshot(game) {
     oddsHistory[game.id].push(snapshot);
     if (oddsHistory[game.id].length > 30) oddsHistory[game.id] = oddsHistory[game.id].slice(-30);
   }
+}
+
+// Server-side line history integration.
+// If /api/line-history is backed by a real KV store, hydrate the client cache
+// from it (so brand-new users see signals) AND push the latest snapshot.
+// Gracefully no-ops when the server endpoint reports "not enabled".
+let _lineHistoryEnabled = null; // tri-state: null=unknown, true=on, false=off
+async function pushSnapshotsToServer(games) {
+  if (_lineHistoryEnabled === false) return;
+  try {
+    const r = await fetch('/api/line-history?action=snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ games })
+    });
+    const j = await r.json();
+    _lineHistoryEnabled = !!j.enabled;
+  } catch(e) {
+    _lineHistoryEnabled = false;
+  }
+}
+
+async function hydrateFromServerHistory(gameId) {
+  if (_lineHistoryEnabled === false) return;
+  try {
+    const r = await fetch('/api/line-history?gameId=' + encodeURIComponent(gameId));
+    const j = await r.json();
+    if (!j.enabled || !Array.isArray(j.snapshots) || !j.snapshots.length) {
+      _lineHistoryEnabled = !!j.enabled;
+      return;
+    }
+    _lineHistoryEnabled = true;
+    // Convert the server's compact form back into the client's expected shape
+    // (h2h-only book maps). Server snapshots include sp and tot too; we keep h2h
+    // for the in-app steam/RLM/CLV which currently look at h2h.
+    const converted = j.snapshots.map(s => {
+      const books = {};
+      for (const bk of Object.keys(s.books || {})) {
+        const h2h = s.books[bk].h2h;
+        if (h2h) books[bk] = { ...h2h };
+      }
+      return { ts: s.ts, books };
+    });
+    // Merge with client local history, dedupe by ts
+    const existing = oddsHistory[gameId] || [];
+    const merged = [...converted, ...existing].sort((a, b) => a.ts - b.ts);
+    const dedupe = [];
+    let lastTs = null;
+    for (const s of merged) {
+      if (s.ts !== lastTs) dedupe.push(s);
+      lastTs = s.ts;
+    }
+    oddsHistory[gameId] = dedupe.slice(-60);
+  } catch(e) { /* fail silent */ }
 }
 
 function goTab(n) {
@@ -1899,7 +1964,19 @@ function calcJuice(game) {
   };
 }
 
-function toggle(id) { expanded[id] = !expanded[id]; renderGames(); }
+function toggle(id) {
+  const wasOpen = !!expanded[id];
+  expanded[id] = !wasOpen;
+  // When opening: lazily fetch alt-lines and per-event props (paid Odds API)
+  if (!wasOpen) {
+    const g = (allGames || []).find(x => x.id === id);
+    if (g) {
+      fetchAltLinesForEvent(g);
+      fetchPropsForEvent(g);
+    }
+  }
+  renderGames();
+}
 function setFilter(f) { curFilter = f; renderFltrs(); renderGames(); }
 function toggleSharp(key) { sharpOpen[key] = !sharpOpen[key]; renderSharp(); }
 function toggleLeans() { leansOpen = !leansOpen; renderLocks(); }
@@ -1929,15 +2006,20 @@ function formatUnits(u) { return Number.isInteger(u) ? u : (Math.round(u * 100) 
 
 
 function isInModelPicks(game) {
-  // Mirrors renderModel() qualifying criteria
+  // A game qualifies for the model-picks view if any side has positive de-vigged EV.
+  // Previously: scored with `sd*0.5 + ev*2`, which double-counts the same signal
+  // (sharpDiff is essentially a function of pin vs pub, same as EV) using
+  // arbitrary coefficients. EV alone is the principled rank key.
   if (FIGHT_SPORTS.includes(game.sport_key)) return false;
   const bks = game.bookmakers || [];
-  for (const t of [game.away_team, game.home_team]) {
-    const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-    if (!pin || !pub) continue;
-    const sd = pub.o - pin.o, ev2 = calcEV(pin.o, pub.o) || 0;
-    const sc = sd * 0.5 + ev2 * 2;
-    if (sc > 5 || ev2 > 1) return true;
+  const teams = [game.away_team, game.home_team];
+  for (let i = 0; i < 2; i++) {
+    const t = teams[i], other = teams[1 - i];
+    const sharpPair = _sharpH2HPair(bks, t, other, SHP);
+    const pub = bkOdds(bks, t, PUB);
+    if (!sharpPair || !pub) continue;
+    const ev = calcEVDevig(sharpPair.sidePrice, sharpPair.otherPrice, pub.o);
+    if (ev != null && ev >= 1) return true;
   }
   return false;
 }
@@ -1972,30 +2054,107 @@ function renderFltrs() {
 }
 
 const EMOJI_DEFS = {
-  "⚡": { name: "Pinnacle vs Public", desc: "Pinnacle's odds are 8+ points shorter than public books. Sharp money has moved Pinnacle's line." },
-  "🔥": { name: "Steam Move", desc: "3+ sportsbooks moved their lines the same direction at once. Professional syndicate action." },
-  "🎯": { name: "Reverse Line Movement", desc: "Line moves against the public. Sharp money overwhelming public bets." },
-  "💎": { name: "Closing Line Value", desc: "Your public book price beats Pinnacle's fair line by 3%+. Betting at a discount to true odds." }
+  "⚡": { name: "Sharp vs Public", desc: "Sharp consensus (Pinnacle/Circa) is priced 8+ cents shorter than your public book. Sharps have already moved the sharp number." },
+  "🔥": { name: "Steam Move", desc: "3+ sportsbooks moved their lines the same direction within a short window. May require server-side line history to be reliable — see settings." },
+  "🎯": { name: "Reverse Line Movement", desc: "Line moves against the public majority. Indicates sharp money. Requires line-history snapshots — accuracy improves with server-side storage." },
+  "💎": { name: "Current CLV Proxy", desc: "Your public book price beats the de-vigged sharp consensus by 3%+ in implied probability. NOT true closing-line value — that requires the closing line which isn't available pre-game." }
 };
 
 
 function iProb(o){return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);}
-function calcEV(pinO,pubO){if(!pinO||!pubO)return null;const fp=Math.min(iProb(pinO)*1.02,0.99);const dec=pubO>0?(pubO/100)+1:(100/Math.abs(pubO))+1;return Math.round((fp*dec-1)*1000)/10;}
-function evLabel(ev){if(ev===null)return null;if(ev>=5)return{lbl:"STRONG VALUE +"+ev+"%",cls:"bet-ev-high"};if(ev>=2)return{lbl:"GOOD VALUE +"+ev+"%",cls:"bet-ev-med"};if(ev>0)return{lbl:"SLIGHT EDGE +"+ev+"%",cls:"bet-ev-low"};return null;}
+
+// Proper two-way de-vig: given both sides of a sharp market, divide each
+// implied probability by their sum. That removes the book's hold (vig)
+// symmetrically. Returns the fair probability for the side priced at pinSideO.
+function deVig2Way(pinSideO, pinOtherO){
+  if(pinSideO==null||pinOtherO==null) return null;
+  const p1=iProb(pinSideO), p2=iProb(pinOtherO);
+  const sum=p1+p2;
+  if(!isFinite(sum) || sum<=0) return null;
+  return p1/sum;
+}
+
+// EV given a fair probability and a public price. fp must already be de-vigged.
+function evFromFair(fp, pubO){
+  if(fp==null||pubO==null) return null;
+  const dec = pubO>0 ? (pubO/100)+1 : (100/Math.abs(pubO))+1;
+  return Math.round((fp*dec - 1)*1000)/10;
+}
+
+// Preferred EV path: requires both Pinnacle sides for proper de-vig.
+// pinSideO = Pinnacle's price for the side we are betting
+// pinOtherO = Pinnacle's price for the OTHER side (the side we are NOT betting)
+// pubO = the public price we would actually bet at
+function calcEVDevig(pinSideO, pinOtherO, pubO){
+  const fp = deVig2Way(pinSideO, pinOtherO);
+  if(fp==null) return null;
+  return evFromFair(fp, pubO);
+}
+
+// Display helper: given a game and the side we're betting, find both sides of
+// the sharp h2h market and compute proper de-vigged EV against a public price.
+// Returns null if either side isn't priced or the public price is unknown.
+function calcEVForTeamFromGame(game, sideTeam, pubO){
+  if(!game || !sideTeam || pubO==null) return null;
+  const bks = game.bookmakers || [];
+  const teams = [game.away_team, game.home_team];
+  const otherTeam = teams.find(t => t !== sideTeam);
+  if(!otherTeam) return null;
+  const sharpPair = _sharpH2HPair(bks, sideTeam, otherTeam, SHP);
+  if(!sharpPair) return null;
+  return calcEVDevig(sharpPair.sidePrice, sharpPair.otherPrice, pubO);
+}
+
+// Legacy single-sided EV: kept for backward compatibility with call sites
+// that only know one Pinnacle price. Uses a CONSERVATIVE adjustment that
+// removes an assumed 2% per-side vig (instead of the old +2% inflation,
+// which was asymmetric and biased EV upward, especially on chalk).
+// Prefer calcEVDevig wherever both sides are available.
+function calcEV(pinO, pubO){
+  if(pinO==null||pubO==null) return null;
+  // Conservative single-sided de-vig: divide implied prob by (1 + per-side vig)
+  // 0.02 corresponds to ~4% two-way vig, typical of Pinnacle 2-way markets.
+  const PER_SIDE_VIG = 0.02;
+  const fp = Math.max(0, Math.min(0.99, iProb(pinO) / (1 + PER_SIDE_VIG)));
+  return evFromFair(fp, pubO);
+}
+
+// Tightened thresholds to compensate for the de-vig fix. After proper
+// de-vig, true edges are smaller in magnitude, so labels move up.
+function evLabel(ev){
+  if(ev===null) return null;
+  if(ev>=6) return {lbl:"STRONG VALUE +"+ev+"%", cls:"bet-ev-high"};
+  if(ev>=3) return {lbl:"GOOD VALUE +"+ev+"%", cls:"bet-ev-med"};
+  if(ev>=1) return {lbl:"SLIGHT EDGE +"+ev+"%", cls:"bet-ev-low"};
+  return null;
+}
 
 function getBetRec(game){
+  // Rank by EV alone. Old version added a weighted sharpDiff term, but
+  // sharpDiff is essentially the same signal as EV (pub vs sharp price gap),
+  // so the composite double-counted. EV alone is the principled key.
   if(FIGHT_SPORTS.includes(game.sport_key))return null;
   const bks=game.bookmakers||[];
+  const teams=[game.away_team, game.home_team];
   let best=null;
-  [game.away_team,game.home_team].forEach(team=>{
-    const pin=bkOdds(bks,team,SHP),pub=bkOdds(bks,team,PUB);
-    if(!pin||!pub)return;
-    const evVal=calcEV(pin.o,pub.o);
-    const sharpDiff=pub.o-pin.o;
-    if(evVal===null||evVal<=0)return;
-    const score=evVal*2+sharpDiff*0.5;
-    if(!best||score>best.score)best={team,pin:pin.o,pub:pub.o,bk:pub.bk,ev:evVal,sharpDiff,score};
-  });
+  for(let i=0;i<2;i++){
+    const team=teams[i], other=teams[1-i];
+    const sharpPair=_sharpH2HPair(bks, team, other, SHP);
+    const pub=bkOdds(bks,team,PUB);
+    if(!sharpPair||!pub)continue;
+    const evVal=calcEVDevig(sharpPair.sidePrice, sharpPair.otherPrice, pub.o);
+    if(evVal===null||evVal<=0)continue;
+    if(!best||evVal>best.ev){
+      best={
+        team,
+        pin: sharpPair.sidePrice,
+        pub: pub.o,
+        bk: pub.bk,
+        ev: evVal,
+        sharpDiff: pub.o - sharpPair.sidePrice
+      };
+    }
+  }
   return best;
 }
 
@@ -2048,6 +2207,63 @@ function _firstPriceForOutcome(bks, marketKey, outcomeName, books) {
   return null;
 }
 
+// Median-of-sharp-books: collect prices from ALL sharp books for an outcome
+// and return the median. Pinnacle is the gold standard but if it's offline,
+// or if multiple sharp books agree, the median is more robust than first-found.
+// Returns { price, point, book, count } where price is the median American odds.
+function _medianSharpPriceForOutcome(bks, marketKey, outcomeName, sharpBooks){
+  const entries = [];
+  bks.forEach(bk => {
+    if (!sharpBooks.includes(bk.key)) return;
+    const market = (bk.markets || []).find(m => m.key === marketKey);
+    if (!market) return;
+    const outcome = market.outcomes.find(o => o.name === outcomeName);
+    if (!outcome) return;
+    entries.push({ price: outcome.price, point: outcome.point, book: bk.title, bookKey: bk.key });
+  });
+  if (!entries.length) return null;
+  // Prefer Pinnacle if available — it's the sharpest of the sharps
+  const pin = entries.find(e => e.bookKey === 'pinnacle');
+  if (pin) return { price: pin.price, point: pin.point, book: pin.book, count: entries.length };
+  // Otherwise, median by implied probability (more robust than median of American odds, which is non-linear)
+  entries.sort((a, b) => iProb(a.price) - iProb(b.price));
+  const mid = entries[Math.floor(entries.length / 2)];
+  return { price: mid.price, point: mid.point, book: mid.book, count: entries.length };
+}
+
+// Get BOTH sides of a sharp h2h market for proper two-way de-vig.
+// Returns { sidePrice, otherPrice, book, count } or null.
+function _sharpH2HPair(bks, sideTeam, otherTeam, sharpBooks){
+  const side = _medianSharpPriceForOutcome(bks, 'h2h', sideTeam, sharpBooks);
+  const other = _medianSharpPriceForOutcome(bks, 'h2h', otherTeam, sharpBooks);
+  if (!side || !other) return null;
+  return { sidePrice: side.price, otherPrice: other.price, book: side.book, count: Math.min(side.count, other.count) };
+}
+
+// Get BOTH sides of a sharp spreads/totals market at a SPECIFIC point.
+// For spreads: sideName/otherName are team names, point must match across books.
+// For totals: sideName='Over' or 'Under', otherName is the other.
+function _sharpPairAtPoint(bks, marketKey, sideName, otherName, point, sharpBooks){
+  let sidePrice = null, otherPrice = null, book = null;
+  for (const bk of bks) {
+    if (!sharpBooks.includes(bk.key)) continue;
+    const market = (bk.markets || []).find(m => m.key === marketKey);
+    if (!market) continue;
+    const sOutcome = market.outcomes.find(o => o.name === sideName && Math.abs((o.point||0) - point) < 0.01);
+    const oOutcome = market.outcomes.find(o => o.name === otherName && Math.abs((o.point||0) - point) < 0.01);
+    if (!sOutcome || !oOutcome) continue;
+    // Prefer Pinnacle
+    if (bk.key === 'pinnacle') {
+      return { sidePrice: sOutcome.price, otherPrice: oOutcome.price, book: bk.title, count: 1 };
+    }
+    if (sidePrice === null) {
+      sidePrice = sOutcome.price; otherPrice = oOutcome.price; book = bk.title;
+    }
+  }
+  if (sidePrice === null) return null;
+  return { sidePrice, otherPrice, book, count: 1 };
+}
+
 // Half-Kelly fractional bet sizing → discrete units
 function unitsFromEdge(pubProb, pinProb) {
   if (!pubProb || !pinProb) return 0;
@@ -2082,38 +2298,62 @@ function analyzeMoneyline(game) {
   const bks = game.bookmakers || [];
   const teams = [game.away_team, game.home_team];
   let best = null;
-  teams.forEach(t => {
-    const pin = bkOdds(bks, t, SHP);
+
+  teams.forEach((t, idx) => {
+    const otherTeam = teams[1 - idx];
+    // Get BOTH sides of the sharp h2h for proper two-way de-vig
+    const sharpPair = _sharpH2HPair(bks, t, otherTeam, SHP);
+    if (!sharpPair) return;
     const pub = bkOdds(bks, t, PUB);
-    if (!pin || !pub) return;
-    const ev = calcEV(pin.o, pub.o);
+    if (!pub) return;
+
+    const fp = deVig2Way(sharpPair.sidePrice, sharpPair.otherPrice);
+    if (fp == null) return;
+    const ev = evFromFair(fp, pub.o);
     if (ev == null || ev <= 0) return;
+
+    const pubProb = impliedProb(pub.o);
+    const pinProb = fp; // already de-vigged
+    const units = unitsFromEdge(pubProb, pinProb);
+
     if (!best || ev > best.ev) {
-      const pubProb = impliedProb(pub.o);
-      const pinProb = impliedProb(pin.o);
-      const units = unitsFromEdge(pubProb, pinProb);
-      best = { team: t, tShort: t.split(' ').pop(), pin: pin.o, pub: pub.o, bk: pub.bk, ev, sharpDiff: pub.o - pin.o, units, pinProb, pubProb };
+      best = {
+        team: t,
+        tShort: t.split(' ').pop(),
+        pin: sharpPair.sidePrice,
+        pinFairProb: fp,
+        pub: pub.o,
+        bk: pub.bk,
+        ev,
+        sharpDiff: pub.o - sharpPair.sidePrice,
+        units,
+        pinProb,
+        pubProb,
+        sharpBook: sharpPair.book
+      };
     }
   });
+
   if (!best) return null;
 
   // Sharp signals supporting this side
   const sharpSignals = [];
-  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
-  // Steam
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
   const steam = (typeof detectSteamMove === 'function') ? detectSteamMove(game) : null;
   if (steam && steam.find(s => s.team === best.team)) sharpSignals.push({ key:'steam', label:'Steam move toward '+best.tShort });
-  // RLM
   const rlm = (typeof detectRLM === 'function') ? detectRLM(game) : null;
   if (rlm && rlm.find(s => s.team === best.team)) sharpSignals.push({ key:'rlm', label:'Reverse line movement on '+best.tShort });
-  // CLV
   const clv = (typeof calcCLV === 'function') ? calcCLV(game) : null;
   if (clv && clv.find(c => c.team === best.team && c.clvPct >= 3)) {
     const c = clv.find(cc => cc.team === best.team);
-    sharpSignals.push({ key:'clv', label:'+'+c.clvPct+'% CLV beating Pinnacle' });
+    sharpSignals.push({ key:'clv', label:'+'+c.clvPct+'% CLV vs sharp consensus' });
   }
 
-  // Splits agreement
+  // Splits agreement - MULTIPLICATIVE BOOST ON EDGE, not additive on units.
+  // Rationale: splits are a weak directional signal from a single book. An
+  // additive +1 unit could turn a 2u "solid" into a 3u "premium" with no
+  // change in actual edge. A multiplicative boost on edge keeps sizing
+  // proportional to the real expected value.
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
@@ -2121,17 +2361,24 @@ function analyzeMoneyline(game) {
     splitsDiv = all.find(d => d.market === 'ML' && d.sharpShort === best.tShort) || null;
     if (splitsDiv) {
       sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      // Boost units when splits agree strongly
-      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
-      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+      // Multiplicative boost on the underlying edge, capped at +20%
+      let edgeMult = 1.0;
+      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
+      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
+      if (edgeMult > 1) {
+        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
+        const newPin = boostedFp;
+        best.units = unitsFromEdge(best.pubProb, newPin);
+      }
     }
   }
 
   const reasons = [];
-  reasons.push('<b>Pinnacle</b> has '+best.tShort+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
-  if (best.sharpDiff >= 8) reasons.push('Sharp gap is <b>'+Math.round(best.sharpDiff)+' points</b>, indicating sharp money has already moved Pinnacle.');
-  if (splitsDiv) reasons.push('Public splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets — sharps pounding this side.');
-  if (sharpSignals.find(s => s.key==='clv')) reasons.push('You\'re grabbing a price that beats Pinnacle by 3%+ — strong CLV.');
+  const sourceLabel = best.sharpBook ? best.sharpBook : 'Sharp consensus';
+  reasons.push('<b>'+sourceLabel+'</b> fair price implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' (implied '+(best.pubProb*100).toFixed(1)+'%) — de-vigged EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> — sharps have already moved the sharp number.');
+  if (splitsDiv) reasons.push('Public splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (sharpSignals.find(s => s.key==='clv')) reasons.push('Your price beats sharp consensus by 3%+ in implied probability.');
   if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
   else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
 
@@ -2150,6 +2397,7 @@ function analyzeMoneyline(game) {
     bestPubOdds: best.pub,
     bestPubBook: best.bk,
     sharpOdds: best.pin,
+    sharpFairProb: best.pinFairProb,
     ev: best.ev,
     sharpDiff: best.sharpDiff,
     sharpSignals,
@@ -2167,25 +2415,45 @@ function analyzeSpread(game) {
   const bks = game.bookmakers || [];
   const teams = [game.away_team, game.home_team];
   let best = null;
-  teams.forEach(t => {
-    const pin = _firstPriceForOutcome(bks, 'spreads', t, SHP);
+  teams.forEach((t, idx) => {
+    const otherTeam = teams[1 - idx];
     const pub = _bestPriceForOutcome(bks, 'spreads', t, PUB);
-    if (!pin || !pub) return;
-    // Match by point - if lines differ, no apples-to-apples comparison
-    if (Math.abs((pin.point||0) - (pub.point||0)) > 0.01) return;
-    const ev = calcEV(pin.price, pub.price);
+    if (!pub) return;
+    // Get BOTH sides of the sharp spread market at the SAME point
+    const sharpPair = _sharpPairAtPoint(bks, 'spreads', t, otherTeam, pub.point, SHP);
+    if (!sharpPair) return;
+
+    const fp = deVig2Way(sharpPair.sidePrice, sharpPair.otherPrice);
+    if (fp == null) return;
+    const ev = evFromFair(fp, pub.price);
     if (ev == null || ev <= 0) return;
+
+    const pubProb = impliedProb(pub.price);
+    const pinProb = fp;
+    const units = unitsFromEdge(pubProb, pinProb);
+
     if (!best || ev > best.ev) {
-      const pubProb = impliedProb(pub.price);
-      const pinProb = impliedProb(pin.price);
-      const units = unitsFromEdge(pubProb, pinProb);
-      best = { team: t, tShort: t.split(' ').pop(), pin: pin.price, pub: pub.price, line: pub.point, bk: pub.book, ev, sharpDiff: pub.price - pin.price, units, pinProb, pubProb };
+      best = {
+        team: t,
+        tShort: t.split(' ').pop(),
+        pin: sharpPair.sidePrice,
+        pinFairProb: fp,
+        pub: pub.price,
+        line: pub.point,
+        bk: pub.book,
+        ev,
+        sharpDiff: pub.price - sharpPair.sidePrice,
+        units,
+        pinProb,
+        pubProb,
+        sharpBook: sharpPair.book
+      };
     }
   });
   if (!best) return null;
 
   const sharpSignals = [];
-  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
 
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
@@ -2194,15 +2462,22 @@ function analyzeSpread(game) {
     splitsDiv = all.find(d => d.market === 'Spread' && d.sharpShort === best.tShort) || null;
     if (splitsDiv) {
       sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
-      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+      // Multiplicative boost on edge, not additive on units
+      let edgeMult = 1.0;
+      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
+      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
+      if (edgeMult > 1) {
+        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
+        best.units = unitsFromEdge(best.pubProb, boostedFp);
+      }
     }
   }
 
   const lineStr = (best.line >= 0 ? '+' : '') + best.line;
+  const sourceLabel = best.sharpBook ? best.sharpBook : 'Sharp consensus';
   const reasons = [];
-  reasons.push('<b>Pinnacle</b> prices '+best.tShort+' '+lineStr+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
-  if (best.sharpDiff >= 8) reasons.push('Sharp gap of <b>'+Math.round(best.sharpDiff)+' points</b> indicates sharp money has moved Pinnacle.');
+  reasons.push('<b>'+sourceLabel+'</b> fair price on '+best.tShort+' '+lineStr+' implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — de-vigged EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> on the same number.');
   if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' '+lineStr+' with only '+splitsDiv.sharpTickets+'% of tickets.');
   if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
   else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
@@ -2222,6 +2497,7 @@ function analyzeSpread(game) {
     bestPubOdds: best.pub,
     bestPubBook: best.bk,
     sharpOdds: best.pin,
+    sharpFairProb: best.pinFairProb,
     ev: best.ev,
     sharpDiff: best.sharpDiff,
     sharpSignals,
@@ -2239,23 +2515,43 @@ function analyzeTotal(game) {
   const bks = game.bookmakers || [];
   let best = null;
   ['Over', 'Under'].forEach(side => {
-    const pin = _firstPriceForOutcome(bks, 'totals', side, SHP);
+    const otherSide = side === 'Over' ? 'Under' : 'Over';
     const pub = _bestPriceForOutcome(bks, 'totals', side, PUB);
-    if (!pin || !pub) return;
-    if (Math.abs((pin.point||0) - (pub.point||0)) > 0.01) return;
-    const ev = calcEV(pin.price, pub.price);
+    if (!pub) return;
+    // Get BOTH sides of sharp totals at the SAME total number
+    const sharpPair = _sharpPairAtPoint(bks, 'totals', side, otherSide, pub.point, SHP);
+    if (!sharpPair) return;
+
+    const fp = deVig2Way(sharpPair.sidePrice, sharpPair.otherPrice);
+    if (fp == null) return;
+    const ev = evFromFair(fp, pub.price);
     if (ev == null || ev <= 0) return;
+
+    const pubProb = impliedProb(pub.price);
+    const pinProb = fp;
+    const units = unitsFromEdge(pubProb, pinProb);
+
     if (!best || ev > best.ev) {
-      const pubProb = impliedProb(pub.price);
-      const pinProb = impliedProb(pin.price);
-      const units = unitsFromEdge(pubProb, pinProb);
-      best = { side, pin: pin.price, pub: pub.price, line: pub.point, bk: pub.book, ev, sharpDiff: pub.price - pin.price, units, pinProb, pubProb };
+      best = {
+        side,
+        pin: sharpPair.sidePrice,
+        pinFairProb: fp,
+        pub: pub.price,
+        line: pub.point,
+        bk: pub.book,
+        ev,
+        sharpDiff: pub.price - sharpPair.sidePrice,
+        units,
+        pinProb,
+        pubProb,
+        sharpBook: sharpPair.book
+      };
     }
   });
   if (!best) return null;
 
   const sharpSignals = [];
-  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Pinnacle confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
+  if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
 
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
@@ -2264,14 +2560,20 @@ function analyzeTotal(game) {
     splitsDiv = all.find(d => d.market === 'Total' && d.sharpShort === best.side) || null;
     if (splitsDiv) {
       sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      if (splitsDiv.magnitude >= 18) best.units = Math.min(5, best.units + 1);
-      else if (splitsDiv.magnitude >= 12) best.units = Math.min(5, best.units + 0.5);
+      let edgeMult = 1.0;
+      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
+      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
+      if (edgeMult > 1) {
+        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
+        best.units = unitsFromEdge(best.pubProb, boostedFp);
+      }
     }
   }
 
+  const sourceLabel = best.sharpBook ? best.sharpBook : 'Sharp consensus';
   const reasons = [];
-  reasons.push('<b>Pinnacle</b> prices '+best.side+' '+best.line+' at '+fmt(best.pin)+'; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — fair-line EV is <b>+'+best.ev+'%</b>.');
-  if (best.sharpDiff >= 8) reasons.push('Sharp gap of <b>'+Math.round(best.sharpDiff)+' points</b> indicates sharp money has moved Pinnacle.');
+  reasons.push('<b>'+sourceLabel+'</b> fair price on '+best.side+' '+best.line+' implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — de-vigged EV is <b>+'+best.ev+'%</b>.');
+  if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> on the same total.');
   if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' '+best.line+' with only '+splitsDiv.sharpTickets+'% of tickets.');
   if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
   else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
@@ -2291,6 +2593,7 @@ function analyzeTotal(game) {
     bestPubOdds: best.pub,
     bestPubBook: best.bk,
     sharpOdds: best.pin,
+    sharpFairProb: best.pinFairProb,
     ev: best.ev,
     sharpDiff: best.sharpDiff,
     sharpSignals,
@@ -2300,6 +2603,315 @@ function analyzeTotal(game) {
     tierCls: tInfo.cls,
     reasons,
     summary
+  };
+}
+
+// =========================================================================
+// ALT-LADDER ANALYZERS
+// Scan the full spread/total ladder (main + alternates) for the best-EV
+// rung. The user often gets the biggest edges on alt rungs because public
+// books mis-juice the alt ladder more than the main line.
+//
+// For each (point) rung we need BOTH sides at the SAME point from a SAME
+// sharp book to compute a de-vigged fair probability for that rung. Then
+// we take the best public price for each side at that rung and compute EV.
+// Across all rungs, return the highest EV.
+// =========================================================================
+
+function _bestPriceAtPoint(entries, point, books) {
+  // entries is the flat array of {point, price, book, bookKey, isAlt}
+  let best = null;
+  for (const e of entries) {
+    if (Math.abs(e.point - point) > 0.01) continue;
+    if (books && !books.includes(e.bookKey)) continue;
+    if (best == null || e.price > best.price) best = e;
+  }
+  return best;
+}
+
+function _sharpPairAtPointFromLadder(sideEntries, otherSideEntries, point, sharpBooks) {
+  // Find a sharp book that priced BOTH sides at this exact point.
+  // Prefer Pinnacle; fall back to any sharp book that priced both sides.
+  const sideByBook = {};
+  for (const e of sideEntries) {
+    if (Math.abs(e.point - point) > 0.01) continue;
+    if (!sharpBooks.includes(e.bookKey)) continue;
+    sideByBook[e.bookKey] = e;
+  }
+  const otherByBook = {};
+  for (const e of otherSideEntries) {
+    if (Math.abs(e.point - point) > 0.01) continue;
+    if (!sharpBooks.includes(e.bookKey)) continue;
+    otherByBook[e.bookKey] = e;
+  }
+  if (sideByBook['pinnacle'] && otherByBook['pinnacle']) {
+    return { sidePrice: sideByBook['pinnacle'].price, otherPrice: otherByBook['pinnacle'].price, book: 'Pinnacle' };
+  }
+  for (const bk of sharpBooks) {
+    if (sideByBook[bk] && otherByBook[bk]) {
+      return { sidePrice: sideByBook[bk].price, otherPrice: otherByBook[bk].price, book: sideByBook[bk].book };
+    }
+  }
+  return null;
+}
+
+// Scan the entire spread ladder for the best-EV rung on either side.
+// altData: the response from /api/alt-lines for this game.
+// game: the regular game object (for team names + bookmakers fallback).
+// Returns the same shape as analyzeSpread() so it can plug into renderMarketBar,
+// plus an `altLadder` array of all rungs that survived as positive-EV plays.
+function analyzeSpreadWithAlts(game, altData) {
+  if (!altData || !altData.spreads) return null;
+  const teams = [game.away_team, game.home_team];
+  const sideA = altData.spreads[teams[0]] || [];
+  const sideB = altData.spreads[teams[1]] || [];
+  if (!sideA.length || !sideB.length) return null;
+
+  // Collect all distinct points across both sides
+  const allPoints = new Set();
+  sideA.forEach(e => allPoints.add(e.point));
+  sideB.forEach(e => allPoints.add(e.point));
+
+  // For each side+point, find best public price + sharp pair, then EV
+  const rungs = [];
+  for (const t of teams) {
+    const sideEntries = altData.spreads[t] || [];
+    const otherT = teams.find(x => x !== t);
+    const otherEntries = altData.spreads[otherT] || [];
+    for (const point of allPoints) {
+      // Public best price for THIS side at point. The corresponding
+      // opposing side point is -point (spreads are symmetric).
+      const otherPoint = -point;
+      const pubBest = _bestPriceAtPoint(sideEntries, point, PUB);
+      if (!pubBest) continue;
+      const sharpPair = _sharpPairAtPointFromLadder(sideEntries, otherEntries, point, SHP);
+      // Note: for spreads, the other side's point at "this rung" is -point, not the same point.
+      // We need both sides at THIS rung's point from one sharp book. Spreads at point=+3 imply
+      // the other side at -3, so we need to look up otherEntries at -point.
+      // _sharpPairAtPointFromLadder above was passed entries at the same `point` but that's wrong
+      // for spreads. Redo correctly:
+      const sharpSideByBook = {};
+      for (const e of sideEntries) {
+        if (Math.abs(e.point - point) > 0.01) continue;
+        if (!SHP.includes(e.bookKey)) continue;
+        sharpSideByBook[e.bookKey] = e;
+      }
+      const sharpOtherByBook = {};
+      for (const e of otherEntries) {
+        if (Math.abs(e.point - otherPoint) > 0.01) continue;
+        if (!SHP.includes(e.bookKey)) continue;
+        sharpOtherByBook[e.bookKey] = e;
+      }
+      let pair = null;
+      if (sharpSideByBook['pinnacle'] && sharpOtherByBook['pinnacle']) {
+        pair = { sidePrice: sharpSideByBook['pinnacle'].price, otherPrice: sharpOtherByBook['pinnacle'].price, book: 'Pinnacle' };
+      } else {
+        for (const bk of SHP) {
+          if (sharpSideByBook[bk] && sharpOtherByBook[bk]) {
+            pair = { sidePrice: sharpSideByBook[bk].price, otherPrice: sharpOtherByBook[bk].price, book: sharpSideByBook[bk].book };
+            break;
+          }
+        }
+      }
+      if (!pair) continue;
+      const fp = deVig2Way(pair.sidePrice, pair.otherPrice);
+      if (fp == null) continue;
+      const ev = evFromFair(fp, pubBest.price);
+      if (ev == null) continue;
+      rungs.push({
+        team: t,
+        tShort: t.split(' ').pop(),
+        point,
+        isAlt: pubBest.isAlt,
+        pubPrice: pubBest.price,
+        pubBook: pubBest.book,
+        sharpSidePrice: pair.sidePrice,
+        sharpOtherPrice: pair.otherPrice,
+        sharpBook: pair.book,
+        fairProb: fp,
+        ev
+      });
+    }
+  }
+
+  if (!rungs.length) return null;
+  rungs.sort((a, b) => b.ev - a.ev);
+  const best = rungs[0];
+  if (best.ev <= 0) return null;
+
+  const pubProb = impliedProb(best.pubPrice);
+  const pinProb = best.fairProb;
+  let units = unitsFromEdge(pubProb, pinProb);
+
+  // Splits boost (multiplicative on edge)
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
+  let splitsDiv = null;
+  if (splits) {
+    const all = findAllDivergences(splits);
+    splitsDiv = all.find(d => d.market === 'Spread' && d.sharpShort === best.tShort) || null;
+    if (splitsDiv) {
+      let edgeMult = 1.0;
+      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
+      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
+      if (edgeMult > 1) {
+        const boostedFp = Math.min(0.99, best.fairProb * edgeMult);
+        units = unitsFromEdge(pubProb, boostedFp);
+      }
+    }
+  }
+
+  const sharpSignals = [];
+  if ((best.pubPrice - best.sharpSidePrice) >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms (sharp side at '+fmt(best.sharpSidePrice)+')' });
+  if (best.isAlt) sharpSignals.push({ key:'alt', label:'Best edge is on the ALT spread ladder' });
+  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+
+  const lineStr = (best.point >= 0 ? '+' : '') + best.point;
+  const reasons = [];
+  reasons.push('<b>'+best.sharpBook+'</b> sharp pair (' + fmt(best.sharpSidePrice) + '/' + fmt(best.sharpOtherPrice) + ') de-vigs to <b>' + (best.fairProb*100).toFixed(1) + '%</b> on ' + best.tShort + ' ' + lineStr + '; ' + best.pubBook.split(' ')[0] + ' offers ' + fmt(best.pubPrice) + ' — de-vigged EV <b>+' + best.ev + '%</b>.');
+  if (best.isAlt) reasons.push('This is an <b>alternate</b> spread (not the main line) — pricing was likely missed by the public book.');
+  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (Half-Kelly).');
+  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (Half-Kelly).');
+
+  const tInfo = _tierFromUnits(units);
+  let summary;
+  if (units >= 3) summary = 'Strong edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 1.5) summary = 'Edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
+  else if (units > 0) summary = 'Lean on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'%' + (best.isAlt ? ' · ALT' : '');
+  else summary = 'No clear edge';
+
+  // Return all positive-EV rungs for the ladder UI
+  const positiveLadder = rungs.filter(r => r.ev > 0).slice(0, 20);
+
+  return {
+    market: 'Spread',
+    bestSide: best.team,
+    bestSideShort: best.tShort,
+    bestLine: best.point,
+    bestPubOdds: best.pubPrice,
+    bestPubBook: best.pubBook,
+    sharpOdds: best.sharpSidePrice,
+    sharpFairProb: best.fairProb,
+    ev: best.ev,
+    sharpDiff: best.pubPrice - best.sharpSidePrice,
+    sharpSignals,
+    splitsDiv,
+    units,
+    tier: tInfo.tier,
+    tierCls: tInfo.cls,
+    reasons,
+    summary,
+    altLadder: positiveLadder,
+    isAlt: best.isAlt
+  };
+}
+
+// Scan the entire total ladder for the best-EV rung (Over or Under).
+function analyzeTotalWithAlts(game, altData) {
+  if (!altData || !altData.totals) return null;
+  const overs = altData.totals.Over || [];
+  const unders = altData.totals.Under || [];
+  if (!overs.length || !unders.length) return null;
+
+  const allPoints = new Set();
+  overs.forEach(e => allPoints.add(e.point));
+  unders.forEach(e => allPoints.add(e.point));
+
+  const rungs = [];
+  for (const side of ['Over', 'Under']) {
+    const sideEntries = side === 'Over' ? overs : unders;
+    const otherEntries = side === 'Over' ? unders : overs;
+    for (const point of allPoints) {
+      // For totals, both sides share the same point (unlike spreads).
+      const pubBest = _bestPriceAtPoint(sideEntries, point, PUB);
+      if (!pubBest) continue;
+      const pair = _sharpPairAtPointFromLadder(sideEntries, otherEntries, point, SHP);
+      if (!pair) continue;
+      const fp = deVig2Way(pair.sidePrice, pair.otherPrice);
+      if (fp == null) continue;
+      const ev = evFromFair(fp, pubBest.price);
+      if (ev == null) continue;
+      rungs.push({
+        side,
+        point,
+        isAlt: pubBest.isAlt,
+        pubPrice: pubBest.price,
+        pubBook: pubBest.book,
+        sharpSidePrice: pair.sidePrice,
+        sharpOtherPrice: pair.otherPrice,
+        sharpBook: pair.book,
+        fairProb: fp,
+        ev
+      });
+    }
+  }
+
+  if (!rungs.length) return null;
+  rungs.sort((a, b) => b.ev - a.ev);
+  const best = rungs[0];
+  if (best.ev <= 0) return null;
+
+  const pubProb = impliedProb(best.pubPrice);
+  let units = unitsFromEdge(pubProb, best.fairProb);
+
+  // Splits boost
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
+  let splitsDiv = null;
+  if (splits) {
+    const all = findAllDivergences(splits);
+    splitsDiv = all.find(d => d.market === 'Total' && d.sharpShort === best.side) || null;
+    if (splitsDiv) {
+      let edgeMult = 1.0;
+      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
+      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
+      if (edgeMult > 1) {
+        const boostedFp = Math.min(0.99, best.fairProb * edgeMult);
+        units = unitsFromEdge(pubProb, boostedFp);
+      }
+    }
+  }
+
+  const sharpSignals = [];
+  if ((best.pubPrice - best.sharpSidePrice) >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms' });
+  if (best.isAlt) sharpSignals.push({ key:'alt', label:'Best edge is on the ALT total ladder' });
+  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+
+  const reasons = [];
+  reasons.push('<b>'+best.sharpBook+'</b> sharp pair (' + fmt(best.sharpSidePrice) + '/' + fmt(best.sharpOtherPrice) + ') de-vigs to <b>' + (best.fairProb*100).toFixed(1) + '%</b> on ' + best.side + ' ' + best.point + '; ' + best.pubBook.split(' ')[0] + ' offers ' + fmt(best.pubPrice) + ' — de-vigged EV <b>+' + best.ev + '%</b>.');
+  if (best.isAlt) reasons.push('This is an <b>alternate</b> total (not the main line) — pricing was likely missed by the public book.');
+  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (Half-Kelly).');
+  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (Half-Kelly).');
+
+  const tInfo = _tierFromUnits(units);
+  let summary;
+  if (units >= 3) summary = 'Strong edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 1.5) summary = 'Edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
+  else if (units > 0) summary = 'Lean on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'%' + (best.isAlt ? ' · ALT' : '');
+  else summary = 'No clear edge';
+
+  const positiveLadder = rungs.filter(r => r.ev > 0).slice(0, 20);
+
+  return {
+    market: 'Total',
+    bestSide: best.side,
+    bestSideShort: best.side,
+    bestLine: best.point,
+    bestPubOdds: best.pubPrice,
+    bestPubBook: best.pubBook,
+    sharpOdds: best.sharpSidePrice,
+    sharpFairProb: best.fairProb,
+    ev: best.ev,
+    sharpDiff: best.pubPrice - best.sharpSidePrice,
+    sharpSignals,
+    splitsDiv,
+    units,
+    tier: tInfo.tier,
+    tierCls: tInfo.cls,
+    reasons,
+    summary,
+    altLadder: positiveLadder,
+    isAlt: best.isAlt
   };
 }
 
@@ -2399,18 +3011,121 @@ function renderMarketBar(game, analysis, marketKey, icon, marketLabel) {
 }
 
 
+// Renders the positive-EV ladder (all rungs with EV > 0) for spreads or totals.
+// Lets the user see "this team has 4 alt rungs with +EV, not just the main".
+function renderAltLadder(game, ladder, kind) {
+  if (!ladder || !ladder.length) return '';
+  const ladderKey = game.id + '_alt_' + kind;
+  const isOpen = !!window.marketBarOpen[ladderKey];
+  const icon = kind === 'spread' ? '📊' : '🎯';
+  const label = kind === 'spread' ? 'Alt Spread Ladder' : 'Alt Total Ladder';
+  // Sort the ladder for nicer display: by side, then by point asc
+  const sorted = ladder.slice().sort((a, b) => {
+    const sa = a.team || a.side || '';
+    const sb = b.team || b.side || '';
+    if (sa !== sb) return sa.localeCompare(sb);
+    return a.point - b.point;
+  });
+
+  let h = '<div class="market-bar' + (isOpen ? ' open' : '') + '">';
+  h += '<div class="market-bar-header" onclick="toggleMarketBar(\''+ladderKey+'\')">';
+  h += '<span class="market-bar-title"><span class="ml-bar-title-icon">'+icon+'</span>'+label+'</span>';
+  h += '<span class="market-bar-summary public"><b>' + sorted.length + ' +EV rung' + (sorted.length === 1 ? '' : 's') + '</b> across the ladder</span>';
+  h += '<span class="market-bar-arrow">▼</span>';
+  h += '</div>';
+  h += '<div class="market-bar-detail">';
+  h += '<div style="font-size:11px;color:#888;margin-bottom:8px;font-style:italic">Every rung with positive de-vigged EV. Take the one that matches your bankroll & risk tolerance.</div>';
+  h += '<table style="width:100%;font-size:11px;border-collapse:collapse;color:#ddd">';
+  h += '<thead><tr style="background:rgba(255,255,255,.04);text-align:left">' +
+       '<th style="padding:6px 4px">Side</th>' +
+       '<th style="padding:6px 4px;text-align:center">Line</th>' +
+       '<th style="padding:6px 4px;text-align:right">Public</th>' +
+       '<th style="padding:6px 4px;text-align:right">Sharp Fair</th>' +
+       '<th style="padding:6px 4px;text-align:right">EV</th>' +
+       '<th style="padding:6px 4px"></th></tr></thead>';
+  h += '<tbody>';
+  for (const r of sorted) {
+    const side = r.team ? r.team.split(' ').pop() : r.side;
+    const lineStr = kind === 'spread' ? ((r.point >= 0 ? '+' : '') + r.point) : ('' + r.point);
+    const evCls = r.ev >= 5 ? 'bet-ev-high' : r.ev >= 2 ? 'bet-ev-med' : 'bet-ev-low';
+    const altTag = r.isAlt ? ' <span style="font-size:9px;color:#ffc832">ALT</span>' : '';
+    h += '<tr style="border-top:1px solid rgba(255,255,255,.04)">';
+    h += '<td style="padding:6px 4px">' + side + altTag + '</td>';
+    h += '<td style="padding:6px 4px;text-align:center;font-family:monospace"><b>' + lineStr + '</b></td>';
+    h += '<td style="padding:6px 4px;text-align:right">' + fmt(r.pubPrice) + '<br><span style="font-size:9px;color:#888">' + (r.pubBook || '').split(' ')[0] + '</span></td>';
+    h += '<td style="padding:6px 4px;text-align:right">' + (r.fairProb*100).toFixed(1) + '%<br><span style="font-size:9px;color:#888">' + (r.sharpBook || '').split(' ')[0] + '</span></td>';
+    h += '<td style="padding:6px 4px;text-align:right"><span class="' + evCls + '" style="white-space:nowrap">+' + r.ev.toFixed(1) + '%</span></td>';
+    h += '<td style="padding:6px 4px"></td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  h += '</div></div>';
+  return h;
+}
+
+
+function _formatLineAge(fetchedAtIso) {
+  if (!fetchedAtIso) return null;
+  const ms = Date.now() - new Date(fetchedAtIso).getTime();
+  if (!isFinite(ms) || ms < 0) return null;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
 function renderExpand(game) {
   const bks = game.bookmakers || [];
   if (!bks.length) return "";
   let h = '<div class="xp">';
 
+  // Line-age indicator: stale lines are a trap. Show the user how fresh the
+  // sharp/public prices are so they know whether to trust the EV badge.
+  const lineAge = _formatLineAge(game._fetched_at);
+  if (lineAge) {
+    const ageMs = Date.now() - new Date(game._fetched_at).getTime();
+    const stale = ageMs > 120 * 1000; // 2+ minutes is meaningfully stale
+    const color = stale ? '#ff8c8c' : '#7fbf9f';
+    h += '<div style="display:flex;justify-content:flex-end;font-size:10px;color:'+color+';margin-bottom:6px;padding:0 4px">' +
+      '<span title="Time since odds were fetched. Stale lines may not reflect current market.">⏱ lines ' + lineAge + (stale ? ' · stale' : '') + '</span>' +
+      '</div>';
+  }
+
   // Three market bars: Moneyline, Spread, Total
+  // If alt-line data has been loaded for this event, prefer the alt-aware
+  // analyzers (they scan the full ladder + alts for the highest-EV rung).
+  // Otherwise fall back to the main-line-only analyzers.
+  const altData = altLinesByEvent[game.id];
+  const altLoading = !!altLinesLoading[game.id];
   const mlAnalysis = analyzeMoneyline(game);
-  const spreadAnalysis = analyzeSpread(game);
-  const totalAnalysis = analyzeTotal(game);
+  const spreadAnalysis = (altData && (analyzeSpreadWithAlts(game, altData))) || analyzeSpread(game);
+  const totalAnalysis  = (altData && (analyzeTotalWithAlts(game, altData)))  || analyzeTotal(game);
+
+  // Status pill showing alt-ladder load state
+  if (altLoading && !altData) {
+    h += '<div style="font-size:10px;color:#888;margin-bottom:6px;padding:0 4px">⏳ Loading alt spread/total ladder…</div>';
+  } else if (altData && (Object.keys(altData.spreads || {}).length || (altData.totals && (altData.totals.Over.length || altData.totals.Under.length)))) {
+    const spreadCount = Object.values(altData.spreads || {}).reduce((sum, arr) => sum + arr.length, 0);
+    const totalCount = (altData.totals?.Over.length || 0) + (altData.totals?.Under.length || 0);
+    h += '<div style="font-size:10px;color:#7fbf9f;margin-bottom:6px;padding:0 4px">✓ Alt ladder loaded · ' + spreadCount + ' spread rungs · ' + totalCount + ' total rungs</div>';
+  } else if (altData && altData.error) {
+    h += '<div style="font-size:10px;color:#ff8c8c;margin-bottom:6px;padding:0 4px">⚠ Alt ladder unavailable: ' + altData.error + '</div>';
+  }
+
   h += renderMarketBar(game, mlAnalysis, 'ml', '💰', 'Moneyline');
   h += renderMarketBar(game, spreadAnalysis, 'sp', '📊', 'Spread');
   h += renderMarketBar(game, totalAnalysis, 'tt', '🎯', 'Total');
+
+  // Alt-Spread ladder UI: when we have data, render the full positive-EV ladder
+  if (altData && spreadAnalysis && spreadAnalysis.altLadder && spreadAnalysis.altLadder.length > 1) {
+    h += renderAltLadder(game, spreadAnalysis.altLadder, 'spread');
+  }
+  if (altData && totalAnalysis && totalAnalysis.altLadder && totalAnalysis.altLadder.length > 1) {
+    h += renderAltLadder(game, totalAnalysis.altLadder, 'total');
+  }
 
   // Public Splits (overall divergence summary)
   h += renderSplitsUI(game);
@@ -3028,19 +3743,27 @@ function detectRLM(game) {
 }
 
 function calcCLV(game) {
+  // "Current CLV proxy": compare your best public price to the sharp DE-VIGGED
+  // fair probability. Previously the comparison was against the raw vigged
+  // implied probability, which understates Pinnacle's "true" probability and
+  // inflates the CLV%. Real CLV requires the closing line — we don't have it
+  // pre-game — so this is labeled accordingly elsewhere in the UI.
   const bks = game.bookmakers || [];
+  const teams = [game.away_team, game.home_team];
   const results = [];
-  [game.away_team, game.home_team].forEach(team => {
-    const pin = bkOdds(bks, team, SHP);
+  for (let i = 0; i < 2; i++) {
+    const team = teams[i], other = teams[1 - i];
+    const sharpPair = _sharpH2HPair(bks, team, other, SHP);
     const pub = bkOdds(bks, team, PUB);
-    if (!pin || !pub) return;
-    const pinProb = pin.o > 0 ? 100 / (pin.o + 100) : Math.abs(pin.o) / (Math.abs(pin.o) + 100);
-    const pubProb = pub.o > 0 ? 100 / (pub.o + 100) : Math.abs(pub.o) / (Math.abs(pub.o) + 100);
-    const clvPct = ((pinProb - pubProb) / pubProb) * 100;
+    if (!sharpPair || !pub) continue;
+    const pinFairProb = deVig2Way(sharpPair.sidePrice, sharpPair.otherPrice);
+    if (pinFairProb == null) continue;
+    const pubProb = impliedProb(pub.o);
+    const clvPct = ((pinFairProb - pubProb) / pubProb) * 100;
     if (clvPct > 3) {
-      results.push({ team, pubOdds: pub.o, pinOdds: pin.o, clvPct: Math.round(clvPct * 10) / 10 });
+      results.push({ team, pubOdds: pub.o, pinOdds: sharpPair.sidePrice, clvPct: Math.round(clvPct * 10) / 10 });
     }
-  });
+  }
   return results.length > 0 ? results : null;
 }
 
@@ -3312,7 +4035,10 @@ function renderSharp() {
     pinBody = '<div class="empty">No sharp money signals detected. Public splits not yet flagging a divergence on ML, Spread, or Total.</div>';
   } else {
     sharpSignals.slice(0, 20).forEach(s => {
-      const pEv = (s.market === 'ML' && s.pin && s.pub) ? calcEV(s.pin, s.pub) : null;
+      // For ML use proper two-way de-vig via the game object; for Spread/Total
+      // we don't have the matching point conveniently here, so we skip the EV
+      // badge rather than show a misleading one-sided number.
+      const pEv = (s.market === 'ML' && s.label && s.pub) ? calcEVForTeamFromGame(s.game, s.label, s.pub) : null;
       const pEvInfo = pEv ? evLabel(pEv) : null;
       // Tier label
       let tierLbl, tierCls;
@@ -3390,7 +4116,9 @@ function renderSharp() {
   } else {
     rlmSignals.slice(0, 16).forEach(s => {
       s.signals.forEach(sig => {
-        const rEv = (sig.market === 'ML' && sig.pinOdds && sig.pubOdds) ? calcEV(sig.pinOdds, sig.pubOdds) : null;
+        // ML uses proper two-way de-vig; other markets skip EV badge (no
+        // convenient access to the matched line's other-side price here).
+        const rEv = (sig.market === 'ML' && sig.team && sig.pubOdds) ? calcEVForTeamFromGame(s.game, sig.team, sig.pubOdds) : null;
         const rEvInfo = rEv ? evLabel(rEv) : null;
         const matchupStr = s.game.away_team.split(' ').pop() + ' vs ' + s.game.home_team.split(' ').pop();
 
@@ -3444,7 +4172,7 @@ function renderSharp() {
   } else {
     clvSignals.slice(0, 18).forEach(s => {
       s.signals.forEach(sig => {
-        const cEv = (sig.market === 'ML' && sig.pinOdds && sig.pubOdds) ? calcEV(sig.pinOdds, sig.pubOdds) : null;
+        const cEv = (sig.market === 'ML' && sig.team && sig.pubOdds) ? calcEVForTeamFromGame(s.game, sig.team, sig.pubOdds) : null;
         const matchupStr = s.game.away_team.split(' ').pop() + ' vs ' + s.game.home_team.split(' ').pop();
         const teamLbl = sig.market === 'Total' ? sig.tShort : sig.team;
 
@@ -3582,9 +4310,9 @@ function renderSharp() {
   
   h += '<div class="legend">' +
     '<div class="legend-title">📖 EMOJI INDEX</div>' +
-    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Sharp Money Movement</div><div class="legend-desc">Pinnacle\'s odds are 8+ points shorter than public books on one team. Pros have moved the sharpest line.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public majority. Sharp money is overwhelming public ticket count.</div></div></div>' +
-    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Closing Line Value</div><div class="legend-desc">Your public book price beats Pinnacle\'s fair line by 3%+ - betting at a discount to true odds.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">⚡</div><div class="legend-text"><div class="legend-name">Sharp vs Public</div><div class="legend-desc">Sharp consensus (Pinnacle / Circa) is priced 8+ cents shorter than your public book. Sharps have already moved the sharp number.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Reverse Line Movement</div><div class="legend-desc">Line moves against the public majority. Indicates sharp money. Reliability improves with server-side line history.</div></div></div>' +
+    '<div class="legend-item"><div class="legend-emoji">💎</div><div class="legend-text"><div class="legend-name">Current CLV Proxy</div><div class="legend-desc">Your public book price beats the de-vigged sharp consensus by 3%+ in implied probability. NOT true closing-line value — real CLV needs the closing line.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🎯</div><div class="legend-text"><div class="legend-name">Player Prop Plays</div><div class="legend-desc">Player props ranked by historical hit rate vs current DK line. STRONG = 65%+ hit + 15%+ ROI. SOLID = 58%+ hit. LEAN = 55%+.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🟢</div><div class="legend-text"><div class="legend-name">Low Juice</div><div class="legend-desc">Market vig below 4% - better pricing than standard -110/-110 markets. You pay less to bet.</div></div></div>' +
     '<div class="legend-item"><div class="legend-emoji">🔴</div><div class="legend-text"><div class="legend-name">High Juice</div><div class="legend-desc">Market vig above 5.5% - book charging extra margin. Avoid unless you have a strong edge.</div></div></div>' +
@@ -3605,12 +4333,28 @@ function renderModel() {
   const cands = [];
   eligibleGames.forEach(g => {
     const bks = g.bookmakers || [];
-    [g.away_team, g.home_team].forEach(t => {
-      const pin = bkOdds(bks, t, SHP), pub = bkOdds(bks, t, PUB);
-      if (!pin || !pub) return;
-      const sd = pub.o - pin.o, ev2 = calcEV(pin.o, pub.o)||0, sc = sd * 0.5 + ev2 * 2;
-      if (sc > 5 || ev2 > 1) cands.push({ game: g, label: t, pin: pin.o, pub: pub.o, bk: pub.bk, sharp: sd, ev: ev2, score: sc });
-    });
+    const teams = [g.away_team, g.home_team];
+    for (let i = 0; i < 2; i++) {
+      const t = teams[i], other = teams[1 - i];
+      const sharpPair = _sharpH2HPair(bks, t, other, SHP);
+      const pub = bkOdds(bks, t, PUB);
+      if (!sharpPair || !pub) continue;
+      const ev = calcEVDevig(sharpPair.sidePrice, sharpPair.otherPrice, pub.o);
+      // Qualifying threshold raised slightly to account for honest (smaller)
+      // de-vigged EV values. Was effectively `ev > 1` on inflated numbers.
+      if (ev != null && ev >= 1) {
+        cands.push({
+          game: g,
+          label: t,
+          pin: sharpPair.sidePrice,
+          pub: pub.o,
+          bk: pub.bk,
+          sharp: pub.o - sharpPair.sidePrice,
+          ev,
+          score: ev // Rank by EV alone — no double-counting
+        });
+      }
+    }
   });
   if (!cands.length) { document.getElementById("model").innerHTML = '<div class="empty">No high-value model picks.</div>'; return; }
   if (modelView === "sports") {
@@ -4096,19 +4840,89 @@ function fetchAllProps() {
   return Promise.all(Object.keys(sportsInGames).map(s => fetchPropsForSport(s)));
 }
 
+// =========================================================================
+// PER-EVENT FETCHERS for alt-lines (spreads/totals alts) and detailed props
+// =========================================================================
+// These are called LAZILY when the user expands a game card, to keep
+// quota usage low. Each call costs ~4 Odds API credits for alt-lines and
+// ~(N stats × 2) credits for props (where N is # of relevant stat markets).
+// Server caches for 60s.
+
+async function fetchAltLinesForEvent(game) {
+  if (!game || !game.id) return;
+  const eid = game.id;
+  if (altLinesByEvent[eid] || altLinesLoading[eid]) return;
+  altLinesLoading[eid] = true;
+  try {
+    const r = await fetch('/api/alt-lines?sport=' + encodeURIComponent(game.sport_key) + '&eventId=' + encodeURIComponent(eid));
+    const data = await r.json();
+    altLinesByEvent[eid] = (data && (data.spreads || data.totals)) ? data : { spreads: {}, totals: { Over: [], Under: [] } };
+  } catch(e) {
+    altLinesByEvent[eid] = { spreads: {}, totals: { Over: [], Under: [] }, error: e.message };
+  }
+  altLinesLoading[eid] = false;
+  // Re-render the expanded card so the alt ladder appears
+  try { renderGames(); } catch(e) {}
+}
+
+async function fetchPropsForEvent(game) {
+  const supported = ['basketball_nba', 'baseball_mlb', 'americanfootball_nfl'];
+  if (!game || !game.id || !supported.includes(game.sport_key)) return;
+  const eid = game.id;
+  if (propsByEvent[eid] || propsByEventLoading[eid]) return;
+  propsByEventLoading[eid] = true;
+  try {
+    const r = await fetch('/api/props?sport=' + encodeURIComponent(game.sport_key) + '&eventId=' + encodeURIComponent(eid));
+    const data = await r.json();
+    propsByEvent[eid] = { props: (data && data.props) ? data.props : [] };
+  } catch(e) {
+    propsByEvent[eid] = { props: [] };
+  }
+  propsByEventLoading[eid] = false;
+  try { renderGames(); } catch(e) {}
+}
+
 function getPropsForGame(game) {
-  const props = propsCache[game.sport_key];
-  if (!props || !props.length) return [];
-  // Match props to game by team-name fuzzy match against the 'game' string in each prop
+  // We have two sources of prop data:
+  //   1. propsCache[sport_key]: bulk VSiN-only scrape (no live odds, no alts)
+  //   2. propsByEvent[event_id]: per-event with live odds + full alt ladder
+  // Per-event data is loaded lazily on card expand. When available, we merge
+  // its bestPrice / bestBook / altPrices / altLadder fields onto the matching
+  // VSiN row so the user sees both the historical hit rate AND the live ladder.
+  const bulk = propsCache[game.sport_key];
+  if (!bulk || !bulk.length) return [];
   const awayTokens = teamTokens(game.away_team);
   const homeTokens = teamTokens(game.home_team);
-  return props.filter(p => {
+  const filtered = bulk.filter(p => {
     if (!p.game) return false;
     const propTokens = teamTokens(p.game);
     const awayHit = awayTokens.some(t => propTokens.some(pt => pt.includes(t) || t.includes(pt)));
     const homeHit = homeTokens.some(t => propTokens.some(pt => pt.includes(t) || t.includes(pt)));
     return awayHit && homeHit;
   });
+
+  // Overlay per-event data when available
+  const evtData = propsByEvent[game.id];
+  if (evtData && evtData.props && evtData.props.length) {
+    const byKey = {};
+    for (const ep of evtData.props) {
+      const k = (ep.player || '').toLowerCase() + '|' + (ep.stat || '') + '|' + ep.dkLine;
+      byKey[k] = ep;
+    }
+    return filtered.map(p => {
+      const k = (p.player || '').toLowerCase() + '|' + (p.stat || '') + '|' + p.dkLine;
+      const ep = byKey[k];
+      if (!ep) return p;
+      return {
+        ...p,
+        bestPrice: ep.bestPrice != null ? ep.bestPrice : p.bestPrice,
+        bestBook: ep.bestBook || p.bestBook,
+        altPrices: (ep.altPrices && ep.altPrices.length) ? ep.altPrices : p.altPrices,
+        altLadder: ep.altLadder || p.altLadder
+      };
+    });
+  }
+  return filtered;
 }
 
 // Score a prop based on hit rate, ROI, sample size
@@ -4196,6 +5010,16 @@ function renderPropsUI(game) {
 
   // Detail (only visible when expanded - including empty state)
   h += '<div class="props-detail">';
+
+  // Show alt-ladder load state inside the props panel
+  const evtPropsLoading = !!propsByEventLoading[game.id];
+  const evtPropsLoaded = !!propsByEvent[game.id];
+  if (evtPropsLoading && !evtPropsLoaded) {
+    h += '<div style="font-size:10px;color:#888;margin-bottom:8px;padding:4px 0">⏳ Loading live odds + alt prop ladder…</div>';
+  } else if (evtPropsLoaded) {
+    h += '<div style="font-size:10px;color:#7fbf9f;margin-bottom:8px;padding:4px 0">✓ Live odds + alt ladder loaded</div>';
+  }
+
   if (totalSignals === 0) {
     h += '<div class="props-empty" style="padding:14px">No high-edge player props found for this game.</div>';
   } else {
@@ -4254,6 +5078,41 @@ function renderPropCard(p, game) {
     h += '<div class="prop-best-row">' +
       '<span><span class="prop-best-label">Best price</span> <span class="prop-best-val">' + priceStr + '</span> at <b>' + p.bestBook + '</b>' + edgeNote + '</span>' +
       '</div>';
+  }
+
+  // Alt ladder (only show rungs with positive de-vigged EV on Over or Under)
+  if (Array.isArray(p.altLadder) && p.altLadder.length) {
+    const positive = p.altLadder.filter(r =>
+      (r.evOver != null && r.evOver > 0) || (r.evUnder != null && r.evUnder > 0)
+    );
+    if (positive.length) {
+      h += '<div style="margin-top:8px;padding:8px;background:rgba(0,0,0,.18);border-radius:5px">';
+      h += '<div style="font-size:10px;color:#aaa;margin-bottom:6px;letter-spacing:.5px"><b>ALT LADDER · +EV RUNGS</b></div>';
+      h += '<table style="width:100%;font-size:10px;border-collapse:collapse;color:#ddd">';
+      h += '<thead><tr style="color:#888">' +
+           '<th style="text-align:left;padding:2px 4px">Line</th>' +
+           '<th style="text-align:right;padding:2px 4px">Over</th>' +
+           '<th style="text-align:right;padding:2px 4px">EV</th>' +
+           '<th style="text-align:right;padding:2px 4px">Under</th>' +
+           '<th style="text-align:right;padding:2px 4px">EV</th>' +
+           '</tr></thead><tbody>';
+      // Limit to 6 rungs around the best
+      const sorted = positive.slice().sort((a, b) => Math.max(b.evOver||-99, b.evUnder||-99) - Math.max(a.evOver||-99, a.evUnder||-99));
+      const top = sorted.slice(0, 6).sort((a, b) => a.point - b.point);
+      for (const r of top) {
+        const overOk = r.evOver != null && r.evOver > 0;
+        const underOk = r.evUnder != null && r.evUnder > 0;
+        const altTag = r.isAlt ? ' <span style="font-size:8px;color:#ffc832">ALT</span>' : '';
+        h += '<tr style="border-top:1px solid rgba(255,255,255,.04)">';
+        h += '<td style="padding:3px 4px;font-family:monospace"><b>' + r.point + '</b>' + altTag + '</td>';
+        h += '<td style="text-align:right;padding:3px 4px">' + (r.over ? fmt(r.over.price) + ' <span style="font-size:8px;color:#888">' + r.over.book.split(' ')[0] + '</span>' : '—') + '</td>';
+        h += '<td style="text-align:right;padding:3px 4px">' + (overOk ? '<span style="color:#4ecca3">+' + r.evOver.toFixed(1) + '%</span>' : (r.evOver != null ? '<span style="color:#666">' + r.evOver.toFixed(1) + '%</span>' : '—')) + '</td>';
+        h += '<td style="text-align:right;padding:3px 4px">' + (r.under ? fmt(r.under.price) + ' <span style="font-size:8px;color:#888">' + r.under.book.split(' ')[0] + '</span>' : '—') + '</td>';
+        h += '<td style="text-align:right;padding:3px 4px">' + (underOk ? '<span style="color:#4ecca3">+' + r.evUnder.toFixed(1) + '%</span>' : (r.evUnder != null ? '<span style="color:#666">' + r.evUnder.toFixed(1) + '%</span>' : '—')) + '</td>';
+        h += '</tr>';
+      }
+      h += '</tbody></table></div>';
+    }
   }
 
   // Reasoning
@@ -4748,8 +5607,21 @@ async function init() {
     results.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
     // Remove fighting sports globally
     allGames = results.filter(g => !FIGHT_SPORTS.includes(g.sport_key));
+
+    // 1. Hydrate client history from server (no-op if KV not configured)
+    //    This lets brand-new users see steam/RLM/CLV signals from accumulated
+    //    server-side snapshots, not just their own browsing history.
+    try {
+      await Promise.all(allGames.slice(0, 20).map(g => hydrateFromServerHistory(g.id)));
+    } catch(e) { /* non-fatal */ }
+
+    // 2. Capture local snapshot (with server-coherent timestamp)
     allGames.forEach(captureSnapshot);
     saveHistory();
+
+    // 3. Push the latest snapshots to the server (no-op if KV not configured)
+    pushSnapshotsToServer(allGames); // fire-and-forget, don't block UI
+
     computeSharpSignals();
     modelView = "sports";
     selectedModelSport = null;
