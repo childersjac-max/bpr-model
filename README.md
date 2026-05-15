@@ -1,6 +1,63 @@
-# bpr-model (J LAB)
+# bpr-model v3.5 (J LAB)
 
-Sports betting model and odds dashboard. Compares public-book pricing to a de-vigged sharp consensus (Pinnacle / Circa) and surfaces positive-EV picks across **moneyline, spreads, alt spreads, totals, alt totals, player props, and alt player props** with half-Kelly unit sizing.
+Sports betting tool focused on **one goal: identifying +EV bets that will make you money.** Compares public-book pricing to a properly de-vigged sharp consensus (Pinnacle preferred), surfaces edges across moneyline, spread, total, and their alt ladders, sizes them with real half-Kelly, tracks your CLV against the closing line, and **automatically tracks the model's real W/L performance** so you can see whether it's actually working.
+
+---
+
+## What's new in v3.5
+
+### Tracker tab — auto-logged W/L performance of every Lock
+A new bottom-nav tab that **automatically logs every pick that appears in the Locks tab** and grades it against final scores via a new `/api/scores` endpoint. This is the honest answer to "is this model working?" — independent of which bets you actually placed.
+
+**Five views:**
+1. **Overview** — recent picks list with manual W/L/Push override buttons for any pick the auto-grader can't resolve (e.g. player props).
+2. **By Unit Size** — does Premium (4u+) actually beat Playable (1u)? If not, the Kelly tiers carry no signal and you should size flat. Includes an automatic insight banner that flags the relationship.
+3. **By Sport / League** — pinpoints where the model genuinely works (consistent positive ROI over 50+ picks) and where to deprioritize.
+4. **By Bet Type** — moneyline vs spread vs total vs ALT-rung performance. If alt picks aren't out-performing main lines, your alt-prefetch quota is being wasted on noise.
+5. **Over Time** — daily / weekly / monthly P/L with a cumulative-units SVG chart. Watch your equity curve in real time.
+
+**Auto-grading:** when the Tracker tab is opened or after each bulk odds refresh, ungraded picks whose games have started are batched by sport and graded via The Odds API's `/scores` endpoint (1-2 credits per sport, called at most every 5 minutes). Moneyline, spread, and total picks grade automatically; player props remain pending until you manually mark them.
+
+**P/L math:** wins pay at the actual price you got. A 1u win at +150 returns 1.5u profit; a 1u win at -150 returns 0.667u. Losses are always -1u × your stake. Pushes are 0. ROI is computed as units P/L divided by units staked.
+
+**Storage:** localStorage `jlab_tracker_log`, deduplicated by `game_id|market|side|line`. Re-running `computeLocks()` won't create duplicates — the first snapshot is kept. CSV export available.
+
+### New endpoint
+- `GET /api/scores?sport=X&daysFrom=3` — returns completed games with final scores. 1-2 Odds API credits per call.
+
+---
+
+## What was added/changed in v3.4 (from v3.3)
+
+### Sizing math fixed
+v3.3's `unitsFromEdge` used `(edge / pubProb) * 0.5`, labeled as "half-Kelly." That formula is actually ~ EV%/2 and only matches half-Kelly near even money. On plus-money dogs it **roughly doubles** the correct stake; on heavy chalk it under-sizes. v3.4 replaces it with **real Kelly**: `f* = (b·p − q) / b`, where `b` = decimal odds − 1, then halves. New tiers: 5u ≥ 5%, 4u ≥ 3.5%, 3u ≥ 2.5%, 2u ≥ 1.75%, 1u ≥ 1%. Sub-1u = no bet.
+
+### Lock threshold raised
+v3.3 made any pick a "Lock" at units ≥ 0.5. v3.4 floors at units ≥ 1. Expect 60–80% fewer Locks — but each one is a real bet.
+
+### Locks now use the alt ladder
+`computeLocks` runs both main-line and alt-aware analyzers per market and keeps the better-EV result. Auto-prefetches alt ladders for any game with a ≥1u main-line edge (capped at 8 games/refresh).
+
+### Splits sizing boost removed
+v3.3 multiplied the de-vigged fair probability by 1.10–1.20 on splits "agreement." Removed in v3.4. Splits still display as a badge — informational only.
+
+### Same-book de-vig required
+`_sharpH2HPair` now requires both sides from a single sharp book. Cross-book de-vig is mathematically invalid.
+
+### CLV Tracker (Tab 2)
+Replaces v3.3's expert-picks "Outside" tab. Auto-logs every betslip add with bet-time price + sharp fair prob. Captures closing fair prob within 30 min of game start. Average CLV over a meaningful sample is independent confirmation that the model's edges are real.
+
+### Removed
+- `/api/stats` endpoint (useless SU records).
+- `/api/picks` endpoint and scraper (no signal value).
+- Dead `buildLockReasoning` function.
+- "Lean" tier label.
+
+### Other
+- Sharp-vs-public "CLV" badge raised 3%→5%, relabeled as "point-in-time, not closing CLV."
+- Stale-line gating: picks with > 5 min old data flagged as STALE.
+
+---
 
 ## Setup
 
@@ -10,98 +67,54 @@ Set in Vercel → Project → Settings → Environment Variables:
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `ODDS_API_KEY` | yes | Your key from <https://the-odds-api.com/>. Used by `/api/odds`, `/api/sports`, `/api/props`, `/api/stats`, `/api/alt-lines`. |
-| `KV_REST_API_URL` | optional | Vercel KV (Upstash Redis) REST URL. Enables server-side line history. |
+| `ODDS_API_KEY` | yes | Your key from <https://the-odds-api.com/>. Used by `/api/odds`, `/api/sports`, `/api/props`, `/api/alt-lines`, `/api/scores`. |
+| `KV_REST_API_URL` | optional | Vercel KV (Upstash Redis) REST URL. Enables server-side line history for steam/RLM detection. |
 | `KV_REST_API_TOKEN` | optional | Vercel KV REST token. Auto-populated by the KV integration. |
 
 > **Security note:** Earlier versions of this repo had the Odds API key hardcoded in source. If you forked from that version, **rotate your Odds API key immediately**.
 
-### 2. Quota planning for alt markets
-
-Alt markets are expensive. The Odds API charges `markets × regions` per per-event call. To keep your dashboard view cheap and only pay for alts when a user actually looks at a game:
+### 2. Quota planning
 
 | Endpoint | When called | Approx quota cost |
 | --- | --- | --- |
-| `GET /api/odds?sport=X` | On every page load (sport refresh) | 3 credits/region (h2h+spreads+totals) |
-| `GET /api/alt-lines?eventId=X` | When user expands a game card | ~4 credits (spreads, alt_spreads, totals, alt_totals × 1 region) |
-| `GET /api/props?sport=X&eventId=Y` | When user expands a card (supported sports) | ~(N_stats × 2) credits — main + `_alternate` per stat × 1 region |
+| `GET /api/odds?sport=X` | On every page refresh | 3 credits/region |
+| `GET /api/alt-lines?eventId=X` | Auto-prefetch for ≥1u edges + on card expand | ~4 credits, 60s cache |
+| `GET /api/props?sport=X&eventId=Y` | On card expand (NBA/MLB/NFL only) | ~(N stats × 2) credits |
+| `GET /api/scores?sport=X` | After each refresh if Tracker has ungraded picks (≥5 min between calls per sport) | 1-2 credits |
 
-Both per-event endpoints are server-cached for **60 seconds**, so repeated card expands by the same or different users in that window cost zero credits.
+---
 
-If you want even more aggressive savings, set `regions=us` only (skip EU) in `api/alt-lines.js` and `api/odds.js`. The defaults are `us,eu` for breadth.
+## How to use the tool
 
-### 3. Enable server-side line history (optional but recommended)
+1. **Pin the Locks tab.** Focus on **Premium (4u+)** and **Solid (2u+)** plays.
 
-Without this, steam-move / RLM / CLV signals only work for users who've kept the app open long enough to accumulate browser snapshots.
+2. **Watch for ALT badges.** A purple "ALT" tag means the edge is on an alternate spread or alt total rung — these are often the largest mispricings.
 
-1. Vercel → Storage → Create Database → KV. The integration auto-sets the env vars.
-2. Add `@vercel/kv` is already listed as an optional dependency in `package.json`.
-3. Optionally schedule a cron at `* * * * *` to POST to `/api/line-history?action=snapshot` (uses extra Odds API quota).
+3. **Shop the price.** The "best public price" in the model is across 6 books. Always confirm the price you can get matches the price the model used.
 
-## How picks are generated
+4. **Add to betslip → auto-logs to CLV tracker.** Every add becomes a row in the CLV log with bet-time sharp fair prob. After 50+ bets, your average CLV is the answer to "are my placed bets actually +EV?"
 
-For each upcoming game, the analyzers run in two passes:
+5. **Check the Tracker tab regularly.** Even if you don't bet a pick, it's logged. After ~50 graded picks per slice (sport / unit tier / bet type), you'll start to see where the model genuinely works.
 
-**Pass 1 (free, runs on every dashboard refresh):** main-line h2h/spreads/totals analysis using the bulk `/api/odds` data. Surfaces top "Locks" picks on the home tab.
+6. **The two tabs answer different questions:**
+   - **CLV tab** = "Are MY bets beating the closing line?" (proof of your selections being +EV)
+   - **Tracker tab** = "Is the MODEL itself working?" (proof of the underlying engine)
 
-**Pass 2 (per-event, runs on card expand):** the full **alt-spread, alt-total, and alt-prop ladders** load lazily via `/api/alt-lines` and `/api/props?eventId=...`. New analyzers (`analyzeSpreadWithAlts`, `analyzeTotalWithAlts`) scan every rung of the ladder and find the highest-EV combination across the entire surface.
-
-Each analyzer computes:
-
-1. **De-vigged fair probability** from both sides of the sharp market at a given point (Pinnacle preferred, falls back to median of sharp books).
-2. **EV%** of the public price vs that fair probability.
-3. **Half-Kelly unit sizing** mapped to a discrete tier (0.1u … 5u).
-4. **Sharp signals**: sharp-price gap, steam moves, reverse line movement, CLV proxy.
-5. **VSiN split agreement bonus**: multiplicative boost on edge (up to ×1.20) when handle % outpaces ticket % by 12+ points.
-6. **Alt-ladder rung selection**: across all main and alternate spread/total points, picks the rung where (sharp de-vig vs public price) yields the highest EV%. Alts often surface bigger edges than main lines because public books mis-juice the ladder more.
-
-A pick becomes a "Lock" when units ≥ 0.5 after sizing.
-
-## Player props
-
-The props panel inside each game card combines:
-
-- **VSiN historical hit rates** for the main line (season record, ROI, hit %)
-- **Live cross-book prices** for the main line via The Odds API
-- **Full alt ladder** showing every alternate over/under rung with its own de-vigged EV computation. Rungs with positive EV are highlighted in green.
-
-Supported sports for props: NBA, MLB, NFL.
-
-## Recent changes
-
-This release adds:
-
-- **`/api/alt-lines`** — new per-event endpoint pulling spreads, alternate_spreads, totals, alternate_totals
-- **Alt-prop markets in `/api/props`** — adds `_alternate` market keys for every supported stat
-- **`analyzeSpreadWithAlts` / `analyzeTotalWithAlts`** — front-end analyzers that find the best-EV rung across the full ladder
-- **Alt ladder UI** — collapsible table inside each game card showing every +EV rung with its public price, sharp fair probability, and EV%
-- **Alt prop ladder UI** — inside each prop card, a mini table showing every +EV alternate over/under for that player
-- **Lazy per-event fetching** — alts only load when a user expands a card, with 60-second server-side caching
-- **Quota-aware design** — bulk listing view stays cheap; alts cost only when needed
-
-Previous release improvements still present:
-
-- Proper two-way de-vig replacing the broken `*1.02` inflator
-- API key moved to env var (was hardcoded in source)
-- Pinnacle-preferred median sharp price (was first-found)
-- Multiplicative splits boost on edge (was additive on units)
-- EV-only ranking with tightened labels
-- Honest SU records in `/api/stats` (no more fake ATS/O-U using hardcoded league averages)
-- Server-side line history for steam/RLM/CLV signals
-- Line-age timestamp on every game card
-- No fabricated confidence/EV on scraped expert picks
+---
 
 ## Endpoints
 
 | Method/Path | Cost | Purpose |
 | --- | --- | --- |
 | `GET /api/sports` | free | List of supported leagues |
-| `GET /api/odds?sport=X` | 3 credits | Bulk h2h/spreads/totals for all events in a sport |
-| `GET /api/alt-lines?sport=X&eventId=Y` | ~4 credits | Full spread+total ladder including alternates for one event (60s cache) |
-| `GET /api/splits?sport=X` | free | VSiN betting-splits scrape |
-| `GET /api/picks` | free | Aggregated expert picks (Doc's, SCP, PickDawgz, VSiN) |
+| `GET /api/odds?sport=X` | 3 credits | Bulk h2h/spreads/totals for a sport |
+| `GET /api/alt-lines?sport=X&eventId=Y` | ~4 credits | Full alt ladder for one event (60s cache) |
+| `GET /api/splits?sport=X` | free | VSiN betting-splits scrape (informational only) |
 | `GET /api/props?sport=X&eventId=Y` | varies | VSiN props + live cross-book odds + alt prop ladder |
-| `GET /api/stats?sport=X` | 1 credit | Straight-up records + scoring averages |
+| `GET /api/scores?sport=X&daysFrom=3` | 1-2 credits | Final scores for completed games (Tracker auto-grading) |
 | `POST /api/line-history?action=snapshot` | free | Store odds snapshot (KV-backed) |
 | `GET /api/line-history?gameId=X` | free | Retrieve snapshots |
-| `GET /api/line-history?action=movement&gameId=X` | free | Computed steam/RLM/CLV from server history |
+| `GET /api/line-history?action=movement&gameId=X` | free | Computed steam/RLM from server history |
+
+Removed in v3.4: `/api/stats`, `/api/picks`.
+
