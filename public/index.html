@@ -356,6 +356,7 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF
   box-shadow:0 1px 0 rgba(255,217,112,.05) inset, 0 4px 16px rgba(255,217,112,.03)
 }
 .lock-bar.units-light{border-color:rgba(255,255,255,.1)}
+.lock-bar.stale{border-color:rgba(255,140,80,.4) !important;background:linear-gradient(180deg, rgba(255,140,80,.05), rgba(255,140,80,.02)) !important}
 .lock-bar:hover.units-strong{border-color:rgba(93,217,177,.55)}
 .lock-bar:hover.units-mid{border-color:rgba(255,217,112,.45)}
 .lock-bar:hover.units-light{border-color:rgba(255,255,255,.15)}
@@ -1357,12 +1358,16 @@ window.addEventListener('unhandledrejection', function(e) {
 <div id="locks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING LOCKS</div></div></div>
 </div>
 <div id="v2" style="display:none">
-<div id="outside"></div>
-<!-- Hidden containers - kept so existing render fns can write here -->
+<div id="clvTracker"></div>
+<!-- Hidden containers - kept so existing render fns can write here without errors -->
+<div id="outside" style="display:none"></div>
 <div id="sharp" style="display:none"></div>
 <div id="model" style="display:none"></div>
 <div id="picks" style="display:none"></div>
 <div id="mybets" style="display:none"></div>
+</div>
+<div id="v3" style="display:none">
+<div id="modelTracker"></div>
 </div>
 <div class="settings-modal" id="settingsModal">
   <div class="settings-content">
@@ -1607,7 +1612,8 @@ function toggleLiveGames() {
   window.liveGamesExpanded = !window.liveGamesExpanded;
   if (curTab === 0) renderGames();
   else if (curTab === 1) renderLocks();
-  else if (curTab === 2) renderOutside();
+  else if (curTab === 2) renderClvTracker();
+  else if (curTab === 3) renderModelTracker();
 }
 function isLiveGame(g) {
   return g && g.commence_time && new Date(g.commence_time) < new Date();
@@ -1636,8 +1642,987 @@ function addToBetCard(item) {
   betCard.push(item);
   saveBetCard();
   renderBetCard();
-  // Re-render current tab to update button states
+  // Also log this bet to the CLV tracker so we can audit it against the
+  // closing line later. This is the ONLY way to know if the model's
+  // "edges" are real — point-in-time EV vs Pinnacle is the same number
+  // as the EV we computed; only CLV vs the close is independent proof.
+  try { logBetForClv(item); } catch(e) { console.error('CLV log failed:', e); }
   rerenderCurrentTab();
+}
+
+// =========================================================================
+// CLV TRACKER
+//
+// For every bet added to the betslip, we record:
+//   - the public American odds you got
+//   - the sharp (Pinnacle) fair probability at that moment
+//   - the sport/event/side/market/line
+//   - the timestamp
+//
+// Later, when the game is close to starting (within 30 min) or has started,
+// we update each entry with the CURRENT sharp fair probability — this is
+// the best available proxy for the closing line. CLV (closing line value)
+// is the gap between the price you got and the closing fair probability.
+// Positive CLV over a meaningful sample is the cleanest possible
+// confirmation that the model is identifying real edges.
+//
+// Storage: localStorage key 'jlab_clv_log'. Entries are deduped by `key`
+// (same bet key as the betslip). Removing a bet from the betslip does NOT
+// remove it from the CLV log — bet history is permanent until cleared.
+// =========================================================================
+
+const CLV_LOG_KEY = 'jlab_clv_log';
+let clvLog = [];
+try {
+  const raw = localStorage.getItem(CLV_LOG_KEY);
+  if (raw) clvLog = JSON.parse(raw) || [];
+} catch(e) {}
+
+function saveClvLog() {
+  try { localStorage.setItem(CLV_LOG_KEY, JSON.stringify(clvLog)); } catch(e) {}
+}
+
+function logBetForClv(item) {
+  if (!item || !item.key || item.pub == null || item.pin == null) return;
+  // Skip if we already logged this exact bet (re-adds shouldn't double-count)
+  if (clvLog.some(b => b.key === item.key)) return;
+  // Compute the bet-time sharp fair probability for THIS market+side.
+  // The logic differs by market:
+  //   - Moneyline: de-vig the sharp h2h pair on item.team vs the other team
+  //   - Spread:    de-vig the sharp spreads at item.line for item.team vs other
+  //   - Total:     de-vig the sharp totals at item.line for Over vs Under
+  // We re-derive rather than trusting the click-time fp so the snapshot
+  // is internally consistent.
+  const game = (allGames || []).find(g => g.id === item.gameId);
+  const marketLower = (item.market || '').toLowerCase();
+  let openFairProb = null;
+  if (game) {
+    openFairProb = _computeFairProbForBet(game, item.team, marketLower, item.line);
+  }
+  clvLog.push({
+    key: item.key,
+    gameId: item.gameId,
+    team: item.team || item.bestSide || null,
+    sport: item.sport || (game && game.sport_title) || null,
+    sportKey: (game && game.sport_key) || null,
+    market: item.market || null,
+    line: item.bestLine != null ? item.bestLine : (item.line != null ? item.line : null),
+    commence_time: item.commence_time || (game && game.commence_time) || null,
+    betTimePubOdds: item.pub,
+    betTimeSharpOdds: item.pin,
+    betTimeFairProb: openFairProb,
+    betTimeEv: item.ev != null ? item.ev : null,
+    betTimeUnits: item.units != null ? item.units : null,
+    bk: item.bk || null,
+    loggedAt: Date.now(),
+    // Filled in later by updateClvSnapshots()
+    closeFairProb: null,
+    closeAt: null,
+    clvPct: null,
+    closeSource: null,
+    result: null // 'win' / 'loss' / 'push' — user-entered after the game
+  });
+  saveClvLog();
+}
+
+// Helper used by both logBetForClv() and updateClvSnapshots(). Returns
+// the de-vigged sharp fair probability for the EXACT bet (team+market+line)
+// at this moment, or null if no sharp pair is available.
+function _computeFairProbForBet(game, side, marketLower, point) {
+  if (!game || !side) return null;
+  const bks = game.bookmakers || [];
+  if (marketLower === 'moneyline') {
+    const teams = [game.away_team, game.home_team];
+    const otherTeam = teams.find(t => t !== side);
+    if (!otherTeam) return null;
+    const pair = _sharpH2HPair(bks, side, otherTeam, SHP);
+    if (!pair) return null;
+    return deVig2Way(pair.sidePrice, pair.otherPrice);
+  }
+  if (marketLower === 'spread') {
+    const teams = [game.away_team, game.home_team];
+    const otherTeam = teams.find(t => t !== side);
+    if (!otherTeam || point == null) return null;
+    const pair = _sharpPairAtPoint(bks, 'spreads', side, otherTeam, point, SHP);
+    if (!pair) return null;
+    return deVig2Way(pair.sidePrice, pair.otherPrice);
+  }
+  if (marketLower === 'total') {
+    const otherSide = side === 'Over' ? 'Under' : 'Over';
+    if (point == null) return null;
+    const pair = _sharpPairAtPoint(bks, 'totals', side, otherSide, point, SHP);
+    if (!pair) return null;
+    return deVig2Way(pair.sidePrice, pair.otherPrice);
+  }
+  return null;
+}
+
+// Recompute the close-line snapshot for any logged bet whose game is in
+// our current `allGames` data AND is starting soon (< 30 min) or has started.
+// We deliberately do NOT overwrite an existing closeFairProb — once captured,
+// the close is the close. This runs after every bulk odds refresh.
+function updateClvSnapshots() {
+  if (!Array.isArray(clvLog) || !clvLog.length) return;
+  let changed = false;
+  for (const entry of clvLog) {
+    if (entry.closeFairProb != null) continue; // already captured
+    const game = (allGames || []).find(g => g.id === entry.gameId);
+    if (!game) continue;
+    // Only capture once we're within 30 minutes of game start, or after start
+    const ct = new Date(game.commence_time).getTime();
+    const now = Date.now();
+    if (ct - now > 30 * 60 * 1000) continue;
+    const marketLower = (entry.market || '').toLowerCase();
+    const fp = _computeFairProbForBet(game, entry.team, marketLower, entry.line);
+    if (fp == null) continue;
+    entry.closeFairProb = fp;
+    entry.closeAt = now;
+    // Best-effort: record which sharp book sourced the close
+    const bks = game.bookmakers || [];
+    const pinBk = bks.find(b => b.key === 'pinnacle');
+    entry.closeSource = pinBk ? 'Pinnacle' : 'Sharp consensus';
+    // CLV in implied-probability terms:
+    //   pubProb at bet time = implied prob of betTimePubOdds (with vig)
+    //   closing fair prob = fp (no vig, sharp)
+    // We compare against the close fair prob: how much better was your
+    // public price than what the sharp number eventually settled at?
+    const pubProb = impliedProb(entry.betTimePubOdds);
+    if (pubProb != null) {
+      entry.clvPct = Math.round(((fp - pubProb) / pubProb) * 1000) / 10;
+    }
+    changed = true;
+  }
+  if (changed) saveClvLog();
+}
+
+function setClvResult(key, result) {
+  const e = clvLog.find(x => x.key === key);
+  if (!e) return;
+  e.result = result;
+  saveClvLog();
+  renderClvTracker();
+}
+
+function deleteClvEntry(key) {
+  if (!confirm('Delete this bet from the CLV log? This cannot be undone.')) return;
+  clvLog = clvLog.filter(x => x.key !== key);
+  saveClvLog();
+  renderClvTracker();
+}
+
+function clearClvLog() {
+  if (!confirm('Clear ALL bets from your CLV log? This is permanent.')) return;
+  clvLog = [];
+  saveClvLog();
+  renderClvTracker();
+}
+
+function exportClvCsv() {
+  if (!clvLog.length) { alert('No bets logged yet.'); return; }
+  const rows = [
+    ['logged_at','sport','market','team','line','bet_pub_odds','bet_sharp_fair_prob','bet_ev_pct','close_fair_prob','close_at','clv_pct','result']
+  ];
+  clvLog.forEach(e => {
+    rows.push([
+      new Date(e.loggedAt).toISOString(),
+      e.sport || '',
+      e.market || '',
+      e.team || '',
+      e.line != null ? e.line : '',
+      e.betTimePubOdds,
+      e.betTimeFairProb != null ? e.betTimeFairProb.toFixed(4) : '',
+      e.betTimeEv != null ? e.betTimeEv : '',
+      e.closeFairProb != null ? e.closeFairProb.toFixed(4) : '',
+      e.closeAt ? new Date(e.closeAt).toISOString() : '',
+      e.clvPct != null ? e.clvPct : '',
+      e.result || ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c);
+    return s.includes(',') || s.includes('"') ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\n');
+  try {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'clv-log-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+function renderClvTracker() {
+  const container = document.getElementById('clvTracker');
+  if (!container) return;
+
+  // Always refresh close snapshots before rendering so the UI is up to date
+  try { updateClvSnapshots(); } catch(e) {}
+
+  if (!clvLog.length) {
+    container.innerHTML =
+      '<div style="padding:24px 20px;text-align:center;color:#888;line-height:1.7">' +
+      '<div style="font-size:36px;margin-bottom:14px">📈</div>' +
+      '<div style="font-size:15px;color:#ddd;margin-bottom:10px;font-weight:600">CLV Tracker</div>' +
+      '<div style="font-size:13px;max-width:380px;margin:0 auto">' +
+      'Every pick you add to the betslip is logged here. Once the game is within 30 minutes of start, ' +
+      'we capture the closing sharp fair probability and compute your CLV (Closing Line Value).' +
+      '<br><br>' +
+      '<b style="color:#5dd9b1">Positive CLV over a real sample is the only reliable proof your edges are real.</b> ' +
+      'Point-in-time EV is the same number we computed — CLV vs. the close is independent.' +
+      '<br><br>' +
+      '<span style="color:#666">Add a bet to your betslip to start tracking.</span>' +
+      '</div></div>';
+    return;
+  }
+
+  // Summary stats
+  const settled = clvLog.filter(e => e.clvPct != null);
+  const positive = settled.filter(e => e.clvPct > 0).length;
+  const totalCount = settled.length;
+  const avgClv = totalCount ? (settled.reduce((a, e) => a + e.clvPct, 0) / totalCount) : null;
+  const beatRate = totalCount ? Math.round((positive / totalCount) * 100) : null;
+  const pending = clvLog.length - totalCount;
+
+  const winLossSettled = clvLog.filter(e => e.result === 'win' || e.result === 'loss');
+  const wins = clvLog.filter(e => e.result === 'win').length;
+  const losses = clvLog.filter(e => e.result === 'loss').length;
+  const wlPct = winLossSettled.length ? Math.round((wins / winLossSettled.length) * 100) : null;
+
+  let h = '';
+  h += '<div style="padding:14px 16px 0;font-size:12px;color:#888;display:flex;justify-content:space-between;align-items:center">';
+  h += '<span><b style="color:#ddd">CLV TRACKER</b> · ' + clvLog.length + ' bet' + (clvLog.length === 1 ? '' : 's') + ' logged</span>';
+  h += '<span><button onclick="exportClvCsv()" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">EXPORT CSV</button> ';
+  h += '<button onclick="clearClvLog()" style="background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">CLEAR</button></span>';
+  h += '</div>';
+
+  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px">';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:' + (avgClv == null ? '#666' : (avgClv > 0 ? '#5dd9b1' : '#ff8888')) + '">' + (avgClv == null ? '—' : (avgClv > 0 ? '+' : '') + avgClv.toFixed(2) + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">AVG CLV</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ddd">' + (beatRate == null ? '—' : beatRate + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">BEAT CLOSE</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ddd">' + (wlPct == null ? '—' : wlPct + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">WIN RATE</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ffc832">' + pending + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">PENDING</div></div>';
+  h += '</div>';
+
+  if (avgClv != null) {
+    let interpretation = '';
+    if (avgClv >= 2) interpretation = '<b style="color:#5dd9b1">Strong positive CLV</b> — your bets are consistently beating the closing line. The model is finding real edges. Keep going.';
+    else if (avgClv >= 0.5) interpretation = '<b style="color:#5dd9b1">Positive CLV</b> — modest edge over the close. Likely real but a small sample can still mislead; keep logging.';
+    else if (avgClv >= -0.5) interpretation = '<span style="color:#ffc832">Roughly flat CLV</span> — you\'re neither beating nor losing to the close. Either edges are too small to escape vig or sample is too small.';
+    else interpretation = '<b style="color:#ff8888">Negative CLV</b> — the closing line is moving AWAY from your picks. The "edges" the model identifies are not real (or are gone by the time you bet). Re-examine.';
+    if (totalCount < 20) interpretation += ' <span style="color:#888">(' + totalCount + ' bet sample — needs 50+ for confidence.)</span>';
+    h += '<div style="margin:0 16px 14px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">' + interpretation + '</div>';
+  }
+
+  // Bet list — newest first
+  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:6px 16px;text-transform:uppercase">Bet log · newest first</div>';
+  const sorted = [...clvLog].sort((a, b) => b.loggedAt - a.loggedAt);
+  for (const e of sorted) {
+    const ageMin = Math.round((Date.now() - e.loggedAt) / 60000);
+    const ageStr = ageMin < 60 ? ageMin + 'm ago' : ageMin < 1440 ? Math.round(ageMin / 60) + 'h ago' : Math.round(ageMin / 1440) + 'd ago';
+    const clvColor = e.clvPct == null ? '#888' : (e.clvPct > 0 ? '#5dd9b1' : '#ff8888');
+    const clvDisp = e.clvPct == null ? 'pending' : (e.clvPct > 0 ? '+' : '') + e.clvPct.toFixed(2) + '%';
+    const resultBadge = e.result === 'win'  ? '<span style="background:rgba(78,204,163,.15);color:#5dd9b1;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">W</span>'
+                      : e.result === 'loss' ? '<span style="background:rgba(255,107,107,.15);color:#ff8888;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">L</span>'
+                      : e.result === 'push' ? '<span style="background:rgba(255,200,50,.15);color:#ffc832;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">P</span>'
+                      : '';
+    h += '<div style="margin:6px 16px;padding:11px 13px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.team || '') + (e.line != null ? ' ' + (e.line >= 0 ? '+' : '') + e.line : '') + resultBadge + '</div>';
+    h += '<div style="font-size:11px;color:#999;margin-top:3px">' + (e.sport || '') + ' · got ' + fmt(e.betTimePubOdds) + ' at ' + (e.bk ? e.bk.split(' ')[0] : '?') + ' · ' + ageStr + '</div>';
+    h += '</div>';
+    h += '<div style="text-align:right">';
+    h += '<div style="font-size:16px;font-weight:800;color:' + clvColor + '">' + clvDisp + '</div>';
+    h += '<div style="font-size:9px;color:#888;letter-spacing:.5px;margin-top:2px">CLV</div>';
+    h += '</div>';
+    h += '</div>';
+    if (e.clvPct != null) {
+      h += '<div style="font-size:11px;color:#aaa;margin-top:6px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05)">';
+      h += 'Bet-time fair prob: <b>' + (e.betTimeFairProb != null ? (e.betTimeFairProb*100).toFixed(1) + '%' : '—') + '</b> · ';
+      h += 'Close fair prob: <b>' + (e.closeFairProb*100).toFixed(1) + '%</b>';
+      if (e.closeSource) h += ' <span style="color:#666">(' + e.closeSource + ')</span>';
+      h += '</div>';
+    }
+    h += '<div style="display:flex;gap:6px;margin-top:8px">';
+    h += '<button onclick="setClvResult(\'' + e.key + '\',\'win\')" style="flex:1;background:' + (e.result==='win'?'rgba(78,204,163,.22)':'rgba(78,204,163,.06)') + ';border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">WIN</button>';
+    h += '<button onclick="setClvResult(\'' + e.key + '\',\'loss\')" style="flex:1;background:' + (e.result==='loss'?'rgba(255,107,107,.22)':'rgba(255,107,107,.06)') + ';border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">LOSS</button>';
+    h += '<button onclick="setClvResult(\'' + e.key + '\',\'push\')" style="flex:1;background:' + (e.result==='push'?'rgba(255,200,50,.22)':'rgba(255,200,50,.06)') + ';border:1px solid rgba(255,200,50,.3);color:#ffc832;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">PUSH</button>';
+    h += '<button onclick="deleteClvEntry(\'' + e.key + '\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#888;padding:5px 9px;border-radius:5px;font-size:11px;cursor:pointer">✕</button>';
+    h += '</div>';
+    h += '</div>';
+  }
+
+  container.innerHTML = h;
+}
+
+// ============================================================================
+// MODEL TRACKER
+//
+// Auto-logs every pick that appears in the Locks tab so we can measure the
+// model's real-world performance independent of which bets the user actually
+// places. This is the only honest answer to "is the model working?" — it's
+// the model's batting average against actual game outcomes, not a self-graded
+// EV report.
+//
+// Storage: localStorage key 'jlab_tracker_log'. Entries are deduped by a
+// stable key (game id + market + side + line). When the same pick appears
+// across multiple refreshes, we keep the FIRST snapshot — we want to know
+// the price the model surfaced when it first identified the edge.
+//
+// Auto-grading: when a user opens the Tracker tab (or after each odds
+// refresh), we group ungraded picks by sport and fetch /api/scores for each
+// affected sport. For each completed game we compute the result of every
+// logged pick on it and update its `result` field to 'win' / 'loss' / 'push'.
+// Player props can't be auto-graded (no player box scores in this feed) so
+// they remain pending until the user manually grades them.
+// ============================================================================
+
+const TRACKER_LOG_KEY = 'jlab_tracker_log';
+let trackerLog = [];
+try {
+  const raw = localStorage.getItem(TRACKER_LOG_KEY);
+  if (raw) trackerLog = JSON.parse(raw) || [];
+} catch(e) {}
+
+let trackerView = 'overview'; // overview | units | sport | type | time
+let trackerTimeGrouping = 'day'; // day | week | month
+let trackerGradingInFlight = false;
+let trackerLastGradedAt = 0;
+
+function saveTrackerLog() {
+  try { localStorage.setItem(TRACKER_LOG_KEY, JSON.stringify(trackerLog)); } catch(e) {}
+}
+
+// Called from computeLocks() after the locks array is built. Every pick
+// that wasn't already logged gets a permanent entry in the tracker.
+function logLockToTracker(lock) {
+  if (!lock || !lock.game || !lock.game.id) return;
+  // Build a stable dedup key — same shape across refreshes for the same pick
+  const key = lock.game.id + '|' + (lock.market || '') + '|' + (lock.bestSideShort || lock.bestSide || '') + '|' + (lock.bestLine != null ? lock.bestLine : '');
+  if (trackerLog.some(t => t.key === key)) return;
+  trackerLog.push({
+    key,
+    gameId: lock.game.id,
+    sport: lock.game.sport_title || null,
+    sportKey: lock.game.sport_key || null,
+    awayTeam: lock.game.away_team || null,
+    homeTeam: lock.game.home_team || null,
+    commenceTime: lock.game.commence_time || null,
+    market: lock.market || null,         // 'Moneyline' / 'Spread' / 'Total'
+    side: lock.bestSide || null,         // team name or 'Over'/'Under'
+    sideShort: lock.bestSideShort || null,
+    line: lock.bestLine != null ? lock.bestLine : null,
+    isAlt: !!lock.isAlt,
+    pubOdds: lock.pub != null ? lock.pub : null,
+    sharpOdds: lock.pin != null ? lock.pin : null,
+    book: lock.bk || null,
+    ev: lock.ev != null ? lock.ev : null,
+    units: lock.units != null ? lock.units : null,
+    loggedAt: Date.now(),
+    // Filled in by gradeTrackerPicks()
+    result: null,        // 'win' / 'loss' / 'push' / null (pending)
+    finalHome: null,
+    finalAway: null,
+    gradedAt: null,
+    profitUnits: null    // signed units won/lost (calculated when result is set)
+  });
+}
+
+// Compute the signed units P/L for a graded pick. WINS pay at the price you
+// got: a 1u bet at +150 pays 1.5u profit on a win; a 1u bet at -150 pays
+// 0.667u. Losses are always -1u × units staked. Pushes are 0.
+function _computeProfitUnits(entry) {
+  if (!entry || !entry.units || entry.result == null) return null;
+  if (entry.result === 'push') return 0;
+  if (entry.result === 'loss') return -entry.units;
+  if (entry.result === 'win') {
+    const o = entry.pubOdds;
+    if (o == null) return null;
+    const decPayoutPerUnit = o > 0 ? (o / 100) : (100 / Math.abs(o));
+    return entry.units * decPayoutPerUnit;
+  }
+  return null;
+}
+
+// Returns 'win' / 'loss' / 'push' / null based on the pick + final score.
+// Returns null if the pick can't be graded automatically (e.g. props,
+// missing score, unknown market).
+function _gradePickAgainstScore(entry, homeScore, awayScore) {
+  if (homeScore == null || awayScore == null) return null;
+  const home = entry.homeTeam, away = entry.awayTeam;
+  if (!home || !away) return null;
+  const m = (entry.market || '').toLowerCase();
+
+  if (m === 'moneyline') {
+    if (homeScore === awayScore) return 'push'; // most sports don't push ML but draw-possible sports might
+    const winner = homeScore > awayScore ? home : away;
+    return entry.side === winner ? 'win' : 'loss';
+  }
+
+  if (m === 'spread') {
+    if (entry.line == null) return null;
+    // entry.side gets entry.line added to its raw score.
+    // If side wins straight up, add a positive line; if it loses, the line
+    // is added to its losing margin. Push if exact.
+    const sideScore = entry.side === home ? homeScore : entry.side === away ? awayScore : null;
+    const oppScore  = entry.side === home ? awayScore : entry.side === away ? homeScore : null;
+    if (sideScore == null || oppScore == null) return null;
+    const adjusted = sideScore + entry.line;
+    if (adjusted > oppScore) return 'win';
+    if (adjusted < oppScore) return 'loss';
+    return 'push';
+  }
+
+  if (m === 'total') {
+    if (entry.line == null) return null;
+    const total = homeScore + awayScore;
+    if (total === entry.line) return 'push';
+    if (entry.side === 'Over')  return total > entry.line ? 'win' : 'loss';
+    if (entry.side === 'Under') return total < entry.line ? 'win' : 'loss';
+    return null;
+  }
+
+  // Props and anything else: can't auto-grade
+  return null;
+}
+
+// Pulls /api/scores for every distinct sport that has ungraded picks whose
+// game has already started. Updates each entry in place. Caps at one call
+// every 5 minutes to avoid quota burn.
+async function gradeTrackerPicks(force) {
+  if (trackerGradingInFlight) return;
+  if (!force && (Date.now() - trackerLastGradedAt) < 5 * 60 * 1000) return;
+
+  // Collect ungraded picks whose game has started (start time < now)
+  const now = Date.now();
+  const ungraded = trackerLog.filter(e => {
+    if (e.result != null) return false;
+    if (!e.commenceTime) return false;
+    return new Date(e.commenceTime).getTime() < now;
+  });
+  if (!ungraded.length) { trackerLastGradedAt = Date.now(); return; }
+
+  // Group by sportKey
+  const bySport = {};
+  for (const e of ungraded) {
+    if (!e.sportKey) continue;
+    if (!bySport[e.sportKey]) bySport[e.sportKey] = [];
+    bySport[e.sportKey].push(e);
+  }
+
+  trackerGradingInFlight = true;
+  let anyChanged = false;
+  for (const sportKey of Object.keys(bySport)) {
+    try {
+      const r = await fetch('/api/scores?sport=' + encodeURIComponent(sportKey) + '&daysFrom=3');
+      if (!r.ok) continue;
+      const data = await r.json();
+      const games = (data && data.games) || [];
+      const byGameId = {};
+      for (const g of games) byGameId[g.id] = g;
+
+      for (const e of bySport[sportKey]) {
+        const g = byGameId[e.gameId];
+        if (!g || !g.completed || !g.scores) continue;
+        const homeRow = g.scores.find(s => s.name === e.homeTeam);
+        const awayRow = g.scores.find(s => s.name === e.awayTeam);
+        if (!homeRow || !awayRow) continue;
+        const result = _gradePickAgainstScore(e, homeRow.score, awayRow.score);
+        if (result == null) continue;
+        e.result = result;
+        e.finalHome = homeRow.score;
+        e.finalAway = awayRow.score;
+        e.gradedAt = Date.now();
+        e.profitUnits = _computeProfitUnits(e);
+        anyChanged = true;
+      }
+    } catch(err) {
+      console.error('Score fetch failed for ' + sportKey + ':', err);
+    }
+  }
+  trackerGradingInFlight = false;
+  trackerLastGradedAt = Date.now();
+  if (anyChanged) {
+    saveTrackerLog();
+    if (curTab === 3) renderModelTracker();
+  }
+}
+
+function setTrackerView(v) {
+  trackerView = v;
+  renderModelTracker();
+}
+
+function setTrackerTimeGrouping(g) {
+  trackerTimeGrouping = g;
+  renderModelTracker();
+}
+
+function setTrackerResult(key, result) {
+  const e = trackerLog.find(x => x.key === key);
+  if (!e) return;
+  e.result = result;
+  e.gradedAt = Date.now();
+  e.profitUnits = _computeProfitUnits(e);
+  saveTrackerLog();
+  renderModelTracker();
+}
+
+function clearTrackerLog() {
+  if (!confirm('Clear ALL ' + trackerLog.length + ' picks from the tracker? This permanently deletes the model\'s entire performance history. This cannot be undone.')) return;
+  trackerLog = [];
+  saveTrackerLog();
+  renderModelTracker();
+}
+
+function exportTrackerCsv() {
+  if (!trackerLog.length) { alert('No picks logged yet.'); return; }
+  const rows = [
+    ['logged_at','commence_time','sport','market','side','line','is_alt','pub_odds','sharp_odds','book','ev_pct','units','result','final_home','final_away','profit_units']
+  ];
+  trackerLog.forEach(e => {
+    rows.push([
+      new Date(e.loggedAt).toISOString(),
+      e.commenceTime || '',
+      e.sport || '',
+      e.market || '',
+      e.side || '',
+      e.line != null ? e.line : '',
+      e.isAlt ? '1' : '0',
+      e.pubOdds != null ? e.pubOdds : '',
+      e.sharpOdds != null ? e.sharpOdds : '',
+      e.book || '',
+      e.ev != null ? e.ev : '',
+      e.units != null ? e.units : '',
+      e.result || 'pending',
+      e.finalHome != null ? e.finalHome : '',
+      e.finalAway != null ? e.finalAway : '',
+      e.profitUnits != null ? e.profitUnits.toFixed(3) : ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c);
+    return s.includes(',') || s.includes('"') ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\n');
+  try {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tracker-log-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+// ============================================================================
+// TRACKER ANALYTICS — pure functions on trackerLog that compute the stats
+// each view displays. Kept separate from rendering so they're easy to test.
+// ============================================================================
+
+function _trackerStatsFor(entries) {
+  // Given an array of tracker entries, compute aggregate stats. Pending
+  // entries (no result yet) are excluded from W/L/ROI but counted in `total`.
+  const total = entries.length;
+  const graded = entries.filter(e => e.result === 'win' || e.result === 'loss' || e.result === 'push');
+  const wins = graded.filter(e => e.result === 'win').length;
+  const losses = graded.filter(e => e.result === 'loss').length;
+  const pushes = graded.filter(e => e.result === 'push').length;
+  const decided = wins + losses; // exclude pushes from win-rate denominator
+  const winRate = decided ? (wins / decided) * 100 : null;
+  const unitsStaked = graded.reduce((a, e) => a + (e.units || 0), 0);
+  const unitsPL = graded.reduce((a, e) => a + (e.profitUnits != null ? e.profitUnits : 0), 0);
+  const roi = unitsStaked > 0 ? (unitsPL / unitsStaked) * 100 : null;
+  const avgEV = entries.length ? entries.reduce((a, e) => a + (e.ev || 0), 0) / entries.length : 0;
+  return { total, graded: graded.length, wins, losses, pushes, decided, winRate, unitsStaked, unitsPL, roi, avgEV, pending: total - graded.length };
+}
+
+function _groupTracker(entries, keyFn) {
+  const out = {};
+  for (const e of entries) {
+    const k = keyFn(e);
+    if (k == null) continue;
+    if (!out[k]) out[k] = [];
+    out[k].push(e);
+  }
+  return out;
+}
+
+function _trackerStatsByUnits() {
+  // Bin by unit recommendation. Stricter bins = larger bets = should perform
+  // better if Kelly is right.
+  const groups = _groupTracker(trackerLog, e => {
+    if (e.units == null) return null;
+    if (e.units >= 4) return '4u+ (Premium)';
+    if (e.units >= 2) return '2-3u (Solid)';
+    return '1u (Playable)';
+  });
+  const order = ['4u+ (Premium)', '2-3u (Solid)', '1u (Playable)'];
+  return order
+    .filter(k => groups[k])
+    .map(k => ({ key: k, stats: _trackerStatsFor(groups[k]) }));
+}
+
+function _trackerStatsBySport() {
+  const groups = _groupTracker(trackerLog, e => e.sport || 'Unknown');
+  return Object.keys(groups)
+    .map(k => ({ key: k, stats: _trackerStatsFor(groups[k]) }))
+    .sort((a, b) => b.stats.total - a.stats.total);
+}
+
+function _trackerStatsByType() {
+  const groups = _groupTracker(trackerLog, e => {
+    const m = e.market || 'Unknown';
+    return e.isAlt ? (m + ' (ALT)') : m;
+  });
+  return Object.keys(groups)
+    .map(k => ({ key: k, stats: _trackerStatsFor(groups[k]) }))
+    .sort((a, b) => b.stats.total - a.stats.total);
+}
+
+function _trackerStatsByTime(grouping) {
+  // grouping: 'day' | 'week' | 'month'
+  // Use the GAME date (commenceTime), not when we logged the pick — better
+  // reflects "the model picked X on Tuesday" than logging timestamp drift.
+  function bucketFor(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = d.getUTCDate().toString().padStart(2, '0');
+    if (grouping === 'day') return y + '-' + m + '-' + day;
+    if (grouping === 'month') return y + '-' + m;
+    if (grouping === 'week') {
+      // ISO-ish: bucket to Monday of that week
+      const dayOfWeek = (d.getUTCDay() + 6) % 7; // Mon=0...Sun=6
+      const mon = new Date(d);
+      mon.setUTCDate(d.getUTCDate() - dayOfWeek);
+      return mon.getUTCFullYear() + '-' + (mon.getUTCMonth() + 1).toString().padStart(2, '0') + '-' + mon.getUTCDate().toString().padStart(2, '0');
+    }
+    return null;
+  }
+  const groups = _groupTracker(trackerLog, e => bucketFor(e.commenceTime));
+  return Object.keys(groups)
+    .sort()
+    .map(k => ({ key: k, stats: _trackerStatsFor(groups[k]) }));
+}
+
+// ============================================================================
+// RENDERING — main dispatch + each view
+// ============================================================================
+
+function renderModelTracker() {
+  const container = document.getElementById('modelTracker');
+  if (!container) return;
+
+  // Trigger background grading if needed (debounced internally)
+  try { gradeTrackerPicks(false); } catch(e) {}
+
+  if (!trackerLog.length) {
+    container.innerHTML =
+      '<div style="padding:24px 20px;text-align:center;color:#888;line-height:1.7">' +
+      '<div style="font-size:36px;margin-bottom:14px">📒</div>' +
+      '<div style="font-size:15px;color:#ddd;margin-bottom:10px;font-weight:600">Model Tracker</div>' +
+      '<div style="font-size:13px;max-width:380px;margin:0 auto">' +
+      'Every pick that appears in the Locks tab is automatically logged here. ' +
+      'Once games complete, results are auto-graded against final scores so you can see how the model actually performs — independent of which bets you placed.' +
+      '<br><br>' +
+      '<b style="color:#5dd9b1">This is the honest answer to "is this model working?"</b> ' +
+      'It records the model\'s recommendations and their outcomes, not your bet history.' +
+      '<br><br>' +
+      '<span style="color:#666">Refresh the Locks tab to start logging.</span>' +
+      '</div></div>';
+    return;
+  }
+
+  // Overall stats (used as a sticky header on every view)
+  const overall = _trackerStatsFor(trackerLog);
+
+  let h = '';
+  h += '<div style="padding:14px 16px 0;font-size:12px;color:#888;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
+  h += '<span><b style="color:#ddd">MODEL TRACKER</b> · ' + trackerLog.length + ' pick' + (trackerLog.length === 1 ? '' : 's') + ' logged · ' + overall.pending + ' pending</span>';
+  h += '<span><button onclick="gradeTrackerPicks(true)" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">↻ GRADE</button> ';
+  h += '<button onclick="exportTrackerCsv()" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">EXPORT</button> ';
+  h += '<button onclick="clearTrackerLog()" style="background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">CLEAR</button></span>';
+  h += '</div>';
+
+  // Top-level summary cards
+  h += _renderTrackerSummaryCards(overall);
+
+  // View selector
+  h += '<div style="display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap">';
+  const views = [
+    ['overview', 'Overview'],
+    ['units',    'By Unit Size'],
+    ['sport',    'By Sport'],
+    ['type',     'By Bet Type'],
+    ['time',     'Over Time']
+  ];
+  for (const [k, lbl] of views) {
+    const active = trackerView === k;
+    h += '<button onclick="setTrackerView(\'' + k + '\')" style="flex:1;min-width:80px;background:' + (active ? 'rgba(93,217,177,.18)' : 'rgba(255,255,255,.03)') + ';border:1px solid ' + (active ? 'rgba(93,217,177,.5)' : 'rgba(255,255,255,.08)') + ';color:' + (active ? '#5dd9b1' : '#bbb') + ';padding:8px 6px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">' + lbl + '</button>';
+  }
+  h += '</div>';
+
+  // View body
+  if (trackerView === 'overview')  h += _renderTrackerOverview();
+  else if (trackerView === 'units') h += _renderTrackerByUnits();
+  else if (trackerView === 'sport') h += _renderTrackerBySport();
+  else if (trackerView === 'type')  h += _renderTrackerByType();
+  else if (trackerView === 'time')  h += _renderTrackerByTime();
+
+  container.innerHTML = h;
+}
+
+function _renderTrackerSummaryCards(s) {
+  const roiColor = s.roi == null ? '#666' : (s.roi > 0 ? '#5dd9b1' : '#ff8888');
+  const plColor  = s.unitsPL >= 0 ? '#5dd9b1' : '#ff8888';
+  let h = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px">';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + plColor + '">' + (s.unitsPL >= 0 ? '+' : '') + s.unitsPL.toFixed(2) + 'u</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">UNITS P/L</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + roiColor + '">' + (s.roi == null ? '—' : (s.roi >= 0 ? '+' : '') + s.roi.toFixed(1) + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">ROI</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#ddd">' + (s.winRate == null ? '—' : Math.round(s.winRate) + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">WIN RATE</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#ddd">' + s.wins + '-' + s.losses + (s.pushes ? '-' + s.pushes : '') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">RECORD</div></div>';
+  h += '</div>';
+  return h;
+}
+
+// Renders a horizontal P/L bar for a row of grouped stats. Bar fills proportional
+// to the maximum absolute P/L across the group set so all bars are comparable.
+function _renderTrackerBar(stats, maxAbsPL) {
+  const sign = stats.unitsPL >= 0 ? 1 : -1;
+  const widthPct = maxAbsPL > 0 ? Math.min(100, (Math.abs(stats.unitsPL) / maxAbsPL) * 100) : 0;
+  const color = sign > 0 ? '#5dd9b1' : '#ff8888';
+  return '<div style="position:relative;height:6px;background:rgba(255,255,255,.05);border-radius:3px;margin-top:6px"><div style="position:absolute;left:0;top:0;height:100%;width:' + widthPct + '%;background:' + color + ';border-radius:3px"></div></div>';
+}
+
+function _renderTrackerGroupRow(label, stats, maxAbsPL, extra) {
+  const roiColor = stats.roi == null ? '#888' : (stats.roi >= 0 ? '#5dd9b1' : '#ff8888');
+  const plColor = stats.unitsPL >= 0 ? '#5dd9b1' : '#ff8888';
+  let h = '<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:11px 13px;margin:6px 16px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+  h += '<div style="flex:1;min-width:0">';
+  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + label + '</div>';
+  h += '<div style="font-size:11px;color:#999;margin-top:3px">' + stats.wins + '-' + stats.losses + (stats.pushes ? '-' + stats.pushes : '') + ' · ' + stats.total + ' total' + (stats.pending ? ' · ' + stats.pending + ' pending' : '') + (extra ? ' · ' + extra : '') + '</div>';
+  h += '</div>';
+  h += '<div style="text-align:right">';
+  h += '<div style="font-size:15px;font-weight:800;color:' + plColor + '">' + (stats.unitsPL >= 0 ? '+' : '') + stats.unitsPL.toFixed(2) + 'u</div>';
+  h += '<div style="font-size:10px;color:' + roiColor + ';font-weight:700;margin-top:2px">' + (stats.roi == null ? '—' : (stats.roi >= 0 ? '+' : '') + stats.roi.toFixed(1) + '% ROI') + '</div>';
+  h += '<div style="font-size:9px;color:#888;letter-spacing:.5px;margin-top:2px">' + (stats.winRate == null ? '—' : Math.round(stats.winRate) + '% WR') + '</div>';
+  h += '</div>';
+  h += '</div>';
+  h += _renderTrackerBar(stats, maxAbsPL);
+  h += '</div>';
+  return h;
+}
+
+function _renderTrackerOverview() {
+  // Show recent picks (latest 30), with manual W/L/Push buttons for ungraded
+  let h = '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:6px 16px;text-transform:uppercase">Recent picks (latest 30)</div>';
+  const sorted = [...trackerLog].sort((a, b) => {
+    const ta = new Date(a.commenceTime || a.loggedAt).getTime();
+    const tb = new Date(b.commenceTime || b.loggedAt).getTime();
+    return tb - ta;
+  });
+  for (const e of sorted.slice(0, 30)) {
+    h += _renderTrackerPickRow(e);
+  }
+  if (sorted.length > 30) {
+    h += '<div style="text-align:center;color:#666;font-size:11px;padding:10px">Showing 30 of ' + sorted.length + ' picks. Use Export to see all.</div>';
+  }
+  return h;
+}
+
+function _renderTrackerPickRow(e) {
+  const ago = e.commenceTime ? _agoLabel(new Date(e.commenceTime).getTime()) : '?';
+  const lineStr = e.line != null ? ' ' + (e.line >= 0 && e.market !== 'Total' ? '+' : '') + e.line : '';
+  const altTag = e.isAlt ? ' <span style="color:#b99aff;font-weight:700;font-size:9px">ALT</span>' : '';
+  const oddsStr = e.pubOdds != null ? fmt(e.pubOdds) : '?';
+  let resBadge = '';
+  if (e.result === 'win')      resBadge = '<span style="background:rgba(78,204,163,.18);color:#5dd9b1;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">W ' + (e.profitUnits >= 0 ? '+' : '') + e.profitUnits.toFixed(2) + 'u</span>';
+  else if (e.result === 'loss')resBadge = '<span style="background:rgba(255,107,107,.18);color:#ff8888;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">L ' + e.profitUnits.toFixed(2) + 'u</span>';
+  else if (e.result === 'push')resBadge = '<span style="background:rgba(255,200,50,.18);color:#ffc832;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">PUSH</span>';
+  else resBadge = '<span style="background:rgba(255,255,255,.05);color:#888;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">PENDING</span>';
+
+  let h = '<div style="margin:6px 16px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+  h += '<div style="flex:1;min-width:0">';
+  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.side || '') + lineStr + altTag + resBadge + '</div>';
+  h += '<div style="font-size:11px;color:#999;margin-top:3px">' + (e.sport || '') + ' · ' + oddsStr + (e.book ? ' at ' + e.book.split(' ')[0] : '') + ' · ' + (e.units || '?') + 'u · ' + ago;
+  if (e.finalHome != null && e.finalAway != null) h += ' · final ' + e.awayTeam + ' ' + e.finalAway + ' @ ' + e.homeTeam + ' ' + e.finalHome;
+  h += '</div>';
+  h += '</div>';
+  h += '<div style="text-align:right;font-size:10px;color:#888"><span style="color:#7fbf9f">+' + (e.ev != null ? e.ev.toFixed(1) : '?') + '%</span><br>EV</div>';
+  h += '</div>';
+  if (e.result == null) {
+    h += '<div style="display:flex;gap:6px;margin-top:8px">';
+    h += '<button onclick="setTrackerResult(\'' + e.key + '\',\'win\')" style="flex:1;background:rgba(78,204,163,.06);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">WIN</button>';
+    h += '<button onclick="setTrackerResult(\'' + e.key + '\',\'loss\')" style="flex:1;background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">LOSS</button>';
+    h += '<button onclick="setTrackerResult(\'' + e.key + '\',\'push\')" style="flex:1;background:rgba(255,200,50,.06);border:1px solid rgba(255,200,50,.3);color:#ffc832;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">PUSH</button>';
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function _agoLabel(t) {
+  if (!t) return '?';
+  const diff = Date.now() - t;
+  if (diff > 0) {
+    const m = Math.round(diff / 60000);
+    if (m < 60) return m + 'm ago';
+    if (m < 1440) return Math.round(m / 60) + 'h ago';
+    return Math.round(m / 1440) + 'd ago';
+  } else {
+    const m = Math.round(-diff / 60000);
+    if (m < 60) return 'in ' + m + 'm';
+    if (m < 1440) return 'in ' + Math.round(m / 60) + 'h';
+    return 'in ' + Math.round(m / 1440) + 'd';
+  }
+}
+
+function _renderTrackerByUnits() {
+  const rows = _trackerStatsByUnits();
+  if (!rows.length) return '<div style="text-align:center;color:#888;padding:30px">No graded picks yet.</div>';
+  // Insight at top: does premium beat playable?
+  const premium = rows.find(r => r.key.startsWith('4u+'));
+  const playable = rows.find(r => r.key.startsWith('1u'));
+  let insight = '';
+  if (premium && playable && premium.stats.roi != null && playable.stats.roi != null) {
+    if (premium.stats.roi > playable.stats.roi + 2) {
+      insight = '<b style="color:#5dd9b1">Premium picks are outperforming playable picks by ' + (premium.stats.roi - playable.stats.roi).toFixed(1) + ' ROI points</b> — the model\'s confidence ratings are predictive. Bet bigger on Premium.';
+    } else if (playable.stats.roi > premium.stats.roi + 2) {
+      insight = '<b style="color:#ff8888">Playable picks are outperforming Premium</b> — the model is over-confident on its top tier. Either the Kelly thresholds are wrong, or large-edge predictions are systematically less reliable than small ones. Consider equal-stake betting across all tiers until this reverses.';
+    } else {
+      insight = '<span style="color:#ffc832">Premium and Playable ROI are roughly equal</span> — the model\'s sizing tiers are flat in performance. Either sample size is too small to differentiate, or the tier rankings carry no real predictive signal.';
+    }
+  }
+  let h = '';
+  if (insight) h += '<div style="margin:0 16px 12px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">' + insight + '</div>';
+
+  const maxAbsPL = Math.max(...rows.map(r => Math.abs(r.stats.unitsPL)), 0.01);
+  for (const r of rows) {
+    h += _renderTrackerGroupRow(r.key, r.stats, maxAbsPL);
+  }
+  return h;
+}
+
+function _renderTrackerBySport() {
+  const rows = _trackerStatsBySport();
+  if (!rows.length) return '<div style="text-align:center;color:#888;padding:30px">No picks logged yet.</div>';
+  const maxAbsPL = Math.max(...rows.map(r => Math.abs(r.stats.unitsPL)), 0.01);
+  let h = '<div style="margin:0 16px 12px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">';
+  h += 'Sports where the model has consistent positive ROI over 50+ picks are where you should bet. Sports with negative ROI or tiny samples should be deprioritized.';
+  h += '</div>';
+  for (const r of rows) {
+    h += _renderTrackerGroupRow(r.key, r.stats, maxAbsPL);
+  }
+  return h;
+}
+
+function _renderTrackerByType() {
+  const rows = _trackerStatsByType();
+  if (!rows.length) return '<div style="text-align:center;color:#888;padding:30px">No picks logged yet.</div>';
+  const maxAbsPL = Math.max(...rows.map(r => Math.abs(r.stats.unitsPL)), 0.01);
+  let h = '<div style="margin:0 16px 12px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">';
+  h += 'ALT-rung picks should out-perform main-line picks if the model\'s edge-finding theory holds (alt ladders are mispriced more often). If they don\'t, your alt prefetch is buying noise.';
+  h += '</div>';
+  for (const r of rows) {
+    h += _renderTrackerGroupRow(r.key, r.stats, maxAbsPL);
+  }
+  return h;
+}
+
+function _renderTrackerByTime() {
+  // Grouping toggle
+  let h = '<div style="display:flex;gap:6px;padding:0 16px 10px">';
+  const opts = [['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly']];
+  for (const [k, lbl] of opts) {
+    const active = trackerTimeGrouping === k;
+    h += '<button onclick="setTrackerTimeGrouping(\'' + k + '\')" style="flex:1;background:' + (active ? 'rgba(93,217,177,.18)' : 'rgba(255,255,255,.03)') + ';border:1px solid ' + (active ? 'rgba(93,217,177,.5)' : 'rgba(255,255,255,.08)') + ';color:' + (active ? '#5dd9b1' : '#bbb') + ';padding:6px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">' + lbl + '</button>';
+  }
+  h += '</div>';
+
+  const rows = _trackerStatsByTime(trackerTimeGrouping);
+  if (!rows.length) return h + '<div style="text-align:center;color:#888;padding:30px">No picks logged yet.</div>';
+
+  // Cumulative P/L chart as inline SVG
+  h += _renderTrackerCumulativeChart(rows);
+
+  // Per-period rows (newest first)
+  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:6px 16px;text-transform:uppercase;margin-top:8px">' + trackerTimeGrouping + ' breakdown · newest first</div>';
+  const maxAbsPL = Math.max(...rows.map(r => Math.abs(r.stats.unitsPL)), 0.01);
+  for (const r of [...rows].reverse()) {
+    h += _renderTrackerGroupRow(r.key, r.stats, maxAbsPL);
+  }
+  return h;
+}
+
+function _renderTrackerCumulativeChart(rows) {
+  // rows are sorted ascending by date. Build a cumulative P/L line chart.
+  if (!rows.length) return '';
+  const points = [];
+  let cum = 0;
+  for (const r of rows) {
+    cum += r.stats.unitsPL;
+    points.push({ x: r.key, y: cum });
+  }
+  if (!points.length) return '';
+
+  const W = 320, H = 140, padL = 36, padR = 12, padT = 14, padB = 22;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const ys = points.map(p => p.y);
+  const yMin = Math.min(0, ...ys);
+  const yMax = Math.max(0, ...ys);
+  const yRange = (yMax - yMin) || 1;
+
+  const xStep = points.length > 1 ? innerW / (points.length - 1) : 0;
+  const xy = (i) => ({
+    x: padL + xStep * i,
+    y: padT + innerH - ((points[i].y - yMin) / yRange) * innerH
+  });
+
+  let path = '';
+  for (let i = 0; i < points.length; i++) {
+    const p = xy(i);
+    path += (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1);
+  }
+  const zeroY = padT + innerH - ((0 - yMin) / yRange) * innerH;
+  const lineColor = points[points.length - 1].y >= 0 ? '#5dd9b1' : '#ff8888';
+
+  // Area fill underneath the line
+  const areaPath = path + ' L' + xy(points.length - 1).x.toFixed(1) + ',' + zeroY.toFixed(1) +
+                   ' L' + xy(0).x.toFixed(1) + ',' + zeroY.toFixed(1) + ' Z';
+
+  let h = '<div style="margin:0 16px 4px;padding:14px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:9px">';
+  h += '<div style="font-size:11px;color:#bbb;font-weight:700;letter-spacing:.4px;margin-bottom:6px">CUMULATIVE UNITS P/L</div>';
+  h += '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">';
+  // Zero line
+  h += '<line x1="' + padL + '" y1="' + zeroY.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + zeroY.toFixed(1) + '" stroke="rgba(255,255,255,.15)" stroke-width="1" stroke-dasharray="3,3"/>';
+  // Y labels (min, 0, max)
+  h += '<text x="' + (padL - 4) + '" y="' + (padT + 4) + '" text-anchor="end" font-size="9" fill="#888">' + (yMax >= 0 ? '+' : '') + yMax.toFixed(1) + 'u</text>';
+  h += '<text x="' + (padL - 4) + '" y="' + (zeroY + 3) + '" text-anchor="end" font-size="9" fill="#888">0</text>';
+  h += '<text x="' + (padL - 4) + '" y="' + (H - padB + 6) + '" text-anchor="end" font-size="9" fill="#888">' + (yMin >= 0 ? '+' : '') + yMin.toFixed(1) + 'u</text>';
+  // X labels (first, last)
+  h += '<text x="' + padL + '" y="' + (H - 6) + '" text-anchor="start" font-size="9" fill="#888">' + points[0].x + '</text>';
+  if (points.length > 1) h += '<text x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end" font-size="9" fill="#888">' + points[points.length-1].x + '</text>';
+  // Area + line
+  h += '<path d="' + areaPath + '" fill="' + lineColor + '" fill-opacity="0.12"/>';
+  h += '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="2"/>';
+  // Dots
+  for (let i = 0; i < points.length; i++) {
+    const p = xy(i);
+    h += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="2.5" fill="' + lineColor + '"/>';
+  }
+  h += '</svg>';
+  h += '<div style="font-size:10px;color:#888;margin-top:4px;text-align:right">final: <b style="color:' + lineColor + '">' + (cum >= 0 ? '+' : '') + cum.toFixed(2) + 'u</b></div>';
+  h += '</div>';
+  return h;
 }
 
 function removeFromBetCard(key) {
@@ -1672,10 +2657,9 @@ function isGameInLocks(gameId, team) {
 }
 function rerenderCurrentTab() {
   if (curTab === 0) renderGames();
-  else if (curTab === 1) renderSharp();
-  else if (curTab === 2) renderModel();
-  else if (curTab === 4) renderLocks();
-  else if (curTab === 5) renderMyBets();
+  else if (curTab === 1) renderLocks();
+  else if (curTab === 2) renderClvTracker();
+  else if (curTab === 3) renderModelTracker();
 }
 
 function americanToDecimal(o) {
@@ -1892,12 +2876,16 @@ async function hydrateFromServerHistory(gameId) {
 
 function goTab(n) {
   curTab = n;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     document.getElementById("t" + i).className = "tab" + (i === n ? " on" : "");
     document.getElementById("v" + i).style.display = i === n ? "block" : "none";
   }
-  if (n === 2) {
-    try { renderOutside(); } catch(e) { console.error("renderOutside failed:", e); }
+  if (n === 1) {
+    try { renderLocks(); } catch(e) { console.error("renderLocks failed:", e); }
+  } else if (n === 2) {
+    try { renderClvTracker(); } catch(e) { console.error("renderClvTracker failed:", e); }
+  } else if (n === 3) {
+    try { renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
   }
 }
 
@@ -2356,12 +3344,37 @@ function _medianSharpPriceForOutcome(bks, marketKey, outcomeName, sharpBooks){
 }
 
 // Get BOTH sides of a sharp h2h market for proper two-way de-vig.
+// REQUIRES both sides from the SAME sharp book. De-vigging side A's price
+// from book X against side B's price from book Y is invalid — the implied
+// probabilities don't come from the same market and won't sum correctly.
+// Prefer Pinnacle (sharpest, lowest hold), then Circa, then Bookmaker.
 // Returns { sidePrice, otherPrice, book, count } or null.
 function _sharpH2HPair(bks, sideTeam, otherTeam, sharpBooks){
-  const side = _medianSharpPriceForOutcome(bks, 'h2h', sideTeam, sharpBooks);
-  const other = _medianSharpPriceForOutcome(bks, 'h2h', otherTeam, sharpBooks);
-  if (!side || !other) return null;
-  return { sidePrice: side.price, otherPrice: other.price, book: side.book, count: Math.min(side.count, other.count) };
+  // First try Pinnacle specifically
+  const pinBk = bks.find(b => b.key === 'pinnacle');
+  if (pinBk) {
+    const market = (pinBk.markets || []).find(m => m.key === 'h2h');
+    if (market) {
+      const sideO = market.outcomes.find(o => o.name === sideTeam);
+      const otherO = market.outcomes.find(o => o.name === otherTeam);
+      if (sideO && otherO) {
+        return { sidePrice: sideO.price, otherPrice: otherO.price, book: 'Pinnacle', count: 1 };
+      }
+    }
+  }
+  // Fall back: any sharp book that has BOTH sides
+  for (const bk of bks) {
+    if (!sharpBooks.includes(bk.key)) continue;
+    if (bk.key === 'pinnacle') continue; // already tried
+    const market = (bk.markets || []).find(m => m.key === 'h2h');
+    if (!market) continue;
+    const sideO = market.outcomes.find(o => o.name === sideTeam);
+    const otherO = market.outcomes.find(o => o.name === otherTeam);
+    if (sideO && otherO) {
+      return { sidePrice: sideO.price, otherPrice: otherO.price, book: bk.title, count: 1 };
+    }
+  }
+  return null;
 }
 
 // Get BOTH sides of a sharp spreads/totals market at a SPECIFIC point.
@@ -2388,20 +3401,51 @@ function _sharpPairAtPoint(bks, marketKey, sideName, otherName, point, sharpBook
   return { sidePrice, otherPrice, book, count: 1 };
 }
 
-// Half-Kelly fractional bet sizing → discrete units
-function unitsFromEdge(pubProb, pinProb) {
-  if (!pubProb || !pinProb) return 0;
+// REAL half-Kelly bet sizing → discrete units.
+//
+// The previous version used (edge / pubProb) * 0.5, which is roughly EV%/2,
+// not Kelly. That formula approximately matches half-Kelly only near even
+// money; on plus-money dogs it returns ~2x the correct stake.
+//
+// Real Kelly fraction: f* = (b*p - q) / b
+//   where p = true win prob, q = 1 - p, b = decimal odds - 1 (net payout per $1)
+// Half-Kelly: f = f* / 2
+//
+// Half-Kelly is the appropriate cap for sports betting because:
+//   - True edge is estimated, not known. Full Kelly on an over-estimated edge
+//     is ruinous; half-Kelly halves the variance with only a small expected-
+//     growth penalty.
+//   - The discrete tiers below also include a hard floor (no bet < ~1.0% EV)
+//     to keep sub-noise edges from being rounded up to a real stake.
+//
+// pubProb is the implied probability of the public price (kept as a parameter
+// for backward compatibility with call sites that already computed it).
+// pubAmericanOdds is REQUIRED for correct sizing — pass the American odds you
+// would actually bet at.
+function unitsFromEdge(pubProb, pinProb, pubAmericanOdds) {
+  if (!pubProb || !pinProb || pubAmericanOdds == null) return 0;
   const edge = pinProb - pubProb;
   if (edge <= 0) return 0;
-  const halfKelly = (edge / pubProb) * 0.5;
-  if (halfKelly >= 0.08) return 5;
-  if (halfKelly >= 0.05) return 4;
-  if (halfKelly >= 0.03) return 3;
-  if (halfKelly >= 0.015) return 2;
-  if (halfKelly >= 0.01) return 1;
-  if (halfKelly >= 0.005) return 0.5;
-  if (halfKelly >= 0.0025) return 0.25;
-  return 0.1;
+
+  // Convert to decimal odds, then b = decimal - 1
+  const dec = pubAmericanOdds > 0 ? (pubAmericanOdds / 100) + 1 : (100 / Math.abs(pubAmericanOdds)) + 1;
+  const b = dec - 1;
+  if (b <= 0) return 0;
+
+  const p = pinProb;
+  const q = 1 - p;
+  const fullKelly = (b * p - q) / b;
+  if (fullKelly <= 0) return 0;
+  const halfKelly = fullKelly / 2;
+
+  // Discrete tiers. Floor raised to 0.01 (1% of bankroll = half-Kelly on
+  // roughly +2% EV bets near pick'em). Below that, edges are noise.
+  if (halfKelly >= 0.05)   return 5;
+  if (halfKelly >= 0.035)  return 4;
+  if (halfKelly >= 0.025)  return 3;
+  if (halfKelly >= 0.0175) return 2;
+  if (halfKelly >= 0.01)   return 1;
+  return 0; // sub-1% half-Kelly = pass
 }
 
 function impliedProb(americanOdds) {
@@ -2411,9 +3455,15 @@ function impliedProb(americanOdds) {
 }
 
 function _tierFromUnits(units) {
-  if (units >= 3) return { tier: 'premium', cls: 'tier-strong' };
-  if (units >= 1.5) return { tier: 'solid', cls: 'tier-soft' };
-  if (units >= 0.5) return { tier: 'lean', cls: '' };
+  // New scale (post real-Kelly rewrite):
+  //   5u = elite edge (half-Kelly >= 5% of bankroll)
+  //   3-4u = premium
+  //   2u = solid
+  //   1u = playable
+  //   0 = no bet
+  if (units >= 4) return { tier: 'premium', cls: 'tier-strong' };
+  if (units >= 2) return { tier: 'solid', cls: 'tier-soft' };
+  if (units >= 1) return { tier: 'playable', cls: '' };
   return { tier: null, cls: '' };
 }
 
@@ -2438,7 +3488,7 @@ function analyzeMoneyline(game) {
 
     const pubProb = impliedProb(pub.o);
     const pinProb = fp; // already de-vigged
-    const units = unitsFromEdge(pubProb, pinProb);
+    const units = unitsFromEdge(pubProb, pinProb, pub.o);
 
     if (!best || ev > best.ev) {
       best = {
@@ -2468,32 +3518,25 @@ function analyzeMoneyline(game) {
   const rlm = (typeof detectRLM === 'function') ? detectRLM(game) : null;
   if (rlm && rlm.find(s => s.team === best.team)) sharpSignals.push({ key:'rlm', label:'Reverse line movement on '+best.tShort });
   const clv = (typeof calcCLV === 'function') ? calcCLV(game) : null;
-  if (clv && clv.find(c => c.team === best.team && c.clvPct >= 3)) {
+  if (clv && clv.find(c => c.team === best.team)) {
     const c = clv.find(cc => cc.team === best.team);
-    sharpSignals.push({ key:'clv', label:'+'+c.clvPct+'% CLV vs sharp consensus' });
+    sharpSignals.push({ key:'clv', label:'+'+c.clvPct+'% sharp-vs-public gap (point-in-time, not closing CLV)' });
   }
 
-  // Splits agreement - MULTIPLICATIVE BOOST ON EDGE, not additive on units.
-  // Rationale: splits are a weak directional signal from a single book. An
-  // additive +1 unit could turn a 2u "solid" into a 3u "premium" with no
-  // change in actual edge. A multiplicative boost on edge keeps sizing
-  // proportional to the real expected value.
+  // VSiN splits are displayed for context ONLY. The previous version
+  // multiplied the de-vigged fair probability by 1.10–1.20 when splits
+  // "agreed" with the sharp side. That's an ad-hoc adjustment with no
+  // edge calibration behind it, on top of single-book (DraftKings only)
+  // data that has been steadily losing predictive value as books got
+  // better at managing public money. We surface the divergence as a badge
+  // so the user can see it, but we do NOT modify sizing.
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
     const all = findAllDivergences(splits);
     splitsDiv = all.find(d => d.market === 'ML' && d.sharpShort === best.tShort) || null;
     if (splitsDiv) {
-      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      // Multiplicative boost on the underlying edge, capped at +20%
-      let edgeMult = 1.0;
-      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
-      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
-      if (edgeMult > 1) {
-        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
-        const newPin = boostedFp;
-        best.units = unitsFromEdge(best.pubProb, newPin);
-      }
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets (info only)' });
     }
   }
 
@@ -2501,16 +3544,16 @@ function analyzeMoneyline(game) {
   const sourceLabel = best.sharpBook ? best.sharpBook : 'Sharp consensus';
   reasons.push('<b>'+sourceLabel+'</b> fair price implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' (implied '+(best.pubProb*100).toFixed(1)+'%) — de-vigged EV is <b>+'+best.ev+'%</b>.');
   if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> — sharps have already moved the sharp number.');
-  if (splitsDiv) reasons.push('Public splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets.');
+  if (splitsDiv) reasons.push('Public splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets <i>(informational, not factored into sizing)</i>.');
   if (sharpSignals.find(s => s.key==='clv')) reasons.push('Your price beats sharp consensus by 3%+ in implied probability.');
-  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
-  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (real half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (real half-Kelly).');
 
   const tInfo = _tierFromUnits(best.units);
   let summary;
-  if (best.units >= 3) summary = 'Strong edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
-  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
-  else if (best.units > 0) summary = 'Lean on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'%';
+  if (best.units >= 4) summary = 'Premium edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 2) summary = 'Solid edge on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units >= 1) summary = 'Playable on <b>'+best.tShort+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
   else summary = 'No clear edge';
 
   return {
@@ -2554,7 +3597,7 @@ function analyzeSpread(game) {
 
     const pubProb = impliedProb(pub.price);
     const pinProb = fp;
-    const units = unitsFromEdge(pubProb, pinProb);
+    const units = unitsFromEdge(pubProb, pinProb, pub.price);
 
     if (!best || ev > best.ev) {
       best = {
@@ -2579,21 +3622,14 @@ function analyzeSpread(game) {
   const sharpSignals = [];
   if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
 
+  // Splits informational only — no sizing adjustment (see ML analyzer comment).
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
     const all = findAllDivergences(splits);
     splitsDiv = all.find(d => d.market === 'Spread' && d.sharpShort === best.tShort) || null;
     if (splitsDiv) {
-      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      // Multiplicative boost on edge, not additive on units
-      let edgeMult = 1.0;
-      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
-      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
-      if (edgeMult > 1) {
-        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
-        best.units = unitsFromEdge(best.pubProb, boostedFp);
-      }
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets (info only)' });
     }
   }
 
@@ -2602,15 +3638,15 @@ function analyzeSpread(game) {
   const reasons = [];
   reasons.push('<b>'+sourceLabel+'</b> fair price on '+best.tShort+' '+lineStr+' implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — de-vigged EV is <b>+'+best.ev+'%</b>.');
   if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> on the same number.');
-  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' '+lineStr+' with only '+splitsDiv.sharpTickets+'% of tickets.');
-  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
-  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' '+lineStr+' with only '+splitsDiv.sharpTickets+'% of tickets <i>(informational, not factored into sizing)</i>.');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (real half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (real half-Kelly).');
 
   const tInfo = _tierFromUnits(best.units);
   let summary;
-  if (best.units >= 3) summary = 'Strong edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
-  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
-  else if (best.units > 0) summary = 'Lean on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'%';
+  if (best.units >= 4) summary = 'Premium edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 2) summary = 'Solid edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units >= 1) summary = 'Playable on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
   else summary = 'No clear edge';
 
   return {
@@ -2653,7 +3689,7 @@ function analyzeTotal(game) {
 
     const pubProb = impliedProb(pub.price);
     const pinProb = fp;
-    const units = unitsFromEdge(pubProb, pinProb);
+    const units = unitsFromEdge(pubProb, pinProb, pub.price);
 
     if (!best || ev > best.ev) {
       best = {
@@ -2677,20 +3713,14 @@ function analyzeTotal(game) {
   const sharpSignals = [];
   if (best.sharpDiff >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms ('+Math.round(best.sharpDiff)+'pt gap)' });
 
+  // Splits informational only — no sizing adjustment.
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
     const all = findAllDivergences(splits);
     splitsDiv = all.find(d => d.market === 'Total' && d.sharpShort === best.side) || null;
     if (splitsDiv) {
-      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
-      let edgeMult = 1.0;
-      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
-      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
-      if (edgeMult > 1) {
-        const boostedFp = Math.min(0.99, best.pinFairProb * edgeMult);
-        best.units = unitsFromEdge(best.pubProb, boostedFp);
-      }
+      sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets (info only)' });
     }
   }
 
@@ -2698,15 +3728,15 @@ function analyzeTotal(game) {
   const reasons = [];
   reasons.push('<b>'+sourceLabel+'</b> fair price on '+best.side+' '+best.line+' implies '+(best.pinFairProb*100).toFixed(1)+'%; '+best.bk.split(' ')[0]+' offers '+fmt(best.pub)+' — de-vigged EV is <b>+'+best.ev+'%</b>.');
   if (best.sharpDiff >= 8) reasons.push('Sharp price gap of <b>'+Math.round(best.sharpDiff)+' cents</b> on the same total.');
-  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' '+best.line+' with only '+splitsDiv.sharpTickets+'% of tickets.');
-  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (Half-Kelly).');
-  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (Half-Kelly).');
+  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' '+best.line+' with only '+splitsDiv.sharpTickets+'% of tickets <i>(informational, not factored into sizing)</i>.');
+  if (best.units >= 3) reasons.push('Sizing recommendation: <b>'+best.units+' units</b> (real half-Kelly).');
+  else if (best.units >= 1) reasons.push('Sizing recommendation: '+best.units+' units (real half-Kelly).');
 
   const tInfo = _tierFromUnits(best.units);
   let summary;
-  if (best.units >= 3) summary = 'Strong edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
-  else if (best.units >= 1.5) summary = 'Edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
-  else if (best.units > 0) summary = 'Lean on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'%';
+  if (best.units >= 4) summary = 'Premium edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+best.units+'u</b>';
+  else if (best.units >= 2) summary = 'Solid edge on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
+  else if (best.units >= 1) summary = 'Playable on <b>'+best.side+' '+best.line+'</b> · +'+best.ev.toFixed(1)+'% · '+best.units+'u';
   else summary = 'No clear edge';
 
   return {
@@ -2865,43 +3895,34 @@ function analyzeSpreadWithAlts(game, altData) {
 
   const pubProb = impliedProb(best.pubPrice);
   const pinProb = best.fairProb;
-  let units = unitsFromEdge(pubProb, pinProb);
+  let units = unitsFromEdge(pubProb, pinProb, best.pubPrice);
 
-  // Splits boost (multiplicative on edge)
+  // Splits informational only — no sizing adjustment.
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
     const all = findAllDivergences(splits);
     splitsDiv = all.find(d => d.market === 'Spread' && d.sharpShort === best.tShort) || null;
-    if (splitsDiv) {
-      let edgeMult = 1.0;
-      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
-      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
-      if (edgeMult > 1) {
-        const boostedFp = Math.min(0.99, best.fairProb * edgeMult);
-        units = unitsFromEdge(pubProb, boostedFp);
-      }
-    }
   }
 
   const sharpSignals = [];
   if ((best.pubPrice - best.sharpSidePrice) >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms (sharp side at '+fmt(best.sharpSidePrice)+')' });
   if (best.isAlt) sharpSignals.push({ key:'alt', label:'Best edge is on the ALT spread ladder' });
-  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets (info only)' });
 
   const lineStr = (best.point >= 0 ? '+' : '') + best.point;
   const reasons = [];
   reasons.push('<b>'+best.sharpBook+'</b> sharp pair (' + fmt(best.sharpSidePrice) + '/' + fmt(best.sharpOtherPrice) + ') de-vigs to <b>' + (best.fairProb*100).toFixed(1) + '%</b> on ' + best.tShort + ' ' + lineStr + '; ' + best.pubBook.split(' ')[0] + ' offers ' + fmt(best.pubPrice) + ' — de-vigged EV <b>+' + best.ev + '%</b>.');
   if (best.isAlt) reasons.push('This is an <b>alternate</b> spread (not the main line) — pricing was likely missed by the public book.');
-  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets.');
-  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (Half-Kelly).');
-  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (Half-Kelly).');
+  if (splitsDiv) reasons.push('Spread splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.tShort+' with only '+splitsDiv.sharpTickets+'% of tickets <i>(informational, not factored into sizing)</i>.');
+  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (real half-Kelly).');
+  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (real half-Kelly).');
 
   const tInfo = _tierFromUnits(units);
   let summary;
-  if (units >= 3) summary = 'Strong edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
-  else if (units >= 1.5) summary = 'Edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
-  else if (units > 0) summary = 'Lean on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'%' + (best.isAlt ? ' · ALT' : '');
+  if (units >= 4) summary = 'Premium edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 2) summary = 'Solid edge on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 1) summary = 'Playable on <b>'+best.tShort+' '+lineStr+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
   else summary = 'No clear edge';
 
   // Return all positive-EV rungs for the ladder UI
@@ -2976,42 +3997,33 @@ function analyzeTotalWithAlts(game, altData) {
   if (best.ev <= 0) return null;
 
   const pubProb = impliedProb(best.pubPrice);
-  let units = unitsFromEdge(pubProb, best.fairProb);
+  let units = unitsFromEdge(pubProb, best.fairProb, best.pubPrice);
 
-  // Splits boost
+  // Splits informational only — no sizing adjustment.
   const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(game) : null;
   let splitsDiv = null;
   if (splits) {
     const all = findAllDivergences(splits);
     splitsDiv = all.find(d => d.market === 'Total' && d.sharpShort === best.side) || null;
-    if (splitsDiv) {
-      let edgeMult = 1.0;
-      if (splitsDiv.magnitude >= 18) edgeMult = 1.20;
-      else if (splitsDiv.magnitude >= 12) edgeMult = 1.10;
-      if (edgeMult > 1) {
-        const boostedFp = Math.min(0.99, best.fairProb * edgeMult);
-        units = unitsFromEdge(pubProb, boostedFp);
-      }
-    }
   }
 
   const sharpSignals = [];
   if ((best.pubPrice - best.sharpSidePrice) >= 8) sharpSignals.push({ key:'pin', label:'Sharp consensus confirms' });
   if (best.isAlt) sharpSignals.push({ key:'alt', label:'Best edge is on the ALT total ladder' });
-  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets' });
+  if (splitsDiv) sharpSignals.push({ key:'splits', label:'Splits agree: '+splitsDiv.sharpMoney+'% money / '+splitsDiv.sharpTickets+'% tickets (info only)' });
 
   const reasons = [];
   reasons.push('<b>'+best.sharpBook+'</b> sharp pair (' + fmt(best.sharpSidePrice) + '/' + fmt(best.sharpOtherPrice) + ') de-vigs to <b>' + (best.fairProb*100).toFixed(1) + '%</b> on ' + best.side + ' ' + best.point + '; ' + best.pubBook.split(' ')[0] + ' offers ' + fmt(best.pubPrice) + ' — de-vigged EV <b>+' + best.ev + '%</b>.');
   if (best.isAlt) reasons.push('This is an <b>alternate</b> total (not the main line) — pricing was likely missed by the public book.');
-  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' with only '+splitsDiv.sharpTickets+'% of tickets.');
-  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (Half-Kelly).');
-  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (Half-Kelly).');
+  if (splitsDiv) reasons.push('Total splits show <b>'+splitsDiv.sharpMoney+'% of money</b> on '+best.side+' with only '+splitsDiv.sharpTickets+'% of tickets <i>(informational, not factored into sizing)</i>.');
+  if (units >= 3) reasons.push('Sizing recommendation: <b>'+units+' units</b> (real half-Kelly).');
+  else if (units >= 1) reasons.push('Sizing recommendation: '+units+' units (real half-Kelly).');
 
   const tInfo = _tierFromUnits(units);
   let summary;
-  if (units >= 3) summary = 'Strong edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
-  else if (units >= 1.5) summary = 'Edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
-  else if (units > 0) summary = 'Lean on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'%' + (best.isAlt ? ' · ALT' : '');
+  if (units >= 4) summary = 'Premium edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · <b>'+units+'u</b>' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 2) summary = 'Solid edge on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
+  else if (units >= 1) summary = 'Playable on <b>'+best.side+' '+best.point+'</b> · +'+best.ev.toFixed(1)+'% · '+units+'u' + (best.isAlt ? ' · ALT' : '');
   else summary = 'No clear edge';
 
   const positiveLadder = rungs.filter(r => r.ev > 0).slice(0, 20);
@@ -3208,13 +4220,14 @@ function renderExpand(game) {
 
   // Line-age indicator: stale lines are a trap. Show the user how fresh the
   // sharp/public prices are so they know whether to trust the EV badge.
+  // Threshold: 5 min = LINE_MAX_AGE_SEC, matching the Locks-tab "stale" gate.
   const lineAge = _formatLineAge(game._fetched_at);
   if (lineAge) {
     const ageMs = Date.now() - new Date(game._fetched_at).getTime();
-    const stale = ageMs > 120 * 1000; // 2+ minutes is meaningfully stale
+    const stale = ageMs > LINE_MAX_AGE_SEC * 1000;
     const color = stale ? '#ff8c8c' : '#7fbf9f';
     h += '<div style="display:flex;justify-content:flex-end;font-size:10px;color:'+color+';margin-bottom:6px;padding:0 4px">' +
-      '<span title="Time since odds were fetched. Stale lines may not reflect current market.">⏱ lines ' + lineAge + (stale ? ' · stale' : '') + '</span>' +
+      '<span title="Time since odds were fetched. Stale lines may not reflect current market.">⏱ lines ' + lineAge + (stale ? ' · STALE — re-shop' : '') + '</span>' +
       '</div>';
   }
 
@@ -3434,6 +4447,7 @@ function _oldRenderExpand_unused(game) {
       commence_time: game.commence_time,
       pub: rec.pub, pin: rec.pin, bk: rec.bk,
       ev: rec.ev, units: 1, source: "LINES",
+      market: 'Moneyline', // recommendation engine is h2h only
       reasons: strippedReasons, gameId: game.id
     };
     if (isAdded) {
@@ -3876,11 +4890,19 @@ function detectRLM(game) {
 }
 
 function calcCLV(game) {
-  // "Current CLV proxy": compare your best public price to the sharp DE-VIGGED
-  // fair probability. Previously the comparison was against the raw vigged
-  // implied probability, which understates Pinnacle's "true" probability and
-  // inflates the CLV%. Real CLV requires the closing line — we don't have it
-  // pre-game — so this is labeled accordingly elsewhere in the UI.
+  // "Current sharp gap" — this is NOT real CLV. Real CLV requires the
+  // CLOSING line, which we don't have pre-game; that's tracked separately
+  // in the CLV Tracker tab using bet-time and 30-min-before-game snapshots.
+  //
+  // What this function actually returns: the gap between the best public
+  // price and the de-vigged sharp fair probability AT THIS MOMENT. That's
+  // the same comparison the EV calculation already makes, so this is a
+  // duplicate signal. We keep it because it's used as a UI badge ("sharp
+  // gap detected") rather than a sizing input.
+  //
+  // Threshold tightened from 3% to 5% — at the 3% level it fires on
+  // virtually every game with any sharp/public split, generating noise
+  // rather than signal.
   const bks = game.bookmakers || [];
   const teams = [game.away_team, game.home_team];
   const results = [];
@@ -3893,7 +4915,7 @@ function calcCLV(game) {
     if (pinFairProb == null) continue;
     const pubProb = impliedProb(pub.o);
     const clvPct = ((pinFairProb - pubProb) / pubProb) * 100;
-    if (clvPct > 3) {
+    if (clvPct >= 5) {
       results.push({ team, pubOdds: pub.o, pinOdds: sharpPair.sidePrice, clvPct: Math.round(clvPct * 10) / 10 });
     }
   }
@@ -4654,48 +5676,106 @@ function renderPicks() {
 }
 
 async function loadPicks() {
-  try {
-    const r = await fetch("/api/picks");
-    const data = await r.json();
-    const picks = data.picks || [];
-    picks.forEach(p => { p.day = "Recent"; });
-    allPicks = picks;
-    picksView = "sources";
-    selectedSource = null;
-    renderPicks();
-  } catch (e) {
-    document.getElementById("picks").innerHTML = '<div class="empty">Picks error: ' + e.message + '</div>';
-  }
+  // No-op in v3.4: the "Outside" expert-picks tab was removed. The author
+  // of v3.3 flagged that scraped expert picks have no signal value (we
+  // can't tell which side they took or track their hit rates), so we
+  // dropped the tab. The /api/picks endpoint is also removed.
+  return;
 }
 
 
+// =========================================================================
+// computeLocks — the central pick-finder.
+//
+// Per market (ML / spread / total), pick the analyzer that produces the
+// HIGHEST EV. For spreads and totals, that means using the alt-ladder
+// analyzer whenever alt data is in cache; otherwise fall back to the
+// main-line analyzer.
+//
+// Threshold: units >= 1 (real half-Kelly stake of >= 1% of bankroll).
+// Below that, edges are inside the noise floor of de-vig estimation
+// and clock skew between books. We do NOT surface sub-1u picks.
+//
+// Auto-prefetch: for any main-line edge >= 1u, we kick off an alt-lines
+// fetch in the background so the next render of the Locks tab can
+// upgrade the pick to an alt-ladder pick (which is often where the
+// largest edge actually lives). This costs 4 credits per qualifying
+// game but only fires for games that already look interesting.
+//
+// Line-freshness gate: if game.commence_time is within LINE_STALE_MIN_TO_GAME
+// minutes of now, OR the bulk fetch is older than LINE_MAX_AGE_SEC, we mark
+// the pick as STALE. Stale picks are still surfaced (so you don't lose
+// visibility) but flagged so you know to re-shop before betting.
+// =========================================================================
+
+const LOCK_UNIT_FLOOR = 1;     // minimum units to surface as a Lock
+const LINE_MAX_AGE_SEC = 300;   // bulk fetch older than 5 min = stale
+const ALT_PREFETCH_UNIT_FLOOR = 1; // prefetch alts for any main-line edge >= 1u
+
+function _lineAgeSec(game) {
+  if (!game || !game._fetched_at) return null;
+  const t = new Date(game._fetched_at).getTime();
+  if (!isFinite(t)) return null;
+  return (Date.now() - t) / 1000;
+}
+
+function _isLineStale(game) {
+  const age = _lineAgeSec(game);
+  if (age == null) return false;
+  return age > LINE_MAX_AGE_SEC;
+}
+
 function computeLocks() {
-  // Pulls qualifying picks from ML / Spread / Total markets via analyze* helpers.
-  // Each market that produces a positive-EV pick with units >= 0.5 becomes a lock.
-  // Unit-tier (>= 3 / >= 1.5 / < 1.5) drives the card outline color.
   const lockCands = [];
   const eligibleGames = (allGames || []).filter(g => !isLiveGame(g));
+  const altsToPrefetch = [];
 
   eligibleGames.forEach(g => {
-    // Try each market type
-    [
-      { fn: analyzeMoneyline, marketKey: 'ml', icon: '💰' },
-      { fn: analyzeSpread,    marketKey: 'spread', icon: '📊' },
-      { fn: analyzeTotal,     marketKey: 'total', icon: '🎯' }
-    ].forEach(({ fn, marketKey, icon }) => {
-      const a = fn(g);
+    const altData = altLinesByEvent[g.id]; // may be undefined
+
+    // For each market type, run BOTH the main-line and (if available)
+    // the alt-ladder analyzer, and keep the better-EV result.
+    const candidates = [];
+
+    // Moneyline (no alt ladder for h2h)
+    const mlA = analyzeMoneyline(g);
+    if (mlA) candidates.push({ a: mlA, marketKey: 'ml', icon: '💰' });
+
+    // Spread: prefer alt-aware if we have data
+    let spA = null;
+    if (altData) spA = analyzeSpreadWithAlts(g, altData);
+    if (!spA) spA = analyzeSpread(g);
+    if (spA) candidates.push({ a: spA, marketKey: 'spread', icon: '📊' });
+
+    // Total: same approach
+    let toA = null;
+    if (altData) toA = analyzeTotalWithAlts(g, altData);
+    if (!toA) toA = analyzeTotal(g);
+    if (toA) candidates.push({ a: toA, marketKey: 'total', icon: '🎯' });
+
+    // Check if we should prefetch alts for this game.
+    // Trigger: any main-line analyzer returned a real edge (units >= floor)
+    // AND we don't already have alt data.
+    if (!altData) {
+      const hasEdge = candidates.some(c => c.a && c.a.units >= ALT_PREFETCH_UNIT_FLOOR);
+      if (hasEdge && g.sport_key && g.id) altsToPrefetch.push(g);
+    }
+
+    candidates.forEach(({ a, marketKey, icon }) => {
       if (!a) return;
-      if (a.units < 0.5) return; // Below threshold
+      if (a.units < LOCK_UNIT_FLOOR) return;
 
-      // Build a lock candidate from the analysis
       const sideShort = a.bestSideShort;
-      const lockKey = g.id + '_' + marketKey + '_' + sideShort;
+      const lockKey = g.id + '_' + marketKey + '_' + sideShort + (a.bestLine != null ? '_' + a.bestLine : '');
 
-      // Build a clear pick string
       let pickText;
       if (a.market === 'Moneyline') pickText = 'Moneyline · ' + a.bestSide;
       else if (a.market === 'Spread') pickText = 'Spread · ' + a.bestSide + ' ' + (a.bestLine >= 0 ? '+' : '') + a.bestLine;
       else pickText = 'Total · ' + a.bestSide + ' ' + a.bestLine;
+
+      // ALT flag if this came from the alt-ladder analyzer
+      const isAlt = a.isAlt === true;
+      if (isAlt && (a.market === 'Spread' || a.market === 'Total')) pickText += ' (ALT)';
 
       lockCands.push({
         key: lockKey,
@@ -4718,91 +5798,52 @@ function computeLocks() {
         sharpSignals: a.sharpSignals,
         splitsDiv: a.splitsDiv,
         reasons: a.reasons,
-        summary: a.summary
+        summary: a.summary,
+        isAlt,
+        stale: _isLineStale(g),
+        lineAgeSec: _lineAgeSec(g)
       });
     });
   });
 
-  // Sort by units desc within day grouping happens in renderLocks
+  // Kick off alt prefetches in the background (capped to avoid hammering quota)
+  const MAX_PREFETCH = 8;
+  altsToPrefetch.slice(0, MAX_PREFETCH).forEach(g => {
+    if (typeof fetchAltLinesForEvent === 'function') {
+      try { fetchAltLinesForEvent(g); } catch(e) {}
+    }
+  });
+
+  // Sort: units desc, then EV desc
   lockCands.sort((a, b) => b.units - a.units || b.ev - a.ev);
-  window._cachedLocks = lockCands; // legacy hook
+  window._cachedLocks = lockCands;
+
+  // Auto-log every qualifying Lock to the model Tracker. The tracker dedups
+  // by stable key so re-running computeLocks() on each refresh won't create
+  // duplicates — we keep the FIRST snapshot of each pick (the price the
+  // model surfaced when it first identified the edge).
+  if (typeof logLockToTracker === 'function') {
+    let added = 0;
+    const before = trackerLog.length;
+    for (const l of lockCands) {
+      logLockToTracker(l);
+    }
+    added = trackerLog.length - before;
+    if (added > 0) saveTrackerLog();
+  }
+
   return lockCands;
 }
 
 
-function buildLockReasoning(l) {
-  const reasons = [];
-  const pin = l.pin, pub = l.pub;
-  const sharpDiff = pub - pin;
-  const teamName = l.team;
-  const oppName = l.opponent;
-  const teamShort = teamName.split(' ').pop();
-  const oppShort = oppName.split(' ').pop();
 
-  // Helper: describe line movement on this team
-  // A team's odds getting SHORTER (e.g. +150 -> +130, or -110 -> -130) means money is coming in on them.
-  // A team's odds getting LONGER means money is fleeing them.
-  function movementDir(m) {
-    if (!m || m.snapshots < 2) return null;
-    // diff = last - first. If odds went from +150 to +130, diff = -20 (shorter/favored).
-    // If odds went from -110 to -130, diff = -20 (shorter/more favored).
-    if (m.diff <= -3) return 'shorter'; // money coming in on this team
-    if (m.diff >= 3) return 'longer';   // money fleeing this team
-    return 'flat';
-  }
+// (buildLockReasoning removed in v3.4 — reasons are now built directly inside
+//  each analyzer (analyzeMoneyline / analyzeSpread / analyzeTotal and their
+//  alt-aware counterparts). The old function referenced fields like l.team,
+//  l.opponent, l.signals, l.teamMovement that the analyzers never produced,
+//  and tier numbers 1/2/3 that don't match the new units-based tier scale.)
 
-  const teamDir = movementDir(l.teamMovement);
-  const oppDir = movementDir(l.oppMovement);
 
-  // Reason based on signals
-  l.signals.forEach(sig => {
-    if (sig.key === 'ev') {
-      const strength = l.ev >= 5 ? 'strong' : l.ev >= 2 ? 'solid' : 'slight';
-      reasons.push('Pinnacle\'s fair probability implies <b>' + strength + ' +' + l.ev + '% EV</b> on <b>' + teamName + '</b> at ' + l.bk.split(' ')[0] + '\'s current price.');
-    }
-    if (sig.key === 'sharp') {
-      reasons.push('Pinnacle has <b>' + teamName + '</b> at ' + fmt(pin) + ', which is <b>' + Math.round(sharpDiff) + ' points shorter</b> than public books — sharp money at the sharpest book favors ' + teamShort + '.');
-    }
-    if (sig.key === 'steam') {
-      if (teamDir === 'shorter') {
-        reasons.push('<b>Steam move on ' + teamShort + '</b>: 3+ public sportsbooks shortened ' + teamShort + '\'s price simultaneously — syndicate money pounding ' + teamShort + '.');
-      } else {
-        reasons.push('<b>Steam move detected toward ' + teamShort + '</b>: 3+ public sportsbooks shifted this market the same direction simultaneously — classic syndicate action on ' + teamShort + '.');
-      }
-    }
-    if (sig.key === 'rlm') {
-      // RLM: line moves toward team X (team X gets shorter) even though public is betting opponent
-      if (oppDir === 'longer' || teamDir === 'shorter') {
-        reasons.push('<b>Reverse line movement on ' + teamShort + '</b>: Public is betting <b>' + oppShort + '</b>, but ' + teamShort + '\'s price is getting shorter anyway — sharp money overwhelming the public on ' + teamShort + '.');
-      } else {
-        reasons.push('<b>Reverse line movement on ' + teamShort + '</b>: ' + teamShort + '\'s line moved against public betting patterns — sharps taking ' + teamShort + '.');
-      }
-    }
-    if (sig.key === 'clv') {
-      const c = sig.lbl.match(/\+([\d.]+)%/);
-      const pct = c ? c[1] : '?';
-      reasons.push('<b>' + teamShort + '</b> at ' + l.bk.split(' ')[0] + ' beats Pinnacle\'s fair line by <b>' + pct + '%</b> — betting ' + teamShort + ' at a discount to true odds.');
-    }
-  });
-
-  // Add movement context line if we have directional data
-  if (teamDir === 'shorter' && !l.signals.find(s => s.key === 'steam' || s.key === 'rlm')) {
-    reasons.push('<b>' + teamShort + '\'s price has shortened</b> since open (' + (l.teamMovement.diff < 0 ? '' : '+') + Math.round(l.teamMovement.diff) + ' pts) — money flowing toward ' + teamShort + '.');
-  } else if (oppDir === 'shorter' && !l.signals.find(s => s.key === 'rlm')) {
-    reasons.push('Note: Public is currently on <b>' + oppShort + '</b> (their line shortened) but signals favor ' + teamShort + '.');
-  }
-
-  // Tier summary
-  if (l.tier === 1) {
-    reasons.push('<b>Verdict:</b> Multiple strong signals aligned on ' + teamShort + ' — highest-confidence play of the slate.');
-  } else if (l.tier === 2) {
-    reasons.push('<b>Verdict:</b> Two+ signals confirm the edge on ' + teamShort + ' — solid core play.');
-  } else {
-    reasons.push('<b>Verdict:</b> Thin edge on ' + teamShort + ' — small stake recommended as a lean rather than a core play.');
-  }
-
-  return reasons;
-}
 
 window.lockExpanded = window.lockExpanded || {};
 function toggleLockInsight(key) {
@@ -4842,18 +5883,24 @@ function renderLocks() {
     byDay[dk].sort((a, b) => b.units - a.units || b.ev - a.ev);
   });
 
-  // Summary stats
+  // Summary stats — premiumCount uses new 4u threshold from real-Kelly rewrite
   const totalUnits = locks.reduce((a, l) => a + l.units, 0);
   const avgEV = (locks.reduce((a, l) => a + l.ev, 0) / locks.length).toFixed(1);
-  const premiumCount = locks.filter(l => l.units >= 3).length;
+  const premiumCount = locks.filter(l => l.units >= 4).length;
+  const altCount = locks.filter(l => l.isAlt).length;
+  const staleCount = locks.filter(l => l.stale).length;
   const totalDollars = formatUnitDollars(totalUnits);
 
   let h = livePill;
+  if (staleCount > 0) {
+    h += '<div style="background:rgba(255,140,80,.08);border:1px solid rgba(255,140,80,.3);border-radius:8px;padding:9px 12px;margin:0 16px 10px;font-size:12px;color:#ffb380">⚠ <b>' + staleCount + ' pick' + (staleCount === 1 ? '' : 's') + ' may have stale lines</b> (fetched > 5 min ago). Re-shop these before betting.</div>';
+  }
   h += '<div class="locks-summary">' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + locks.length + '</div><div class="locks-summary-lbl">PICKS</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">' + formatUnits(totalUnits) + 'u</div><div class="locks-summary-lbl">' + (totalDollars ? totalDollars : 'TOTAL UNITS') + '</div></div>' +
     '<div class="locks-summary-stat"><div class="locks-summary-num">+' + avgEV + '%</div><div class="locks-summary-lbl">AVG EV</div></div>' +
-    '<div class="locks-summary-stat"><div class="locks-summary-num">' + premiumCount + '</div><div class="locks-summary-lbl">PREMIUM</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + premiumCount + '</div><div class="locks-summary-lbl">PREMIUM (4u+)</div></div>' +
+    '<div class="locks-summary-stat"><div class="locks-summary-num">' + altCount + '</div><div class="locks-summary-lbl">ALT RUNGS</div></div>' +
     '</div>';
 
   h += '<div class="locks-hdr"><span>GROUPED BY DAY · UNITS DESCENDING</span><span>' + new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}) + '</span></div>';
@@ -4869,8 +5916,9 @@ function renderLocks() {
   function renderLockCard(l) {
     // Single collapsed bar showing: bet type · side · units
     // Tap to expand → full analysis (signals, pills, reasons, add to betslip)
-    const unitsClass = l.units >= 3 ? 'units-strong' : l.units >= 1.5 ? 'units-mid' : 'units-light';
-    const tierLabel = l.units >= 3 ? 'Premium Play' : l.units >= 1.5 ? 'Solid Play' : 'Lean';
+    // New tier scale (post real-Kelly): 4+ premium, 2+ solid, 1+ playable
+    const unitsClass = l.units >= 4 ? 'units-strong' : l.units >= 2 ? 'units-mid' : 'units-light';
+    const tierLabel = l.units >= 4 ? 'Premium Play' : l.units >= 2 ? 'Solid Play' : 'Playable';
     const awayShort = l.game.away_team.split(' ').pop();
     const homeShort = l.game.home_team.split(' ').pop();
     const matchupStr = awayShort + ' @ ' + homeShort;
@@ -4878,16 +5926,20 @@ function renderLocks() {
     const evCls = l.ev >= 3 ? 'pos' : 'zero';
 
     // === Collapsed bar header ===
-    let h = '<div class="lock-bar ' + unitsClass + (isOpen ? ' open' : '') + '">';
+    let h = '<div class="lock-bar ' + unitsClass + (isOpen ? ' open' : '') + (l.stale ? ' stale' : '') + '">';
     h += '<div class="lock-bar-header" onclick="toggleLockInsight(\'' + l.key + '\')">';
 
     h += '<div class="lock-bar-icon">' + l.icon + '</div>';
     h += '<div class="lock-bar-info">';
-    h += '<div class="lock-bar-meta">' + matchupStr + ' · ' + l.game.sport_title + ' · ' + fmtT(l.game.commence_time) + '</div>';
+    let metaLine = matchupStr + ' · ' + l.game.sport_title + ' · ' + fmtT(l.game.commence_time);
+    if (l.stale) metaLine += ' <span style="color:#ffb380;font-weight:700">· STALE</span>';
+    h += '<div class="lock-bar-meta">' + metaLine + '</div>';
     h += '<div class="lock-bar-pick"><b>' + l.market + '</b> · ' + l.bestSide;
     if (l.market === 'Spread') h += ' ' + (l.bestLine >= 0 ? '+' : '') + l.bestLine;
     else if (l.market === 'Total') h += ' ' + l.bestLine;
-    h += ' · ' + fmt(l.pub) + '</div>';
+    h += ' · ' + fmt(l.pub);
+    if (l.isAlt) h += ' <span style="color:#b99aff;font-weight:700;font-size:10px">ALT</span>';
+    h += '</div>';
     h += '</div>';
 
     h += '<div class="lock-bar-units ' + unitsClass + '">';
@@ -5548,7 +6600,7 @@ function toggleSplits(gameId) {
   window.splitsExpanded[gameId] = !window.splitsExpanded[gameId];
   // Rerender just this expansion area
   if (curTab === 0) renderGames();
-  else if (curTab === 1) renderSharp();
+  else if (curTab === 1) renderLocks();
 }
 
 // Render the splits UI for a given game (collapsible)
@@ -5857,7 +6909,7 @@ async function init() {
   btn.classList.add("spin");
   document.getElementById("hSub").textContent = "LOADING...";
   document.getElementById("games").innerHTML = '<div class="lstate"><div class="lico">⚙️</div><div class="ltxt">FETCHING ODDS</div></div>';
-  setTimeout(loadPicks, 500);
+  // (v3.4: removed setTimeout(loadPicks, 500) — expert-pick aggregator removed.)
   try {
     document.getElementById("hSub").textContent = "STEP 1: SPORTS...";
     const sr = await fetchWithTimeout("/api/sports", 10000);
@@ -5913,12 +6965,16 @@ async function init() {
     document.getElementById("sL").textContent = results.length + " GAMES - " + Object.keys(sc).length + " SPORTS";
     document.getElementById("sR").textContent = "ODDS + SHARP";
     try { computeLocks(); } catch(e) { console.error("computeLocks failed:", e); }
+    try { updateClvSnapshots(); } catch(e) { console.error("updateClvSnapshots failed:", e); }
+    try { gradeTrackerPicks(false); } catch(e) { console.error("gradeTrackerPicks failed:", e); }
     try { renderFltrs(); } catch(e) { console.error("renderFltrs failed:", e); }
     try { renderGames(); } catch(e) { console.error("renderGames failed:", e); document.getElementById("games").innerHTML = '<div class="empty">Render error: ' + e.message + '</div>'; }
     try { renderLocks(); } catch(e) { console.error("renderLocks failed:", e); }
+    try { if (curTab === 2) renderClvTracker(); } catch(e) { console.error("renderClvTracker failed:", e); }
+    try { if (curTab === 3) renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
     try { renderBetCard(); } catch(e) { console.error("renderBetCard failed:", e); }
-    fetchAllSplits().then(() => { try { renderGames(); if (curTab === 1) renderLocks(); else if (curTab === 2) renderOutside(); } catch(e) { console.error(e); } });
-    fetchAllProps().then(() => { try { renderGames(); if (curTab === 2) renderOutside(); } catch(e) { console.error(e); } });
+    fetchAllSplits().then(() => { try { renderGames(); if (curTab === 1) renderLocks(); } catch(e) { console.error(e); } });
+    fetchAllProps().then(() => { try { renderGames(); } catch(e) { console.error(e); } });
   } catch (e) {
     document.getElementById("games").innerHTML = '<div class="empty">Failed to load: ' + e.message + '<br><br><span style=\"font-size:11px;color:#333\">Tap ↻ to retry</span></div>';
     document.getElementById("hSub").textContent = "ERROR - TAP ↻";
@@ -7017,6 +8073,20 @@ try {
   window.clearBetCard = clearBetCard;
   window.removeFromBetCard = removeFromBetCard;
   window.addToBetCard = addToBetCard;
+  // CLV tracker functions (called from inline onclick handlers)
+  window.renderClvTracker = renderClvTracker;
+  window.setClvResult = setClvResult;
+  window.deleteClvEntry = deleteClvEntry;
+  window.clearClvLog = clearClvLog;
+  window.exportClvCsv = exportClvCsv;
+  // Tracker tab handlers (called from inline onclick)
+  window.renderModelTracker = renderModelTracker;
+  window.setTrackerView = setTrackerView;
+  window.setTrackerTimeGrouping = setTrackerTimeGrouping;
+  window.setTrackerResult = setTrackerResult;
+  window.gradeTrackerPicks = gradeTrackerPicks;
+  window.clearTrackerLog = clearTrackerLog;
+  window.exportTrackerCsv = exportTrackerCsv;
   window.setMyBetsMode = setMyBetsMode;
   window.setMyBetsRange = setMyBetsRange;
   window.setMyBetsFilter = setMyBetsFilter;
@@ -7035,7 +8105,8 @@ try {
 <div class="tabs">
 <button class="tab on" id="t0" onclick="goTab(0)"><span class="tab-icon">📊</span><span>Lines</span></button>
 <button class="tab" id="t1" onclick="goTab(1)"><span class="tab-icon">🔒</span><span>Locks</span></button>
-<button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">🌐</span><span>Outside</span></button>
+<button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">📈</span><span>CLV</span></button>
+<button class="tab" id="t3" onclick="goTab(3)"><span class="tab-icon">📒</span><span>Tracker</span></button>
 </div>
 <div class="build-id-indicator">2026-04-28 00:23:14 UTC</div>
 </body>
