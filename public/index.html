@@ -1358,16 +1358,14 @@ window.addEventListener('unhandledrejection', function(e) {
 <div id="locks"><div class="lstate"><div class="lico">⚙️</div><div class="ltxt">LOADING LOCKS</div></div></div>
 </div>
 <div id="v2" style="display:none">
-<div id="clvTracker"></div>
+<div id="modelTracker"></div>
+<div id="clvTracker" style="display:none"></div>
 <!-- Hidden containers - kept so existing render fns can write here without errors -->
 <div id="outside" style="display:none"></div>
 <div id="sharp" style="display:none"></div>
 <div id="model" style="display:none"></div>
 <div id="picks" style="display:none"></div>
 <div id="mybets" style="display:none"></div>
-</div>
-<div id="v3" style="display:none">
-<div id="modelTracker"></div>
 </div>
 <div class="settings-modal" id="settingsModal">
   <div class="settings-content">
@@ -1612,8 +1610,7 @@ function toggleLiveGames() {
   window.liveGamesExpanded = !window.liveGamesExpanded;
   if (curTab === 0) renderGames();
   else if (curTab === 1) renderLocks();
-  else if (curTab === 2) renderClvTracker();
-  else if (curTab === 3) renderModelTracker();
+  else if (curTab === 2) renderModelTracker();
 }
 function isLiveGame(g) {
   return g && g.commence_time && new Date(g.commence_time) < new Date();
@@ -1672,57 +1669,145 @@ function addToBetCard(item) {
 // =========================================================================
 
 const CLV_LOG_KEY = 'jlab_clv_log';
+const CLV_MIGRATED_KEY = 'jlab_clv_migrated_to_tracker_v1';
 let clvLog = [];
 try {
   const raw = localStorage.getItem(CLV_LOG_KEY);
   if (raw) clvLog = JSON.parse(raw) || [];
 } catch(e) {}
 
-function saveClvLog() {
-  try { localStorage.setItem(CLV_LOG_KEY, JSON.stringify(clvLog)); } catch(e) {}
+// Legacy CLV log merged into trackerLog (one tab, one store).
+function migrateClvLogToTracker() {
+  try {
+    if (localStorage.getItem(CLV_MIGRATED_KEY)) return;
+  } catch(e) {}
+  if (!clvLog.length) {
+    try { localStorage.setItem(CLV_MIGRATED_KEY, '1'); } catch(e) {}
+    return;
+  }
+  let changed = false;
+  for (const c of clvLog) {
+    let t = trackerLog.find(x => x.key === c.key);
+    if (t) {
+      if (c.betTimeFairProb != null && t.betTimeFairProb == null) t.betTimeFairProb = c.betTimeFairProb;
+      if (c.closeFairProb != null && t.closeFairProb == null) {
+        t.closeFairProb = c.closeFairProb;
+        t.closeAt = c.closeAt;
+        t.clvPct = c.clvPct;
+        t.closeSource = c.closeSource;
+      }
+      if (!t.source) t.source = 'lock';
+      changed = true;
+    } else {
+      trackerLog.push({
+        key: c.key,
+        gameId: c.gameId,
+        sport: c.sport || null,
+        sportKey: c.sportKey || null,
+        awayTeam: null,
+        homeTeam: null,
+        commenceTime: c.commence_time || null,
+        market: c.market || null,
+        side: c.team || null,
+        sideShort: c.team ? c.team.split(' ').pop() : null,
+        line: c.line != null ? c.line : null,
+        isAlt: false,
+        pubOdds: c.betTimePubOdds,
+        sharpOdds: c.betTimeSharpOdds,
+        book: c.bk || null,
+        ev: c.betTimeEv != null ? c.betTimeEv : null,
+        units: c.betTimeUnits != null ? c.betTimeUnits : null,
+        loggedAt: c.loggedAt || Date.now(),
+        source: 'betslip',
+        splitsSnapshot: { available: false, reason: 'migrated_from_clv' },
+        betTimeFairProb: c.betTimeFairProb,
+        closeFairProb: c.closeFairProb,
+        closeAt: c.closeAt,
+        clvPct: c.clvPct,
+        closeSource: c.closeSource,
+        result: c.result || null,
+        finalHome: null,
+        finalAway: null,
+        gradedAt: null,
+        profitUnits: null
+      });
+      changed = true;
+    }
+  }
+  if (changed) saveTrackerLog();
+  try { localStorage.setItem(CLV_MIGRATED_KEY, '1'); } catch(e) {}
+}
+
+function _populateClvOnTrackerEntry(entry, game) {
+  if (!entry || entry.pubOdds == null) return;
+  const g = game || (allGames || []).find(x => x.id === entry.gameId);
+  if (!g) return;
+  const marketLower = (entry.market || '').toLowerCase();
+  entry.betTimeFairProb = _computeFairProbForBet(g, entry.side, marketLower, entry.line);
+}
+
+function backfillTrackerClvFields() {
+  if (!trackerLog.length || !allGames.length) return;
+  let changed = false;
+  for (const e of trackerLog) {
+    if (e.betTimeFairProb != null) continue;
+    if (e.pubOdds == null) continue;
+    _populateClvOnTrackerEntry(e, null);
+    changed = true;
+  }
+  if (changed) saveTrackerLog();
 }
 
 function logBetForClv(item) {
-  if (!item || !item.key || item.pub == null || item.pin == null) return;
-  // Skip if we already logged this exact bet (re-adds shouldn't double-count)
-  if (clvLog.some(b => b.key === item.key)) return;
-  // Compute the bet-time sharp fair probability for THIS market+side.
-  // The logic differs by market:
-  //   - Moneyline: de-vig the sharp h2h pair on item.team vs the other team
-  //   - Spread:    de-vig the sharp spreads at item.line for item.team vs other
-  //   - Total:     de-vig the sharp totals at item.line for Over vs Under
-  // We re-derive rather than trusting the click-time fp so the snapshot
-  // is internally consistent.
+  if (!item || !item.key || item.pub == null) return;
+  const existing = trackerLog.find(t => t.key === item.key);
   const game = (allGames || []).find(g => g.id === item.gameId);
-  const marketLower = (item.market || '').toLowerCase();
-  let openFairProb = null;
-  if (game) {
-    openFairProb = _computeFairProbForBet(game, item.team, marketLower, item.line);
+  if (existing) {
+    if (!existing.betTimeFairProb) _populateClvOnTrackerEntry(existing, game);
+    if (!existing.source) existing.source = existing.source || 'lock';
+    saveTrackerLog();
+    return;
   }
-  clvLog.push({
+  const side = item.team || item.bestSide || null;
+  const entry = {
     key: item.key,
     gameId: item.gameId,
-    team: item.team || item.bestSide || null,
     sport: item.sport || (game && game.sport_title) || null,
     sportKey: (game && game.sport_key) || null,
+    awayTeam: game ? game.away_team : null,
+    homeTeam: game ? game.home_team : null,
+    commenceTime: item.commence_time || (game && game.commence_time) || null,
     market: item.market || null,
+    side: side,
+    sideShort: item.bestSideShort || (side ? side.split(' ').pop() : null),
     line: item.bestLine != null ? item.bestLine : (item.line != null ? item.line : null),
-    commence_time: item.commence_time || (game && game.commence_time) || null,
-    betTimePubOdds: item.pub,
-    betTimeSharpOdds: item.pin,
-    betTimeFairProb: openFairProb,
-    betTimeEv: item.ev != null ? item.ev : null,
-    betTimeUnits: item.units != null ? item.units : null,
-    bk: item.bk || null,
+    isAlt: !!item.isAlt,
+    pubOdds: item.pub,
+    sharpOdds: item.pin != null ? item.pin : null,
+    book: item.bk || null,
+    ev: item.ev != null ? item.ev : null,
+    units: item.units != null ? item.units : null,
     loggedAt: Date.now(),
-    // Filled in later by updateClvSnapshots()
+    source: 'betslip',
+    splitsSnapshot: game ? captureSplitsSnapshotForLock({
+      game, market: item.market, bestSide: side,
+      bestSideShort: item.bestSideShort || (side ? side.split(' ').pop() : null),
+      bestLine: item.bestLine != null ? item.bestLine : item.line
+    }) : { available: false },
+    betTimeFairProb: null,
     closeFairProb: null,
     closeAt: null,
     clvPct: null,
     closeSource: null,
-    result: null // 'win' / 'loss' / 'push' — user-entered after the game
-  });
-  saveClvLog();
+    result: null,
+    finalHome: null,
+    finalAway: null,
+    gradedAt: null,
+    profitUnits: null
+  };
+  _populateClvOnTrackerEntry(entry, game);
+  trackerLog.push(entry);
+  saveTrackerLog();
 }
 
 // Helper used by both logBetForClv() and updateClvSnapshots(). Returns
@@ -1762,59 +1847,46 @@ function _computeFairProbForBet(game, side, marketLower, point) {
 // We deliberately do NOT overwrite an existing closeFairProb — once captured,
 // the close is the close. This runs after every bulk odds refresh.
 function updateClvSnapshots() {
-  if (!Array.isArray(clvLog) || !clvLog.length) return;
+  if (!Array.isArray(trackerLog) || !trackerLog.length) return;
   let changed = false;
-  for (const entry of clvLog) {
-    if (entry.closeFairProb != null) continue; // already captured
+  for (const entry of trackerLog) {
+    if (entry.closeFairProb != null) continue;
+    if (entry.pubOdds == null) continue;
     const game = (allGames || []).find(g => g.id === entry.gameId);
     if (!game) continue;
-    // Only capture once we're within 30 minutes of game start, or after start
     const ct = new Date(game.commence_time).getTime();
     const now = Date.now();
     if (ct - now > 30 * 60 * 1000) continue;
     const marketLower = (entry.market || '').toLowerCase();
-    const fp = _computeFairProbForBet(game, entry.team, marketLower, entry.line);
+    const fp = _computeFairProbForBet(game, entry.side, marketLower, entry.line);
     if (fp == null) continue;
     entry.closeFairProb = fp;
     entry.closeAt = now;
-    // Best-effort: record which sharp book sourced the close
     const bks = game.bookmakers || [];
     const pinBk = bks.find(b => b.key === 'pinnacle');
     entry.closeSource = pinBk ? 'Pinnacle' : 'Sharp consensus';
-    // CLV in implied-probability terms:
-    //   pubProb at bet time = implied prob of betTimePubOdds (with vig)
-    //   closing fair prob = fp (no vig, sharp)
-    // We compare against the close fair prob: how much better was your
-    // public price than what the sharp number eventually settled at?
-    const pubProb = impliedProb(entry.betTimePubOdds);
+    const pubProb = impliedProb(entry.pubOdds);
     if (pubProb != null) {
       entry.clvPct = Math.round(((fp - pubProb) / pubProb) * 1000) / 10;
     }
     changed = true;
   }
-  if (changed) saveClvLog();
+  if (changed) saveTrackerLog();
 }
 
 function setClvResult(key, result) {
-  const e = clvLog.find(x => x.key === key);
-  if (!e) return;
-  e.result = result;
-  saveClvLog();
-  renderClvTracker();
+  setTrackerResult(key, result);
 }
 
 function deleteClvEntry(key) {
-  if (!confirm('Delete this bet from the CLV log? This cannot be undone.')) return;
-  clvLog = clvLog.filter(x => x.key !== key);
-  saveClvLog();
-  renderClvTracker();
+  if (!confirm('Remove this pick from the tracker? This cannot be undone.')) return;
+  trackerLog = trackerLog.filter(x => x.key !== key);
+  saveTrackerLog();
+  renderModelTracker();
 }
 
 function clearClvLog() {
-  if (!confirm('Clear ALL bets from your CLV log? This is permanent.')) return;
-  clvLog = [];
-  saveClvLog();
-  renderClvTracker();
+  clearTrackerLog();
 }
 
 function exportClvCsv() {
@@ -1855,128 +1927,41 @@ function exportClvCsv() {
 }
 
 function renderClvTracker() {
-  const container = document.getElementById('clvTracker');
-  if (!container) return;
+  renderModelTracker();
+}
 
-  // Always refresh close snapshots before rendering so the UI is up to date
+function _renderTrackerClvSummary() {
   try { updateClvSnapshots(); } catch(e) {}
-
-  if (!clvLog.length) {
-    container.innerHTML =
-      '<div style="padding:24px 20px;text-align:center;color:#888;line-height:1.7">' +
-      '<div style="font-size:36px;margin-bottom:14px">📈</div>' +
-      '<div style="font-size:15px;color:#ddd;margin-bottom:10px;font-weight:600">CLV Tracker</div>' +
-      '<div style="font-size:13px;max-width:380px;margin:0 auto">' +
-      'Every pick you add to the betslip is logged here. Once the game is within 30 minutes of start, ' +
-      'we capture the closing sharp fair probability and compute your CLV (Closing Line Value).' +
-      '<br><br>' +
-      '<b style="color:#5dd9b1">Positive CLV over a real sample is the only reliable proof your edges are real.</b> ' +
-      'Point-in-time EV is the same number we computed — CLV vs. the close is independent.' +
-      '<br><br>' +
-      '<span style="color:#666">Add a bet to your betslip to start tracking.</span>' +
-      '</div></div>';
-    return;
-  }
-
-  // Summary stats
-  const settled = clvLog.filter(e => e.clvPct != null);
+  const settled = trackerLog.filter(e => e.clvPct != null);
   const positive = settled.filter(e => e.clvPct > 0).length;
   const totalCount = settled.length;
   const avgClv = totalCount ? (settled.reduce((a, e) => a + e.clvPct, 0) / totalCount) : null;
   const beatRate = totalCount ? Math.round((positive / totalCount) * 100) : null;
-  const pending = clvLog.length - totalCount;
+  const clvPending = trackerLog.filter(e => e.pubOdds != null && e.clvPct == null).length;
 
-  const winLossSettled = clvLog.filter(e => e.result === 'win' || e.result === 'loss');
-  const wins = clvLog.filter(e => e.result === 'win').length;
-  const losses = clvLog.filter(e => e.result === 'loss').length;
-  const wlPct = winLossSettled.length ? Math.round((wins / winLossSettled.length) * 100) : null;
-
-  let h = '';
-  h += '<div style="padding:14px 16px 0;font-size:12px;color:#888;display:flex;justify-content:space-between;align-items:center">';
-  h += '<span><b style="color:#ddd">CLV TRACKER</b> · ' + clvLog.length + ' bet' + (clvLog.length === 1 ? '' : 's') + ' logged</span>';
-  h += '<span><button onclick="exportClvCsv()" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">EXPORT CSV</button> ';
-  h += '<button onclick="clearClvLog()" style="background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">CLEAR</button></span>';
+  let h = '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:4px 16px 6px;text-transform:uppercase">Closing line value (every tracked pick)</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 10px">';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:800;color:' + (avgClv == null ? '#666' : (avgClv > 0 ? '#5dd9b1' : '#ff8888')) + '">' + (avgClv == null ? '—' : (avgClv > 0 ? '+' : '') + avgClv.toFixed(2) + '%') + '</div><div style="font-size:9px;color:#bbb;margin-top:3px">AVG CLV</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:800;color:#ddd">' + (beatRate == null ? '—' : beatRate + '%') + '</div><div style="font-size:9px;color:#bbb;margin-top:3px">BEAT CLOSE</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:800;color:#ffc832">' + clvPending + '</div><div style="font-size:9px;color:#bbb;margin-top:3px">CLV PENDING</div></div>';
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:800;color:#ddd">' + totalCount + '</div><div style="font-size:9px;color:#bbb;margin-top:3px">CLV SETTLED</div></div>';
   h += '</div>';
-
-  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px">';
-  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:' + (avgClv == null ? '#666' : (avgClv > 0 ? '#5dd9b1' : '#ff8888')) + '">' + (avgClv == null ? '—' : (avgClv > 0 ? '+' : '') + avgClv.toFixed(2) + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">AVG CLV</div></div>';
-  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ddd">' + (beatRate == null ? '—' : beatRate + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">BEAT CLOSE</div></div>';
-  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ddd">' + (wlPct == null ? '—' : wlPct + '%') + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">WIN RATE</div></div>';
-  h += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ffc832">' + pending + '</div><div style="font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:3px">PENDING</div></div>';
-  h += '</div>';
-
   if (avgClv != null) {
     let interpretation = '';
-    if (avgClv >= 2) interpretation = '<b style="color:#5dd9b1">Strong positive CLV</b> — your bets are consistently beating the closing line. The model is finding real edges. Keep going.';
-    else if (avgClv >= 0.5) interpretation = '<b style="color:#5dd9b1">Positive CLV</b> — modest edge over the close. Likely real but a small sample can still mislead; keep logging.';
-    else if (avgClv >= -0.5) interpretation = '<span style="color:#ffc832">Roughly flat CLV</span> — you\'re neither beating nor losing to the close. Either edges are too small to escape vig or sample is too small.';
-    else interpretation = '<b style="color:#ff8888">Negative CLV</b> — the closing line is moving AWAY from your picks. The "edges" the model identifies are not real (or are gone by the time you bet). Re-examine.';
-    if (totalCount < 20) interpretation += ' <span style="color:#888">(' + totalCount + ' bet sample — needs 50+ for confidence.)</span>';
-    h += '<div style="margin:0 16px 14px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">' + interpretation + '</div>';
+    if (avgClv >= 2) interpretation = '<b style="color:#5dd9b1">Strong positive CLV</b> — picks are beating the closing line on average.';
+    else if (avgClv >= 0.5) interpretation = '<b style="color:#5dd9b1">Positive CLV</b> — modest edge vs the close; keep building sample size.';
+    else if (avgClv >= -0.5) interpretation = '<span style="color:#ffc832">Flat CLV</span> — not clearly beating or losing to the close yet.';
+    else interpretation = '<b style="color:#ff8888">Negative CLV</b> — closing line is moving against these prices.';
+    if (totalCount < 20) interpretation += ' <span style="color:#888">(' + totalCount + ' settled — aim for 50+.)</span>';
+    h += '<div style="margin:0 16px 12px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:12px;color:#ccc;line-height:1.55">' + interpretation + '</div>';
   }
-
-  // Bet list — newest first
-  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:6px 16px;text-transform:uppercase">Bet log · newest first</div>';
-  const sorted = [...clvLog].sort((a, b) => b.loggedAt - a.loggedAt);
-  for (const e of sorted) {
-    const ageMin = Math.round((Date.now() - e.loggedAt) / 60000);
-    const ageStr = ageMin < 60 ? ageMin + 'm ago' : ageMin < 1440 ? Math.round(ageMin / 60) + 'h ago' : Math.round(ageMin / 1440) + 'd ago';
-    const clvColor = e.clvPct == null ? '#888' : (e.clvPct > 0 ? '#5dd9b1' : '#ff8888');
-    const clvDisp = e.clvPct == null ? 'pending' : (e.clvPct > 0 ? '+' : '') + e.clvPct.toFixed(2) + '%';
-    const resultBadge = e.result === 'win'  ? '<span style="background:rgba(78,204,163,.15);color:#5dd9b1;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">W</span>'
-                      : e.result === 'loss' ? '<span style="background:rgba(255,107,107,.15);color:#ff8888;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">L</span>'
-                      : e.result === 'push' ? '<span style="background:rgba(255,200,50,.15);color:#ffc832;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">P</span>'
-                      : '';
-    h += '<div style="margin:6px 16px;padding:11px 13px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
-    h += '<div style="flex:1;min-width:0">';
-    h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.team || '') + (e.line != null ? ' ' + (e.line >= 0 ? '+' : '') + e.line : '') + resultBadge + '</div>';
-    h += '<div style="font-size:11px;color:#999;margin-top:3px">' + (e.sport || '') + ' · got ' + fmt(e.betTimePubOdds) + ' at ' + (e.bk ? e.bk.split(' ')[0] : '?') + ' · ' + ageStr + '</div>';
-    h += '</div>';
-    h += '<div style="text-align:right">';
-    h += '<div style="font-size:16px;font-weight:800;color:' + clvColor + '">' + clvDisp + '</div>';
-    h += '<div style="font-size:9px;color:#888;letter-spacing:.5px;margin-top:2px">CLV</div>';
-    h += '</div>';
-    h += '</div>';
-    if (e.clvPct != null) {
-      h += '<div style="font-size:11px;color:#aaa;margin-top:6px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05)">';
-      h += 'Bet-time fair prob: <b>' + (e.betTimeFairProb != null ? (e.betTimeFairProb*100).toFixed(1) + '%' : '—') + '</b> · ';
-      h += 'Close fair prob: <b>' + (e.closeFairProb*100).toFixed(1) + '%</b>';
-      if (e.closeSource) h += ' <span style="color:#666">(' + e.closeSource + ')</span>';
-      h += '</div>';
-    }
-    h += '<div style="display:flex;gap:6px;margin-top:8px">';
-    h += '<button onclick="setClvResult(\'' + e.key + '\',\'win\')" style="flex:1;background:' + (e.result==='win'?'rgba(78,204,163,.22)':'rgba(78,204,163,.06)') + ';border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">WIN</button>';
-    h += '<button onclick="setClvResult(\'' + e.key + '\',\'loss\')" style="flex:1;background:' + (e.result==='loss'?'rgba(255,107,107,.22)':'rgba(255,107,107,.06)') + ';border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">LOSS</button>';
-    h += '<button onclick="setClvResult(\'' + e.key + '\',\'push\')" style="flex:1;background:' + (e.result==='push'?'rgba(255,200,50,.22)':'rgba(255,200,50,.06)') + ';border:1px solid rgba(255,200,50,.3);color:#ffc832;padding:5px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">PUSH</button>';
-    h += '<button onclick="deleteClvEntry(\'' + e.key + '\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#888;padding:5px 9px;border-radius:5px;font-size:11px;cursor:pointer">✕</button>';
-    h += '</div>';
-    h += '</div>';
-  }
-
-  container.innerHTML = h;
+  return h;
 }
 
 // ============================================================================
-// MODEL TRACKER
-//
-// Auto-logs every pick that appears in the Locks tab so we can measure the
-// model's real-world performance independent of which bets the user actually
-// places. This is the only honest answer to "is the model working?" — it's
-// the model's batting average against actual game outcomes, not a self-graded
-// EV report.
-//
-// Storage: localStorage key 'jlab_tracker_log'. Entries are deduped by a
-// stable key (game id + market + side + line). When the same pick appears
-// across multiple refreshes, we keep the FIRST snapshot — we want to know
-// the price the model surfaced when it first identified the edge.
-//
-// Auto-grading: when a user opens the Tracker tab (or after each odds
-// refresh), we group ungraded picks by sport and fetch /api/scores for each
-// affected sport. For each completed game we compute the result of every
-// logged pick on it and update its `result` field to 'win' / 'loss' / 'push'.
-// Player props can't be auto-graded (no player box scores in this feed) so
-// they remain pending until the user manually grades them.
+// MODEL TRACKER + CLV (unified tab)
+// Every Lock is logged with outcome grading AND closing-line value (CLV).
+// Betslip adds also land here (source: betslip). Storage: jlab_tracker_log.
 // ============================================================================
 
 const TRACKER_LOG_KEY = 'jlab_tracker_log';
@@ -1987,12 +1972,14 @@ try {
 } catch(e) {}
 
 let trackerView = 'overview'; // overview | units | sport | type | time | splits
-let trackerTimeGrouping = 'day'; // day | week | month
+let trackerTimeGrouping = 'day';
 let trackerSplitsMinN = 30;
 let trackerSplitsReport = null;
 let trackerSplitsReportLoading = false;
 let trackerGradingInFlight = false;
 let trackerLastGradedAt = 0;
+
+try { migrateClvLogToTracker(); } catch(e) {}
 
 function saveTrackerLog() {
   try { localStorage.setItem(TRACKER_LOG_KEY, JSON.stringify(trackerLog)); } catch(e) {}
@@ -2127,13 +2114,21 @@ function logLockToTracker(lock) {
     units: lock.units != null ? lock.units : null,
     loggedAt: Date.now(),
     splitsSnapshot,
-    // Filled in by gradeTrackerPicks()
-    result: null,        // 'win' / 'loss' / 'push' / null (pending)
+    source: 'lock',
+    betTimeFairProb: null,
+    closeFairProb: null,
+    closeAt: null,
+    clvPct: null,
+    closeSource: null,
+    result: null,
     finalHome: null,
     finalAway: null,
     gradedAt: null,
-    profitUnits: null    // signed units won/lost (calculated when result is set)
+    profitUnits: null
   });
+  const entry = trackerLog[trackerLog.length - 1];
+  _populateClvOnTrackerEntry(entry, lock.game);
+  saveTrackerLog();
 }
 
 // Compute the signed units P/L for a graded pick. WINS pay at the price you
@@ -2252,7 +2247,7 @@ async function gradeTrackerPicks(force) {
   trackerLastGradedAt = Date.now();
   if (anyChanged) {
     saveTrackerLog();
-    if (curTab === 3) renderModelTracker();
+    if (curTab === 2) renderModelTracker();
   }
 }
 
@@ -2310,6 +2305,7 @@ function exportTrackerCsv() {
   if (!trackerLog.length) { alert('No picks logged yet.'); return; }
   const rows = [
     ['logged_at','commence_time','sport','market','side','line','is_alt','pub_odds','sharp_odds','book','ev_pct','units','result','final_home','final_away','profit_units',
+     'source','bet_time_fair_prob','close_fair_prob','clv_pct','close_source','close_at',
      'splits_available','splits_market','splits_magnitude','splits_sharp_money_pct','splits_sharp_tickets_pct','splits_agrees_with_lock','splits_volume_tier','splits_tier']
   ];
   trackerLog.forEach(e => {
@@ -2331,6 +2327,12 @@ function exportTrackerCsv() {
       e.finalHome != null ? e.finalHome : '',
       e.finalAway != null ? e.finalAway : '',
       e.profitUnits != null ? e.profitUnits.toFixed(3) : '',
+      e.source || '',
+      e.betTimeFairProb != null ? e.betTimeFairProb.toFixed(4) : '',
+      e.closeFairProb != null ? e.closeFairProb.toFixed(4) : '',
+      e.clvPct != null ? e.clvPct : '',
+      e.closeSource || '',
+      e.closeAt ? new Date(e.closeAt).toISOString() : '',
       s.available ? '1' : '0',
       s.market || '',
       s.magnitude != null ? s.magnitude : '',
@@ -2465,15 +2467,13 @@ function renderModelTracker() {
     container.innerHTML =
       '<div style="padding:24px 20px;text-align:center;color:#888;line-height:1.7">' +
       '<div style="font-size:36px;margin-bottom:14px">📒</div>' +
-      '<div style="font-size:15px;color:#ddd;margin-bottom:10px;font-weight:600">Model Tracker</div>' +
+      '<div style="font-size:15px;color:#ddd;margin-bottom:10px;font-weight:600">Tracker + CLV</div>' +
       '<div style="font-size:13px;max-width:380px;margin:0 auto">' +
-      'Every pick that appears in the Locks tab is automatically logged here. ' +
-      'Once games complete, results are auto-graded against final scores so you can see how the model actually performs — independent of which bets you placed.' +
+      'Every Lock is logged with <b>auto-graded results</b> and <b>closing line value (CLV)</b>. Betslip adds are included too.' +
       '<br><br>' +
-      '<b style="color:#5dd9b1">This is the honest answer to "is this model working?"</b> ' +
-      'It records the model\'s recommendations and their outcomes, not your bet history.' +
+      '<b style="color:#5dd9b1">ROI</b> = pick outcomes. <b>CLV</b> = beat the closing sharp line?' +
       '<br><br>' +
-      '<span style="color:#666">Refresh the Locks tab to start logging.</span>' +
+      '<span style="color:#666">Refresh odds to populate Locks.</span>' +
       '</div></div>';
     return;
   }
@@ -2483,7 +2483,7 @@ function renderModelTracker() {
 
   let h = '';
   h += '<div style="padding:14px 16px 0;font-size:12px;color:#888;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
-  h += '<span><b style="color:#ddd">MODEL TRACKER</b> · ' + trackerLog.length + ' pick' + (trackerLog.length === 1 ? '' : 's') + ' logged · ' + overall.pending + ' pending</span>';
+  h += '<span><b style="color:#ddd">TRACKER + CLV</b> · ' + trackerLog.length + ' pick' + (trackerLog.length === 1 ? '' : 's') + ' logged · ' + overall.pending + ' pending</span>';
   h += '<span><button onclick="gradeTrackerPicks(true)" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">↻ GRADE</button> ';
   h += '<button onclick="exportTrackerCsv()" style="background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">EXPORT</button> ';
   h += '<button onclick="clearTrackerLog()" style="background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8888;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">CLEAR</button></span>';
@@ -2491,6 +2491,7 @@ function renderModelTracker() {
 
   // Top-level summary cards
   h += _renderTrackerSummaryCards(overall);
+  h += _renderTrackerClvSummary();
 
   // View selector
   h += '<div style="display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap">';
@@ -2600,10 +2601,20 @@ function _renderTrackerPickRow(e) {
   else if (e.result === 'push')resBadge = '<span style="background:rgba(255,200,50,.18);color:#ffc832;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">PUSH</span>';
   else resBadge = '<span style="background:rgba(255,255,255,.05);color:#888;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">PENDING</span>';
 
+  let clvBadge = '';
+  if (e.clvPct != null) {
+    const clvCol = e.clvPct > 0 ? '#5dd9b1' : (e.clvPct < 0 ? '#ff8888' : '#ffc832');
+    clvBadge = ' <span style="background:rgba(255,255,255,.06);color:' + clvCol + ';padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px" title="Bet-time fair ' + (e.betTimeFairProb != null ? (e.betTimeFairProb * 100).toFixed(1) : '?') + '% → close ' + (e.closeFairProb != null ? (e.closeFairProb * 100).toFixed(1) : '?') + '% (' + (e.closeSource || 'sharp') + ')">' +
+      (e.clvPct > 0 ? '+' : '') + e.clvPct.toFixed(1) + '% CLV</span>';
+  } else if (e.pubOdds != null && e.betTimeFairProb != null) {
+    clvBadge = ' <span style="color:#888;font-size:9px;font-weight:700" title="CLV captured ~30 min before kickoff">CLV pending</span>';
+  }
+  const srcTag = e.source === 'betslip' ? ' <span style="color:#7a9fff;font-size:9px;font-weight:700">SLIP</span>' : '';
+
   let h = '<div style="margin:6px 16px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
   h += '<div style="flex:1;min-width:0">';
-  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.side || '') + lineStr + altTag + splitsTag + resBadge + '</div>';
+  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.side || '') + lineStr + altTag + splitsTag + srcTag + resBadge + clvBadge + '</div>';
   h += '<div style="font-size:11px;color:#999;margin-top:3px">' + (e.sport || '') + ' · ' + oddsStr + (e.book ? ' at ' + e.book.split(' ')[0] : '') + ' · ' + (e.units || '?') + 'u · ' + ago;
   if (e.finalHome != null && e.finalAway != null) h += ' · final ' + e.awayTeam + ' ' + e.finalAway + ' @ ' + e.homeTeam + ' ' + e.finalHome;
   h += '</div>';
@@ -3004,8 +3015,7 @@ function isGameInLocks(gameId, team) {
 function rerenderCurrentTab() {
   if (curTab === 0) renderGames();
   else if (curTab === 1) renderLocks();
-  else if (curTab === 2) renderClvTracker();
-  else if (curTab === 3) renderModelTracker();
+  else if (curTab === 2) renderModelTracker();
 }
 
 function americanToDecimal(o) {
@@ -3222,15 +3232,13 @@ async function hydrateFromServerHistory(gameId) {
 
 function goTab(n) {
   curTab = n;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     document.getElementById("t" + i).className = "tab" + (i === n ? " on" : "");
     document.getElementById("v" + i).style.display = i === n ? "block" : "none";
   }
   if (n === 1) {
     try { renderLocks(); } catch(e) { console.error("renderLocks failed:", e); }
   } else if (n === 2) {
-    try { renderClvTracker(); } catch(e) { console.error("renderClvTracker failed:", e); }
-  } else if (n === 3) {
     try { renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
   }
 }
@@ -7312,13 +7320,13 @@ async function init() {
     document.getElementById("sL").textContent = results.length + " GAMES - " + Object.keys(sc).length + " SPORTS";
     document.getElementById("sR").textContent = "ODDS + SHARP";
     try { computeLocks(); } catch(e) { console.error("computeLocks failed:", e); }
+    try { backfillTrackerClvFields(); } catch(e) { console.error("backfillTrackerClvFields failed:", e); }
     try { updateClvSnapshots(); } catch(e) { console.error("updateClvSnapshots failed:", e); }
     try { gradeTrackerPicks(false); } catch(e) { console.error("gradeTrackerPicks failed:", e); }
     try { renderFltrs(); } catch(e) { console.error("renderFltrs failed:", e); }
     try { renderGames(); } catch(e) { console.error("renderGames failed:", e); document.getElementById("games").innerHTML = '<div class="empty">Render error: ' + e.message + '</div>'; }
     try { renderLocks(); } catch(e) { console.error("renderLocks failed:", e); }
-    try { if (curTab === 2) renderClvTracker(); } catch(e) { console.error("renderClvTracker failed:", e); }
-    try { if (curTab === 3) renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
+    try { if (curTab === 2) renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
     try { renderBetCard(); } catch(e) { console.error("renderBetCard failed:", e); }
     fetchAllSplits().then(() => {
       try {
@@ -8458,8 +8466,7 @@ try {
 <div class="tabs">
 <button class="tab on" id="t0" onclick="goTab(0)"><span class="tab-icon">📊</span><span>Lines</span></button>
 <button class="tab" id="t1" onclick="goTab(1)"><span class="tab-icon">🔒</span><span>Locks</span></button>
-<button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">📈</span><span>CLV</span></button>
-<button class="tab" id="t3" onclick="goTab(3)"><span class="tab-icon">📒</span><span>Tracker</span></button>
+<button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">📒</span><span>Tracker</span></button>
 </div>
 <div class="build-id-indicator">2026-04-28 00:23:14 UTC</div>
 </body>
