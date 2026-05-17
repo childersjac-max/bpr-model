@@ -1986,13 +1986,117 @@ try {
   if (raw) trackerLog = JSON.parse(raw) || [];
 } catch(e) {}
 
-let trackerView = 'overview'; // overview | units | sport | type | time
+let trackerView = 'overview'; // overview | units | sport | type | time | splits
 let trackerTimeGrouping = 'day'; // day | week | month
+let trackerSplitsMinN = 30;
+let trackerSplitsReport = null;
+let trackerSplitsReportLoading = false;
 let trackerGradingInFlight = false;
 let trackerLastGradedAt = 0;
 
 function saveTrackerLog() {
   try { localStorage.setItem(TRACKER_LOG_KEY, JSON.stringify(trackerLog)); } catch(e) {}
+}
+
+// Splits load async after computeLocks; backfill snapshots for tracker rows that
+// were logged before VSiN data was available (no extra API cost).
+function backfillTrackerSplitsSnapshots() {
+  if (!trackerLog.length || !allGames.length) return;
+  let changed = false;
+  for (const e of trackerLog) {
+    if (e.splitsSnapshot && (e.splitsSnapshot.available === true || e.splitsSnapshot.reason)) continue;
+    const game = allGames.find(g => g.id === e.gameId);
+    if (!game) continue;
+    const lock = {
+      game,
+      market: e.market,
+      bestSide: e.side,
+      bestSideShort: e.sideShort || (e.side && e.side.split(' ').pop()),
+      bestLine: e.line
+    };
+    const snap = captureSplitsSnapshotForLock(lock);
+    if (snap) {
+      e.splitsSnapshot = snap;
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveTrackerLog();
+    if (trackerView === 'splits') {
+      trackerSplitsReport = null;
+      refreshSplitsAttributionReport();
+    }
+  }
+}
+
+// Freeze VSiN/DK ticket% vs money% at the moment the Lock is first logged.
+// Used by Tracker → Splits Lab for empirical "which ratios work" analysis.
+function captureSplitsSnapshotForLock(lock) {
+  if (!lock || !lock.game) return { available: false, reason: 'no_game' };
+  const splits = (typeof getSplitsForGame === 'function') ? getSplitsForGame(lock.game) : null;
+  if (!splits) return { available: false, reason: 'no_vsin_data' };
+  const marketMap = { Moneyline: 'ML', Spread: 'Spread', Total: 'Total' };
+  const lockMarket = marketMap[lock.market] || lock.market;
+  const all = findAllDivergences(splits);
+  let div = all.find(d => d.market === lockMarket);
+  let usedStrongestFallback = false;
+  if (!div || div.magnitude == null || div.magnitude < 4) {
+    const strongest = findStrongestDivergence(splits);
+    if (strongest && strongest.magnitude >= 4) {
+      div = strongest;
+      usedStrongestFallback = div.market !== lockMarket;
+    }
+  }
+  const vol = (typeof calcVolumeConfidence === 'function') ? calcVolumeConfidence(lock.game) : null;
+  if (!div || div.magnitude == null || div.magnitude < 4) {
+    return {
+      available: true,
+      source: 'vsin_dk',
+      capturedAt: Date.now(),
+      market: lockMarket,
+      lockMarket,
+      magnitude: div && div.magnitude != null ? div.magnitude : 0,
+      tier: div && div.tier ? div.tier : 'balanced',
+      agreesWithLock: false,
+      noQualifyingSignal: true,
+      usedStrongestFallback,
+      volumeTier: vol ? vol.tier : null,
+      volumeLabel: vol ? vol.label : null,
+      allMarkets: all.map(d => ({
+        market: d.market, magnitude: d.magnitude, tier: d.tier,
+        sharpShort: d.sharpShort, sharpMoney: d.sharpMoney, sharpTickets: d.sharpTickets
+      }))
+    };
+  }
+  const agreesWithLock =
+    div.sharpShort === lock.bestSideShort ||
+    div.sharpSide === lock.bestSide ||
+    (lock.market === 'Total' && (div.sharpShort === lock.bestSideShort || div.sharpSide === lock.bestSide));
+  return {
+    available: true,
+    source: 'vsin_dk',
+    capturedAt: Date.now(),
+    market: div.market,
+    lockMarket,
+    magnitude: div.magnitude,
+    tier: div.tier,
+    sharpMoney: div.sharpMoney,
+    sharpTickets: div.sharpTickets,
+    publicMoney: div.publicMoney,
+    publicTickets: div.publicTickets,
+    sharpSide: div.sharpSide,
+    sharpShort: div.sharpShort,
+    publicSide: div.publicSide,
+    agreesWithLock: !!agreesWithLock,
+    noQualifyingSignal: false,
+    usedStrongestFallback,
+    volumeTier: vol ? vol.tier : null,
+    volumeLabel: vol ? vol.label : null,
+    allMarkets: all.map(d => ({
+      market: d.market, magnitude: d.magnitude, tier: d.tier,
+      sharpShort: d.sharpShort, sharpMoney: d.sharpMoney, sharpTickets: d.sharpTickets
+    }))
+  };
 }
 
 // Called from computeLocks() after the locks array is built. Every pick
@@ -2002,6 +2106,7 @@ function logLockToTracker(lock) {
   // Build a stable dedup key — same shape across refreshes for the same pick
   const key = lock.game.id + '|' + (lock.market || '') + '|' + (lock.bestSideShort || lock.bestSide || '') + '|' + (lock.bestLine != null ? lock.bestLine : '');
   if (trackerLog.some(t => t.key === key)) return;
+  const splitsSnapshot = captureSplitsSnapshotForLock(lock);
   trackerLog.push({
     key,
     gameId: lock.game.id,
@@ -2021,6 +2126,7 @@ function logLockToTracker(lock) {
     ev: lock.ev != null ? lock.ev : null,
     units: lock.units != null ? lock.units : null,
     loggedAt: Date.now(),
+    splitsSnapshot,
     // Filled in by gradeTrackerPicks()
     result: null,        // 'win' / 'loss' / 'push' / null (pending)
     finalHome: null,
@@ -2160,6 +2266,29 @@ function setTrackerTimeGrouping(g) {
   renderModelTracker();
 }
 
+function setTrackerSplitsMinN(n) {
+  trackerSplitsMinN = Math.max(5, parseInt(n, 10) || 30);
+  trackerSplitsReport = null;
+  renderModelTracker();
+}
+
+async function refreshSplitsAttributionReport() {
+  trackerSplitsReportLoading = true;
+  renderModelTracker();
+  try {
+    const r = await fetch('/api/splits-attribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: trackerLog, minN: trackerSplitsMinN })
+    });
+    trackerSplitsReport = await r.json();
+  } catch (e) {
+    trackerSplitsReport = { error: e.message };
+  }
+  trackerSplitsReportLoading = false;
+  renderModelTracker();
+}
+
 function setTrackerResult(key, result) {
   const e = trackerLog.find(x => x.key === key);
   if (!e) return;
@@ -2180,9 +2309,11 @@ function clearTrackerLog() {
 function exportTrackerCsv() {
   if (!trackerLog.length) { alert('No picks logged yet.'); return; }
   const rows = [
-    ['logged_at','commence_time','sport','market','side','line','is_alt','pub_odds','sharp_odds','book','ev_pct','units','result','final_home','final_away','profit_units']
+    ['logged_at','commence_time','sport','market','side','line','is_alt','pub_odds','sharp_odds','book','ev_pct','units','result','final_home','final_away','profit_units',
+     'splits_available','splits_market','splits_magnitude','splits_sharp_money_pct','splits_sharp_tickets_pct','splits_agrees_with_lock','splits_volume_tier','splits_tier']
   ];
   trackerLog.forEach(e => {
+    const s = e.splitsSnapshot || {};
     rows.push([
       new Date(e.loggedAt).toISOString(),
       e.commenceTime || '',
@@ -2199,7 +2330,15 @@ function exportTrackerCsv() {
       e.result || 'pending',
       e.finalHome != null ? e.finalHome : '',
       e.finalAway != null ? e.finalAway : '',
-      e.profitUnits != null ? e.profitUnits.toFixed(3) : ''
+      e.profitUnits != null ? e.profitUnits.toFixed(3) : '',
+      s.available ? '1' : '0',
+      s.market || '',
+      s.magnitude != null ? s.magnitude : '',
+      s.sharpMoney != null ? s.sharpMoney : '',
+      s.sharpTickets != null ? s.sharpTickets : '',
+      s.agreesWithLock ? '1' : '0',
+      s.volumeTier || '',
+      s.tier || ''
     ]);
   });
   const csv = rows.map(r => r.map(c => {
@@ -2360,7 +2499,8 @@ function renderModelTracker() {
     ['units',    'By Unit Size'],
     ['sport',    'By Sport'],
     ['type',     'By Bet Type'],
-    ['time',     'Over Time']
+    ['time',     'Over Time'],
+    ['splits',   'Splits Lab']
   ];
   for (const [k, lbl] of views) {
     const active = trackerView === k;
@@ -2374,8 +2514,13 @@ function renderModelTracker() {
   else if (trackerView === 'sport') h += _renderTrackerBySport();
   else if (trackerView === 'type')  h += _renderTrackerByType();
   else if (trackerView === 'time')  h += _renderTrackerByTime();
+  else if (trackerView === 'splits') h += _renderTrackerSplitsLab();
 
   container.innerHTML = h;
+
+  if (trackerView === 'splits' && !trackerSplitsReport && !trackerSplitsReportLoading) {
+    refreshSplitsAttributionReport();
+  }
 }
 
 function _renderTrackerSummaryCards(s) {
@@ -2440,6 +2585,14 @@ function _renderTrackerPickRow(e) {
   const ago = e.commenceTime ? _agoLabel(new Date(e.commenceTime).getTime()) : '?';
   const lineStr = e.line != null ? ' ' + (e.line >= 0 && e.market !== 'Total' ? '+' : '') + e.line : '';
   const altTag = e.isAlt ? ' <span style="color:#b99aff;font-weight:700;font-size:9px">ALT</span>' : '';
+  let splitsTag = '';
+  const ss = e.splitsSnapshot;
+  if (ss && ss.available && ss.magnitude >= 4) {
+    const ag = ss.agreesWithLock ? '✓' : '✗';
+    const col = ss.agreesWithLock ? '#4ecca3' : '#ffc832';
+    splitsTag = ' <span style="color:' + col + ';font-weight:700;font-size:9px" title="Money ' + ss.sharpMoney + '% / Tickets ' + ss.sharpTickets + '% · gap ' + ss.magnitude + 'pts">' +
+      ag + ' SPLITS ' + ss.magnitude + '</span>';
+  }
   const oddsStr = e.pubOdds != null ? fmt(e.pubOdds) : '?';
   let resBadge = '';
   if (e.result === 'win')      resBadge = '<span style="background:rgba(78,204,163,.18);color:#5dd9b1;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px">W ' + (e.profitUnits >= 0 ? '+' : '') + e.profitUnits.toFixed(2) + 'u</span>';
@@ -2450,7 +2603,7 @@ function _renderTrackerPickRow(e) {
   let h = '<div style="margin:6px 16px;padding:10px 12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
   h += '<div style="flex:1;min-width:0">';
-  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.side || '') + lineStr + altTag + resBadge + '</div>';
+  h += '<div style="font-size:13px;color:#fff;font-weight:600">' + (e.market || '') + ' · ' + (e.side || '') + lineStr + altTag + splitsTag + resBadge + '</div>';
   h += '<div style="font-size:11px;color:#999;margin-top:3px">' + (e.sport || '') + ' · ' + oddsStr + (e.book ? ' at ' + e.book.split(' ')[0] : '') + ' · ' + (e.units || '?') + 'u · ' + ago;
   if (e.finalHome != null && e.finalAway != null) h += ' · final ' + e.awayTeam + ' ' + e.finalAway + ' @ ' + e.homeTeam + ' ' + e.finalHome;
   h += '</div>';
@@ -2558,6 +2711,199 @@ function _renderTrackerByTime() {
   for (const r of [...rows].reverse()) {
     h += _renderTrackerGroupRow(r.key, r.stats, maxAbsPL);
   }
+  return h;
+}
+
+const SPLITS_SCENARIO_LABELS = {
+  agrees_magnitude_4_plus: 'Splits agree · gap ≥4 pts',
+  agrees_magnitude_7_plus: 'Splits agree · gap ≥7 pts',
+  agrees_magnitude_12_plus: 'Splits agree · gap ≥12 pts (RLM tier)',
+  agrees_magnitude_18_plus: 'Splits agree · gap ≥18 pts',
+  opposes_magnitude_4_plus: 'Splits oppose lock · gap ≥4 pts',
+  opposes_magnitude_12_plus: 'Splits oppose lock · gap ≥12 pts',
+  no_splits_signal: 'No qualifying split signal (<4 pts)',
+  market_ml: 'ML market divergence',
+  market_spread: 'Spread market divergence',
+  market_total: 'Total market divergence',
+  vol_high_agrees: 'High volume + splits agree',
+  vol_low_any: 'Low volume splits',
+  cross_market_strongest_not_lock_market: 'Strongest div on other market',
+  ev_2_plus_agrees: 'EV ≥2% + splits agree',
+  ev_2_plus_opposes: 'EV ≥2% + splits oppose',
+  all_graded_with_splits: 'All graded (splits captured)',
+  splits_available: 'Any splits snapshot'
+};
+
+function _renderTrackerSplitsLab() {
+  if (trackerSplitsReportLoading) {
+    return '<div style="text-align:center;color:#888;padding:40px 20px;line-height:1.6">' +
+      '<div style="font-size:28px;margin-bottom:12px">📐</div>' +
+      'Running splits attribution…<br><span style="font-size:12px;color:#666">No Odds API credits used.</span></div>';
+  }
+  if (!trackerSplitsReport || trackerSplitsReport.error) {
+    return '<div style="padding:20px;color:#ff8888;text-align:center">' +
+      (trackerSplitsReport && trackerSplitsReport.error ? trackerSplitsReport.error : 'Load failed') +
+      '<br><button onclick="refreshSplitsAttributionReport()" style="margin-top:12px;background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer">RETRY</button></div>';
+  }
+  const R = trackerSplitsReport;
+  let h = '';
+
+  h += '<div style="margin:0 16px 12px;padding:12px 14px;background:rgba(93,217,177,.06);border:1px solid rgba(93,217,177,.25);border-radius:8px;font-size:12px;color:#ccc;line-height:1.6">';
+  h += '<b style="color:#5dd9b1">Splits Lab</b> — empirical answer to whether DK handle% vs tickets% on your Lock cohort predicts outcomes. ';
+  h += 'New Locks store a frozen <code style="color:#9fd4c4">splitsSnapshot</code> at first log. ';
+  h += 'Legacy rows without snapshots are excluded from splits cohorts.';
+  h += '</div>';
+
+  h += '<div style="display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap;align-items:center">';
+  h += '<span style="font-size:10px;color:#888">min graded n:</span>';
+  for (const n of [20, 30, 50, 100]) {
+    const on = trackerSplitsMinN === n;
+    h += '<button onclick="setTrackerSplitsMinN(' + n + ')" style="background:' + (on ? 'rgba(93,217,177,.2)' : 'rgba(255,255,255,.03)') + ';border:1px solid ' + (on ? 'rgba(93,217,177,.5)' : 'rgba(255,255,255,.08)') + ';color:' + (on ? '#5dd9b1' : '#bbb') + ';padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">' + n + '</button>';
+  }
+  h += '<button onclick="refreshSplitsAttributionReport()" style="margin-left:auto;background:rgba(78,204,163,.12);border:1px solid rgba(78,204,163,.3);color:#5dd9b1;padding:5px 12px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">↻ REFRESH</button>';
+  h += '</div>';
+
+  const c = R.cohort || {};
+  h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 16px 14px">';
+  h += _splitsLabStatCard('Graded w/ splits', (c.graded_with_splits || 0) + ' / ' + (c.graded || 0));
+  h += _splitsLabStatCard('Legacy (no snapshot)', String(c.legacy_without_splits || 0));
+  h += _splitsLabStatCard('Trustworthy scenarios', String((R.ranked_trustworthy || []).length));
+  h += _splitsLabStatCard('minN threshold', String(R.minN || trackerSplitsMinN));
+  h += '</div>';
+
+  if (R.insights && R.insights.length) {
+    for (const tip of R.insights) {
+      const col = tip.level === 'success' ? '#5dd9b1' : tip.level === 'warn' ? '#ff8888' : '#ccc';
+      h += '<div style="margin:0 16px 10px;padding:10px 12px;background:rgba(255,255,255,.02);border-left:3px solid ' + col + ';border-radius:4px;font-size:12px;color:#ccc;line-height:1.55">' + tip.text + '</div>';
+    }
+  }
+
+  h += _renderSplitsGlossary(R.glossary);
+  h += _renderSplitsMethodology(R.methodology);
+
+  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:8px 16px 6px;text-transform:uppercase">Magnitude buckets (money% − tickets% on sharp side)</div>';
+  h += _renderSplitsMagnitudeTable(R.magnitude_buckets);
+
+  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:14px 16px 6px;text-transform:uppercase">Scenarios ranked by ROI (graded picks)</div>';
+  h += _renderSplitsScenarioTable(R.ranked, R.minN);
+
+  h += '<div style="font-size:10px;color:#888;letter-spacing:.5px;padding:14px 16px 6px;text-transform:uppercase">Cross-tab: agrees with lock × magnitude band</div>';
+  h += _renderSplitsCrossTab(R.cross_agrees_x_magnitude);
+
+  return h;
+}
+
+function _splitsLabStatCard(lbl, val) {
+  return '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;text-align:center">' +
+    '<div style="font-size:16px;font-weight:800;color:#ddd">' + val + '</div>' +
+    '<div style="font-size:9px;color:#888;margin-top:4px;letter-spacing:.4px">' + lbl + '</div></div>';
+}
+
+function _renderSplitsGlossary(glossary) {
+  if (!glossary) return '';
+  let h = '<details style="margin:8px 16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:8px">';
+  h += '<summary style="padding:12px 14px;cursor:pointer;font-size:12px;font-weight:700;color:#5dd9b1">📖 Metric glossary (technical + plain English)</summary>';
+  h += '<div style="padding:0 14px 14px;font-size:12px;color:#bbb;line-height:1.55">';
+  for (const key of Object.keys(glossary)) {
+    const g = glossary[key];
+    h += '<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.06)">';
+    h += '<div style="font-weight:700;color:#fff;margin-bottom:4px">' + g.term + '</div>';
+    h += '<div style="font-size:11px;color:#9ab;margin-bottom:4px"><b>Technical:</b> ' + g.technical + '</div>';
+    h += '<div style="font-size:11px;color:#ccc;margin-bottom:4px"><b>Plain:</b> ' + g.plain + '</div>';
+    h += '<div style="font-size:11px;color:#5dd9b1"><b>How to use:</b> ' + g.interpret + '</div>';
+    h += '</div>';
+  }
+  h += '</div></details>';
+  return h;
+}
+
+function _renderSplitsMethodology(m) {
+  if (!m) return '';
+  let h = '<details style="margin:8px 16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:8px">';
+  h += '<summary style="padding:12px 14px;cursor:pointer;font-size:12px;font-weight:700;color:#b99aff">🔬 Methodology & limitations</summary>';
+  h += '<div style="padding:0 14px 14px;font-size:12px;color:#bbb;line-height:1.6">';
+  h += '<p><b>Hypothesis:</b> ' + m.hypothesis + '</p>';
+  h += '<p><b>Design:</b> ' + m.design + '</p>';
+  h += '<p><b>How to read results:</b></p><ol style="margin:6px 0 0 18px;padding:0">';
+  (m.reading_order || []).forEach(step => { h += '<li style="margin-bottom:6px">' + step + '</li>'; });
+  h += '</ol><p><b>Limitations:</b></p><ul style="margin:6px 0 0 18px">';
+  (m.limitations || []).forEach(l => { h += '<li style="margin-bottom:6px">' + l + '</li>'; });
+  h += '</ul></div></details>';
+  return h;
+}
+
+function _renderSplitsMagnitudeTable(buckets) {
+  if (!buckets) return '';
+  const order = ['no_signal', 'weak', 'moderate', 'strong', 'very_strong'];
+  let h = '<div style="margin:0 16px 8px">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h += '<tr style="color:#888;font-size:9px;text-transform:uppercase"><th style="text-align:left;padding:8px">Bucket</th><th>n</th><th>ROI</th><th>95% CI</th><th>Win%</th><th>Trust?</th></tr>';
+  for (const id of order) {
+    const s = buckets[id];
+    if (!s) continue;
+    const roiC = s.roi_pct == null ? '#888' : (s.roi_pct >= 0 ? '#5dd9b1' : '#ff8888');
+    h += '<tr style="border-top:1px solid rgba(255,255,255,.06)">';
+    h += '<td style="padding:8px;color:#fff">' + s.label + '</td>';
+    h += '<td style="text-align:center;color:#ccc">' + s.graded + '</td>';
+    h += '<td style="text-align:center;color:' + roiC + ';font-weight:700">' + (s.roi_pct == null ? '—' : (s.roi_pct >= 0 ? '+' : '') + s.roi_pct + '%') + '</td>';
+    h += '<td style="text-align:center;color:#999;font-size:10px">' + (s.roi_ci95 ? s.roi_ci95[0] + '…' + s.roi_ci95[1] : '—') + '</td>';
+    h += '<td style="text-align:center;color:#ccc">' + (s.win_pct == null ? '—' : s.win_pct + '%') + '</td>';
+    h += '<td style="text-align:center">' + (s.trustworthy ? '<span style="color:#5dd9b1">✓</span>' : '<span style="color:#666">—</span>') + '</td>';
+    h += '</tr>';
+  }
+  h += '</table></div>';
+  return h;
+}
+
+function _renderSplitsScenarioTable(ranked, minN) {
+  if (!ranked || !ranked.length) {
+    return '<div style="text-align:center;color:#888;padding:24px">No graded picks with splits snapshots yet. Log new Locks after splits load on refresh.</div>';
+  }
+  let h = '<div style="margin:0 16px 8px;overflow-x:auto">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:520px">';
+  h += '<tr style="color:#888;font-size:9px;text-transform:uppercase"><th style="text-align:left;padding:8px">Scenario</th><th>graded n</th><th>ROI</th><th>95% CI</th><th>Avg EV</th><th>units P/L</th><th></th></tr>';
+  for (const row of ranked.slice(0, 20)) {
+    const s = row.stats;
+    const lbl = SPLITS_SCENARIO_LABELS[row.key] || row.label;
+    const roiC = s.roi_pct == null ? '#888' : (s.roi_pct >= 0 ? '#5dd9b1' : '#ff8888');
+    h += '<tr style="border-top:1px solid rgba(255,255,255,.06)">';
+    h += '<td style="padding:8px;color:#fff;max-width:200px">' + lbl + '</td>';
+    h += '<td style="text-align:center;color:#ccc">' + s.graded + '</td>';
+    h += '<td style="text-align:center;color:' + roiC + ';font-weight:700">' + (s.roi_pct == null ? '—' : (s.roi_pct >= 0 ? '+' : '') + s.roi_pct + '%') + '</td>';
+    h += '<td style="text-align:center;color:#999;font-size:10px">' + (s.roi_ci95 ? s.roi_ci95[0] + '…' + s.roi_ci95[1] : '—') + '</td>';
+    h += '<td style="text-align:center;color:#7fbf9f">' + (s.avg_ev_pct != null ? '+' + s.avg_ev_pct + '%' : '—') + '</td>';
+    h += '<td style="text-align:center;color:' + roiC + '">' + (s.units_pl >= 0 ? '+' : '') + (s.units_pl != null ? s.units_pl.toFixed(2) : '—') + 'u</td>';
+    h += '<td style="text-align:center;font-size:10px;color:' + (s.trustworthy ? '#5dd9b1' : '#666') + '">' + (s.trustworthy ? 'TRUST' : s.note) + '</td>';
+    h += '</tr>';
+  }
+  h += '</table>';
+  h += '<div style="font-size:10px;color:#666;padding:8px 4px">Trustworthy = graded n≥' + minN + ' and ROI 95% CI excludes 0%.</div></div>';
+  return h;
+}
+
+function _renderSplitsCrossTab(grid) {
+  if (!grid) return '';
+  const bands = ['weak', 'moderate', 'strong', 'very_strong'];
+  const bandLbl = { weak: '4–6', moderate: '7–11', strong: '12–17', very_strong: '18+' };
+  let h = '<div style="margin:0 16px 16px;overflow-x:auto">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:480px">';
+  h += '<tr style="color:#888"><th style="padding:6px"></th>';
+  bands.forEach(b => { h += '<th style="padding:6px;text-align:center">' + bandLbl[b] + ' pts</th>'; });
+  h += '</tr>';
+  for (const ag of ['yes', 'no']) {
+    h += '<tr style="border-top:1px solid rgba(255,255,255,.08)">';
+    h += '<td style="padding:8px;color:#fff;font-weight:600">' + (ag === 'yes' ? 'Agrees w/ Lock' : 'Opposes Lock') + '</td>';
+    for (const b of bands) {
+      const s = grid[ag] && grid[ag][b] ? grid[ag][b] : { graded: 0, roi_pct: null };
+      const col = s.roi_pct == null ? '#666' : (s.roi_pct >= 0 ? '#5dd9b1' : '#ff8888');
+      h += '<td style="padding:8px;text-align:center;color:' + col + '">';
+      h += 'n=' + s.graded + '<br>' + (s.roi_pct == null ? '—' : (s.roi_pct >= 0 ? '+' : '') + s.roi_pct + '% ROI');
+      if (s.trustworthy) h += '<br><span style="color:#5dd9b1">✓</span>';
+      h += '</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</table></div>';
   return h;
 }
 
@@ -6027,6 +6373,7 @@ async function fetchSplitsForSport(sportKey) {
     splitsCache[sportKey] = [];
   }
   splitsLoading[sportKey] = false;
+  try { backfillTrackerSplitsSnapshots(); } catch(e) {}
 }
 
 
@@ -6973,7 +7320,13 @@ async function init() {
     try { if (curTab === 2) renderClvTracker(); } catch(e) { console.error("renderClvTracker failed:", e); }
     try { if (curTab === 3) renderModelTracker(); } catch(e) { console.error("renderModelTracker failed:", e); }
     try { renderBetCard(); } catch(e) { console.error("renderBetCard failed:", e); }
-    fetchAllSplits().then(() => { try { renderGames(); if (curTab === 1) renderLocks(); } catch(e) { console.error(e); } });
+    fetchAllSplits().then(() => {
+      try {
+        backfillTrackerSplitsSnapshots();
+        renderGames();
+        if (curTab === 1) renderLocks();
+      } catch(e) { console.error(e); }
+    });
     fetchAllProps().then(() => { try { renderGames(); } catch(e) { console.error(e); } });
   } catch (e) {
     document.getElementById("games").innerHTML = '<div class="empty">Failed to load: ' + e.message + '<br><br><span style=\"font-size:11px;color:#333\">Tap ↻ to retry</span></div>';

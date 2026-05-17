@@ -49,7 +49,11 @@ module.exports = async function handler(req, res) {
               COALESCE((lp.dossier->'signals'->>'rlm')::boolean,false)    AS rlm,
               COALESCE((lp.dossier->'signals'->>'xmarket')::boolean,false) AS xmarket,
               COALESCE(lp.is_alt,false)                                    AS alt,
-              COALESCE((lp.dossier->'signals'->>'stale')::boolean,false)  AS stale
+              COALESCE((lp.dossier->'signals'->>'stale')::boolean,false)  AS stale,
+              COALESCE((lp.dossier->'splits'->>'available')::boolean,false) AS splits_available,
+              COALESCE((lp.dossier->'splits'->>'agreesWithLock')::boolean,false) AS splits_agrees,
+              COALESCE((lp.dossier->'splits'->>'magnitude')::numeric, 0) AS splits_magnitude,
+              COALESCE(lp.dossier->'splits'->>'volumeTier', '') AS splits_volume_tier
          FROM lock_picks lp
         WHERE ${W}`,
       args
@@ -75,7 +79,14 @@ module.exports = async function handler(req, res) {
       'any_signal_plus_alt':        r => (r.steam || r.rlm || r.xmarket) && r.alt,
       'stale_flagged':              r => r.stale,
       'high_ev_3pct_plus':          r => (r.ev_pct ?? 0) >= 3,
-      'high_ev_plus_any_signal':    r => (r.ev_pct ?? 0) >= 3 && (r.steam || r.rlm || r.xmarket)
+      'high_ev_plus_any_signal':    r => (r.ev_pct ?? 0) >= 3 && (r.steam || r.rlm || r.xmarket),
+      'splits_agrees_mag_4_plus':   r => r.splits_available && r.splits_agrees && r.splits_magnitude >= 4,
+      'splits_agrees_mag_12_plus':  r => r.splits_available && r.splits_agrees && r.splits_magnitude >= 12,
+      'splits_agrees_mag_18_plus':  r => r.splits_available && r.splits_agrees && r.splits_magnitude >= 18,
+      'splits_opposes_mag_12_plus': r => r.splits_available && !r.splits_agrees && r.splits_magnitude >= 12,
+      'splits_no_signal':           r => r.splits_available && r.splits_magnitude < 4,
+      'splits_high_vol_agrees':     r => r.splits_available && r.splits_agrees &&
+        r.splits_volume_tier === 'high'
     };
 
     const out = {};
