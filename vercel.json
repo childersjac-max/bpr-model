@@ -1,3 +1,8 @@
 {
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "crons": [
+    { "path": "/api/cron/snapshot", "schedule": "0 * * * *" },
+    { "path": "/api/cron/closing",  "schedule": "20 * * * *" },
+    { "path": "/api/cron/grade",    "schedule": "40 * * * *" }
+  ]
 }

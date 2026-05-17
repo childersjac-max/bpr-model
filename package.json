@@ -1,10 +1,13 @@
 {
   "name": "bpr-model",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "J LAB sports betting model and odds dashboard",
+  "description": "J LAB v4 — sports betting research workstation (continuous market capture, true CLV, signal attribution)",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.11.5"
   },
   "optionalDependencies": {
     "@vercel/kv": "^1.0.1"
