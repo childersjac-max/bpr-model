@@ -4,7 +4,7 @@ Sports betting tool focused on **one goal: identifying +EV bets that will make y
 
 ---
 
-## What's new in v3.5
+## What's new in  v3.5
 
 ### Tracker tab — auto-logged W/L performance of every Lock
 A new bottom-nav tab that **automatically logs every pick that appears in the Locks tab** and grades it against final scores via a new `/api/scores` endpoint. This is the honest answer to "is this model working?" — independent of which bets you actually placed.
