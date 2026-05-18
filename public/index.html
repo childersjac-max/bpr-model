@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- J LAB build: 2026-04-28 00:23:14 UTC -->
+<!-- J LAB build: 2026-05-18 — Tracker+CLV unified tab (3 nav tabs) -->
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -3231,6 +3231,10 @@ async function hydrateFromServerHistory(gameId) {
 }
 
 function goTab(n) {
+  // Legacy 4-tab app: CLV=2, Tracker=3. Tracker+CLV now lives at index 2 only.
+  if (n === 3) n = 2;
+  if (n < 0) n = 0;
+  if (n > 2) n = 2;
   curTab = n;
   for (let i = 0; i < 3; i++) {
     document.getElementById("t" + i).className = "tab" + (i === n ? " on" : "");
@@ -8468,6 +8472,6 @@ try {
 <button class="tab" id="t1" onclick="goTab(1)"><span class="tab-icon">🔒</span><span>Locks</span></button>
 <button class="tab" id="t2" onclick="goTab(2)"><span class="tab-icon">📒</span><span>Tracker</span></button>
 </div>
-<div class="build-id-indicator">2026-04-28 00:23:14 UTC</div>
+<div class="build-id-indicator">Build 2026-05-18 · Tracker+CLV</div>
 </body>
 </html>

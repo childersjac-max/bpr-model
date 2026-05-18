@@ -1,5 +1,19 @@
 {
   "outputDirectory": "public",
+  "headers": [
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    }
+  ],
   "crons": [
     { "path": "/api/cron/snapshot", "schedule": "0 * * * *" },
     { "path": "/api/cron/closing",  "schedule": "20 * * * *" },
